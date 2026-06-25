@@ -1,8 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sales Pipeline Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
-<h1>
-    This is our very very very nice AI Agent!!
-</h1>
+  <!-- ══ NAV ══════════════════════════════════════════════ -->
+  <nav class="nav">
+    <div class="nav-brand">
+      <div class="nav-dot"></div>
+      <span class="nav-title">Sales Pipeline Dashboard</span>
+    </div>
+    <div class="nav-week">Week 26 · Jun 2026</div>
+    <div class="nav-right">
+      <select class="nav-select">
+        <option>All Salespeople</option>
+        <option>Ahmad Razak</option>
+        <option>Priya Nair</option>
+        <option>Wei Ling Tan</option>
+        <option>Rajan Pillai</option>
+        <option>Siti Rahimah</option>
+        <option>Faizal Hassan</option>
+      </select>
+    </div>
+  </nav>
 
-<p>
-    Wong zhi xian and Amir buat, because amir very pro
-</p>
+  <div class="page">
+
+    <!-- ══ FILTER BAR ════════════════════════════════════ -->
+    <div class="filter-bar">
+      <span>Filtering by Rep: Ahmad Razak · Stage 5: Make An Offer</span>
+      <button class="filter-clear">✕ Clear filters</button>
+    </div>
+
+    <!-- ══ KPI ROW ═══════════════════════════════════════ -->
+    <div class="kpi-row">
+
+      <div class="kpi-card">
+        <div class="kpi-accent" style="background:#1D9E75"></div>
+        <div class="kpi-body">
+          <div class="kpi-lbl">Active Deals</div>
+          <div class="kpi-val">16</div>
+          <div class="pill pill-g">16 active</div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-accent" style="background:#1D9E75"></div>
+        <div class="kpi-body">
+          <div class="kpi-lbl">Total Pipeline</div>
+          <div class="kpi-val">RM 56.2M</div>
+          <div class="pill pill-g">gross value</div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-accent" style="background:#085041"></div>
+        <div class="kpi-body">
+          <div class="kpi-lbl">Weighted Pipeline</div>
+          <div class="kpi-val">RM 31.3M</div>
+          <div class="pill pill-g">by probability</div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-accent" style="background:#A32D2D"></div>
+        <div class="kpi-body">
+          <div class="kpi-lbl">Stalled Deals</div>
+          <div class="kpi-val">5</div>
+          <div class="pill pill-r">SLA exceeded</div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-accent" style="background:#BA7517"></div>
+        <div class="kpi-body">
+          <div class="kpi-lbl">Close ≤30 Days</div>
+          <div class="kpi-val">8</div>
+          <div class="pill pill-w">needs attention</div>
+        </div>
+      </div>
+
+      <div class="kpi-card">
+        <div class="kpi-accent" style="background:#BA7517"></div>
+        <div class="kpi-body">
+          <div class="kpi-lbl">Coverage Ratio</div>
+          <div class="kpi-val">2.1×</div>
+          <div class="pill pill-w">adequate</div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ══ MIDDLE GRID ════════════════════════════════════ -->
+    <div class="mid-grid">
+
+      <!-- PIPELINE FUNNEL -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Pipeline Funnel</div>
+            <div class="card-sub">Click a stage to drill down · filters the deals table</div>
+          </div>
+          <span class="card-count">16 deals</span>
+        </div>
+
+        <!-- Stage rows -->
+        <div class="funnel-row">
+          <div class="fn-num">1</div>
+          <div class="fn-info">
+            <div class="fn-name">Prospecting</div>
+            <div class="fn-phase">Awareness</div>
+          </div>
+          <div class="fn-bar-wrap"><div class="fn-bar-bg"><div class="fn-bar-fill" style="width:8%"></div></div></div>
+          <div class="fn-count">1</div>
+          <div class="fn-val">RM 1.2M</div>
+        </div>
+
+        <div class="funnel-row">
+          <div class="fn-num">2</div>
+          <div class="fn-info">
+            <div class="fn-name">Qualifying Leads</div>
+            <div class="fn-phase">Discovery</div>
+          </div>
+          <div class="fn-bar-wrap"><div class="fn-bar-bg"><div class="fn-bar-fill" style="width:35%"></div></div></div>
+          <div class="fn-count">2</div>
+          <div class="fn-val">RM 9.5M</div>
+        </div>
+
+        <div class="funnel-row">
+          <div class="fn-num">3</div>
+          <div class="fn-info">
+            <div class="fn-name">Initial Meeting</div>
+            <div class="fn-phase">Discovery</div>
+          </div>
+          <div class="fn-bar-wrap"><div class="fn-bar-bg"><div class="fn-bar-fill" style="width:22%"></div></div></div>
+          <div class="fn-count">2</div>
+          <div class="fn-val">RM 3.3M</div>
+          <div class="fn-stall">⚠ 1</div>
+        </div>
+
+        <div class="funnel-row">
+          <div class="fn-num">4</div>
+          <div class="fn-info">
+            <div class="fn-name">Define Prospect Needs</div>
+            <div class="fn-phase">Discovery</div>
+          </div>
+          <div class="fn-bar-wrap"><div class="fn-bar-bg"><div class="fn-bar-fill" style="width:43%"></div></div></div>
+          <div class="fn-count">2</div>
+          <div class="fn-val">RM 4.9M</div>
+          <div class="fn-stall">⚠ 1</div>
+        </div>
+
+        <div class="funnel-row fn-active">
+          <div class="fn-num">5</div>
+          <div class="fn-info">
+            <div class="fn-name">Make An Offer</div>
+            <div class="fn-phase">Evaluation</div>
+          </div>
+          <div class="fn-bar-wrap"><div class="fn-bar-bg"><div class="fn-bar-fill" style="width:100%"></div></div></div>
+          <div class="fn-count">3</div>
+          <div class="fn-val">RM 12.6M</div>
+          <div class="fn-stall">⚠ 2</div>
+        </div>
+
+        <div class="funnel-row">
+          <div class="fn-num">6</div>
+          <div class="fn-info">
+            <div class="fn-name">Negotiation</div>
+            <div class="fn-phase">Intent</div>
+          </div>
+          <div class="fn-bar-wrap"><div class="fn-bar-bg"><div class="fn-bar-fill" style="width:95%"></div></div></div>
+          <div class="fn-count">3</div>
+          <div class="fn-val">RM 14.5M</div>
+          <div class="fn-stall">⚠ 1</div>
+        </div>
+
+        <div class="funnel-row">
+          <div class="fn-num">7</div>
+          <div class="fn-info">
+            <div class="fn-name">Closing The Deal</div>
+            <div class="fn-phase">Purchase</div>
+          </div>
+          <div class="fn-bar-wrap"><div class="fn-bar-bg"><div class="fn-bar-fill" style="width:54%"></div></div></div>
+          <div class="fn-count">2</div>
+          <div class="fn-val">RM 8.0M</div>
+        </div>
+
+        <div class="funnel-row">
+          <div class="fn-num">8</div>
+          <div class="fn-info">
+            <div class="fn-name">Deliver The Product</div>
+            <div class="fn-phase">Loyalty</div>
+          </div>
+          <div class="fn-bar-wrap"><div class="fn-bar-bg"><div class="fn-bar-fill" style="width:15%"></div></div></div>
+          <div class="fn-count">1</div>
+          <div class="fn-val">RM 2.3M</div>
+        </div>
+
+        <!-- Drill-down panel (shown when a stage is clicked) -->
+        <div class="drill-wrap show">
+          <div class="drill-head">
+            <span class="drill-title">Stage 5: Make An Offer · 3 deals · SLA 14 days</span>
+            <button class="drill-close">×</button>
+          </div>
+          <div class="drill-item">
+            <div class="di-account">Tzu Chi Foundation</div>
+            <div class="di-rep">Ahmad Razak</div>
+            <div class="di-days">12d</div>
+            <div class="di-val">RM 3.2M</div>
+          </div>
+          <div class="drill-item">
+            <div class="di-account">Maybank Islamic</div>
+            <div class="di-rep">Rajan Pillai</div>
+            <div class="di-days di-over">19d ⚠</div>
+            <div class="di-val">RM 6.8M</div>
+          </div>
+          <div class="drill-item">
+            <div class="di-account">Astro Malaysia</div>
+            <div class="di-rep">Faizal Hassan</div>
+            <div class="di-days di-over">16d ⚠</div>
+            <div class="di-val">RM 2.6M</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT COLUMN -->
+      <div class="right-col">
+
+        <!-- SALESPERSON SUMMARY -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Salesperson Summary</div>
+              <div class="card-sub">Click a rep to filter the entire dashboard</div>
+            </div>
+          </div>
+          <div class="rep-grid">
+
+            <div class="rep-card">
+              <div class="rc-name">Ahmad Razak</div>
+              <div class="rc-metrics">
+                <div class="rc-m"><div class="rc-mv">3</div><div class="rc-ml">Deals</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 8.8M</div><div class="rc-ml">Pipeline</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 4.7M</div><div class="rc-ml">Weighted</div></div>
+              </div>
+            </div>
+
+            <div class="rep-card rc-active">
+              <div class="rc-name">Priya Nair</div>
+              <div class="rc-metrics">
+                <div class="rc-m"><div class="rc-mv">3</div><div class="rc-ml">Deals</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 16.1M</div><div class="rc-ml">Pipeline</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 8.9M</div><div class="rc-ml">Weighted</div></div>
+              </div>
+              <div class="rc-stall">⚠ 1 stalled</div>
+            </div>
+
+            <div class="rep-card">
+              <div class="rc-name">Wei Ling Tan</div>
+              <div class="rc-metrics">
+                <div class="rc-m"><div class="rc-mv">3</div><div class="rc-ml">Deals</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 10.3M</div><div class="rc-ml">Pipeline</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 7.7M</div><div class="rc-ml">Weighted</div></div>
+              </div>
+              <div class="rc-stall">⚠ 1 stalled</div>
+            </div>
+
+            <div class="rep-card">
+              <div class="rc-name">Rajan Pillai</div>
+              <div class="rc-metrics">
+                <div class="rc-m"><div class="rc-mv">3</div><div class="rc-ml">Deals</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 10.6M</div><div class="rc-ml">Pipeline</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 6.3M</div><div class="rc-ml">Weighted</div></div>
+              </div>
+              <div class="rc-stall">⚠ 1 stalled</div>
+            </div>
+
+            <div class="rep-card">
+              <div class="rc-name">Siti Rahimah</div>
+              <div class="rc-metrics">
+                <div class="rc-m"><div class="rc-mv">2</div><div class="rc-ml">Deals</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 6.7M</div><div class="rc-ml">Pipeline</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 3.8M</div><div class="rc-ml">Weighted</div></div>
+              </div>
+            </div>
+
+            <div class="rep-card">
+              <div class="rc-name">Faizal Hassan</div>
+              <div class="rc-metrics">
+                <div class="rc-m"><div class="rc-mv">2</div><div class="rc-ml">Deals</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 3.8M</div><div class="rc-ml">Pipeline</div></div>
+                <div class="rc-m"><div class="rc-mv">RM 1.5M</div><div class="rc-ml">Weighted</div></div>
+              </div>
+              <div class="rc-stall">⚠ 1 stalled</div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- VELOCITY CHART -->
+        <div class="card">
+          <div class="card-head">
+            <div>
+              <div class="card-title">Avg Days in Stage vs SLA</div>
+              <div class="card-sub">Red = SLA exceeded · dashed line = SLA limit</div>
+            </div>
+          </div>
+          <div class="vel-body">
+
+            <div class="vel-row">
+              <div class="vel-lbl">S1 Prospect</div>
+              <div class="vel-track">
+                <div class="vel-bg"></div>
+                <div class="vel-fill vel-ok" style="width:19%"></div>
+                <div class="vel-sla-line" style="left:35%"></div>
+              </div>
+              <div class="vel-avg" style="color:var(--accent-d)">4d</div>
+              <div class="vel-sla">7d</div>
+            </div>
+
+            <div class="vel-row">
+              <div class="vel-lbl">S2 Qualify</div>
+              <div class="vel-track">
+                <div class="vel-bg"></div>
+                <div class="vel-fill vel-ok" style="width:27%"></div>
+                <div class="vel-sla-line" style="left:35%"></div>
+              </div>
+              <div class="vel-avg" style="color:var(--accent-d)">5d</div>
+              <div class="vel-sla">7d</div>
+            </div>
+
+            <div class="vel-row">
+              <div class="vel-lbl">S3 Meeting</div>
+              <div class="vel-track">
+                <div class="vel-bg"></div>
+                <div class="vel-fill vel-over" style="width:72%"></div>
+                <div class="vel-sla-line" style="left:68%"></div>
+              </div>
+              <div class="vel-avg" style="color:var(--danger)">14d</div>
+              <div class="vel-sla">14d</div>
+            </div>
+
+            <div class="vel-row">
+              <div class="vel-lbl">S4 Needs</div>
+              <div class="vel-track">
+                <div class="vel-bg"></div>
+                <div class="vel-fill vel-over" style="width:77%"></div>
+                <div class="vel-sla-line" style="left:68%"></div>
+              </div>
+              <div class="vel-avg" style="color:var(--danger)">15d</div>
+              <div class="vel-sla">14d</div>
+            </div>
+
+            <div class="vel-row">
+              <div class="vel-lbl">S5 Offer</div>
+              <div class="vel-track">
+                <div class="vel-bg"></div>
+                <div class="vel-fill vel-over" style="width:90%"></div>
+                <div class="vel-sla-line" style="left:68%"></div>
+              </div>
+              <div class="vel-avg" style="color:var(--danger)">18d</div>
+              <div class="vel-sla">14d</div>
+            </div>
+
+            <div class="vel-row">
+              <div class="vel-lbl">S6 Negotiate</div>
+              <div class="vel-track">
+                <div class="vel-bg"></div>
+                <div class="vel-fill vel-ok" style="width:55%"></div>
+                <div class="vel-sla-line" style="left:100%"></div>
+              </div>
+              <div class="vel-avg" style="color:var(--accent-d)">15d</div>
+              <div class="vel-sla">21d</div>
+            </div>
+
+            <div class="vel-row">
+              <div class="vel-lbl">S7 Closing</div>
+              <div class="vel-track">
+                <div class="vel-bg"></div>
+                <div class="vel-fill vel-ok" style="width:34%"></div>
+                <div class="vel-sla-line" style="left:68%"></div>
+              </div>
+              <div class="vel-avg" style="color:var(--accent-d)">5d</div>
+              <div class="vel-sla">14d</div>
+            </div>
+
+            <div class="vel-row">
+              <div class="vel-lbl">S8 Delivery</div>
+              <div class="vel-track">
+                <div class="vel-bg"></div>
+                <div class="vel-fill vel-ok" style="width:29%"></div>
+                <div class="vel-sla-line" style="left:100%"></div>
+              </div>
+              <div class="vel-avg" style="color:var(--accent-d)">12d</div>
+              <div class="vel-sla">30d</div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ DEALS TABLE ════════════════════════════════════ -->
+    <div class="card" style="margin-bottom:14px">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Active Deals</div>
+          <div class="card-sub">All reps · Stage 5: Make An Offer</div>
+        </div>
+        <span class="card-count">3 deals</span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Rep</th>
+              <th>Account</th>
+              <th>Stage</th>
+              <th>Phase</th>
+              <th>Days</th>
+              <th>Notes</th>
+              <th>Close Date</th>
+              <th>Deal Value</th>
+              <th>Weighted</th>
+              <th>Movement</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="td-bold">Ahmad Razak</td>
+              <td class="td-bold">Tzu Chi Foundation</td>
+              <td><span class="s-badge">S5</span></td>
+              <td class="td-mid">Evaluation</td>
+              <td>12d</td>
+              <td class="td-mid">Q3 budget confirmed</td>
+              <td>23 Jul 2026</td>
+              <td class="mono td-bold">RM 3.2M</td>
+              <td class="mono td-acc">RM 1.8M</td>
+              <td><span class="mv-badge mv-adv">▲ Advanced</span></td>
+              <td><span class="st-badge st-ok">On Track</span></td>
+            </tr>
+            <tr class="row-stall">
+              <td class="td-bold">Rajan Pillai</td>
+              <td class="td-bold">Maybank Islamic</td>
+              <td><span class="s-badge">S5</span></td>
+              <td class="td-mid">Evaluation</td>
+              <td class="days-over">19d ⚠</td>
+              <td class="td-mid">High priority account</td>
+              <td class="close-soon">20 Jul 2026</td>
+              <td class="mono td-bold">RM 6.8M</td>
+              <td class="mono td-acc">RM 3.7M</td>
+              <td><span class="mv-badge mv-held">↔ Held</span></td>
+              <td><span class="st-badge st-risk">At Risk</span></td>
+            </tr>
+            <tr class="row-stall">
+              <td class="td-bold">Faizal Hassan</td>
+              <td class="td-bold">Astro Malaysia</td>
+              <td><span class="s-badge">S5</span></td>
+              <td class="td-mid">Evaluation</td>
+              <td class="days-over">16d ⚠</td>
+              <td class="td-mid">—</td>
+              <td class="close-soon">24 Jul 2026</td>
+              <td class="mono td-bold">RM 2.6M</td>
+              <td class="mono td-acc">RM 1.4M</td>
+              <td><span class="mv-badge mv-held">↔ Held</span></td>
+              <td><span class="st-badge st-risk">At Risk</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ══ BOTTOM GRID ════════════════════════════════════ -->
+    <div class="bot-grid">
+
+      <!-- BLOCKERS -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Blockers &amp; Support Needed</div>
+            <div class="card-sub">Deals with active blockers requiring escalation</div>
+          </div>
+          <span class="card-count">5 active</span>
+        </div>
+
+        <div class="blk-item">
+          <div class="blk-account">Petronas Dagangan</div>
+          <div class="blk-meta">Ahmad Razak · Stage 3: Initial Meeting · RM 1.8M</div>
+          <div class="blk-text">Awaiting procurement committee approval</div>
+          <div class="blk-support">↗ Director escalation needed</div>
+        </div>
+
+        <div class="blk-item">
+          <div class="blk-account">CIMB Digital</div>
+          <div class="blk-meta">Priya Nair · Stage 4: Define Prospect Needs · RM 2.1M</div>
+          <div class="blk-text">Budget freeze until Q4</div>
+          <div class="blk-support">↗ Escalate to Sales Director</div>
+        </div>
+
+        <div class="blk-item">
+          <div class="blk-account">Gamuda Land</div>
+          <div class="blk-meta">Wei Ling Tan · Stage 6: Negotiation · RM 5.1M</div>
+          <div class="blk-text">Internal restructuring on client side</div>
+          <div class="blk-support">↗ CEO-level intervention required</div>
+        </div>
+
+        <div class="blk-item">
+          <div class="blk-account">Maybank Islamic</div>
+          <div class="blk-meta">Rajan Pillai · Stage 5: Make An Offer · RM 6.8M</div>
+          <div class="blk-text">Compliance review pending for 2 weeks</div>
+          <div class="blk-support">↗ Legal team review required urgently</div>
+        </div>
+
+        <div class="blk-item">
+          <div class="blk-account">Astro Malaysia</div>
+          <div class="blk-meta">Faizal Hassan · Stage 5: Make An Offer · RM 2.6M</div>
+          <div class="blk-text">Decision maker on leave until end of month</div>
+          <div class="blk-support">↗ Alternative stakeholder contact needed</div>
+        </div>
+
+      </div>
+
+      <!-- REP PIPELINE CHART -->
+      <div class="card">
+        <div class="card-head">
+          <div>
+            <div class="card-title">Pipeline Value by Salesperson</div>
+            <div class="card-sub">Gross vs weighted pipeline</div>
+          </div>
+          <div class="legend">
+            <div class="leg-item"><div class="leg-dot" style="background:var(--primary);opacity:.8"></div>Gross</div>
+            <div class="leg-item"><div class="leg-dot" style="background:var(--accent)"></div>Weighted</div>
+          </div>
+        </div>
+
+        <div class="rc-row">
+          <div class="rc-rep">Ahmad<br><span class="rc-rep-last">Razak</span></div>
+          <div class="rc-bars">
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-gross-f" style="width:55%"></div></div><div class="rc-rmv">RM 8.8M</div></div>
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-weighted-f" style="width:29%"></div></div><div class="rc-rmv rc-rmv-acc">RM 4.7M</div></div>
+          </div>
+        </div>
+
+        <div class="rc-row">
+          <div class="rc-rep">Priya<br><span class="rc-rep-last">Nair</span></div>
+          <div class="rc-bars">
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-gross-f" style="width:100%"></div></div><div class="rc-rmv">RM 16.1M</div></div>
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-weighted-f" style="width:55%"></div></div><div class="rc-rmv rc-rmv-acc">RM 8.9M</div></div>
+          </div>
+        </div>
+
+        <div class="rc-row">
+          <div class="rc-rep">Wei Ling<br><span class="rc-rep-last">Tan</span></div>
+          <div class="rc-bars">
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-gross-f" style="width:64%"></div></div><div class="rc-rmv">RM 10.3M</div></div>
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-weighted-f" style="width:48%"></div></div><div class="rc-rmv rc-rmv-acc">RM 7.7M</div></div>
+          </div>
+        </div>
+
+        <div class="rc-row">
+          <div class="rc-rep">Rajan<br><span class="rc-rep-last">Pillai</span></div>
+          <div class="rc-bars">
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-gross-f" style="width:66%"></div></div><div class="rc-rmv">RM 10.6M</div></div>
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-weighted-f" style="width:39%"></div></div><div class="rc-rmv rc-rmv-acc">RM 6.3M</div></div>
+          </div>
+        </div>
+
+        <div class="rc-row">
+          <div class="rc-rep">Siti<br><span class="rc-rep-last">Rahimah</span></div>
+          <div class="rc-bars">
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-gross-f" style="width:42%"></div></div><div class="rc-rmv">RM 6.7M</div></div>
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-weighted-f" style="width:24%"></div></div><div class="rc-rmv rc-rmv-acc">RM 3.8M</div></div>
+          </div>
+        </div>
+
+        <div class="rc-row">
+          <div class="rc-rep">Faizal<br><span class="rc-rep-last">Hassan</span></div>
+          <div class="rc-bars">
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-gross-f" style="width:24%"></div></div><div class="rc-rmv">RM 3.8M</div></div>
+            <div class="rc-bar-r"><div class="rc-bar-t"><div class="rc-bar-f rc-weighted-f" style="width:9%"></div></div><div class="rc-rmv rc-rmv-acc">RM 1.5M</div></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="foot">
+      Sales Pipeline Dashboard &nbsp;·&nbsp; Ramssol Group &nbsp;·&nbsp; Data refreshed every Monday 9:00 AM
+    </div>
+
+  </div>
+
+</body>
+</html>
