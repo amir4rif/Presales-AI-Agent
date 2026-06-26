@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pipeline — Ramssol Pre-Sales Copilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon"><svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="#1AA57A" opacity="0.18"/><text x="9" y="27" font-family="Inter,sans-serif" font-size="22" font-weight="700" fill="white">R</text></svg></div>
+      <div><div class="logo-name">Ramssol</div><div class="logo-sub">Pre-Sales Copilot</div></div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Workspace</div>
+    <a class="nav-item" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</a>
+    <a class="nav-item" href="prospects.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Prospects</a>
+    <a class="nav-item" href="compliance.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Compliance (RFP)</a>
+    <a class="nav-item" href="proposals.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Proposals</a>
+    <div class="nav-section-label">Analytics</div>
+    <a class="nav-item active" href="pipeline.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Pipeline</a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reports</a>
+    <div class="nav-section-label">Settings</div>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Admin</a>
+    <button class="nav-item" onclick="showApiKeyModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AI Settings</button>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar">AA</div>
+    <div><div class="user-name">Amir Arif</div><div class="user-role">COO Office</div></div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Pipeline Dashboard</span>
+    <div class="topbar-right">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Search anything...">
+      </div>
+      <div class="badge-notif">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-header">
+      <div class="page-title">Pipeline Dashboard</div>
+      <div style="display:flex;gap:10px">
+        <select style="border:1px solid var(--gray-100);border-radius:8px;padding:7px 12px;font-size:13px;font-family:var(--font);background:white;outline:none" onchange="filterPipeline(this.value)">
+          <option value="all">All Owners</option>
+          <option>Ahmad Razak</option><option>Priya Nair</option><option>Wei Ling Tan</option>
+          <option>Rajan Pillai</option><option>Siti Rahimah</option><option>Faizal Hassan</option>
+        </select>
+        <button class="btn-secondary">Filters</button>
+        <button class="btn-primary" onclick="document.getElementById('add-deal-modal').classList.add('open')">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          Add Deal
+        </button>
+      </div>
+    </div>
+
+    <!-- KPI row (rendered by JS) -->
+    <div class="kpi-row" id="kpi-row"></div>
+
+    <!-- Charts grid -->
+    <div class="pipeline-grid">
+      <div class="card">
+        <div class="card-header"><span class="card-title">Pipeline Funnel</span></div>
+        <div style="padding:16px" id="funnel-rows"></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span class="card-title">Pipeline by Salesperson</span></div>
+        <div style="padding:16px" id="rep-chart"></div>
+      </div>
+    </div>
+
+    <!-- Deals table -->
+    <div class="deals-table-wrap">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--gray-100);display:flex;align-items:center;justify-content:space-between">
+        <span style="font-size:14px;font-weight:500;color:var(--gray-900)">Active Deals</span>
+        <input style="border:1px solid var(--gray-100);border-radius:8px;padding:6px 12px;font-size:13px;font-family:var(--font);outline:none;width:200px" placeholder="Search deals..." oninput="filterDealsTable(this.value)">
+      </div>
+      <table class="deals-table">
+        <thead>
+          <tr><th>Rep</th><th>Account</th><th>Stage</th><th>Days in Stage</th><th>Deal Value</th><th>Close Date</th><th>Movement</th><th>Status</th><th>Notes</th></tr>
+        </thead>
+        <tbody id="deals-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ADD DEAL MODAL -->
+<div class="modal-overlay" id="add-deal-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">Add New Deal</div>
+    <div class="modal-sub">Add an active deal to the pipeline.</div>
+    <div class="form-group"><label class="form-label">Salesperson *</label>
+      <select class="form-select" id="nd-rep"><option>Ahmad Razak</option><option>Priya Nair</option><option>Wei Ling Tan</option><option>Rajan Pillai</option><option>Siti Rahimah</option><option>Faizal Hassan</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Account / Client *</label><input class="form-input" id="nd-account" placeholder="Company name"></div>
+    <div class="form-group"><label class="form-label">Stage *</label>
+      <select class="form-select" id="nd-stage">
+        <option value="1">1 – Prospecting</option><option value="2">2 – Qualifying Leads</option><option value="3">3 – Initial Meeting</option><option value="4">4 – Define Prospect Needs</option>
+        <option value="5">5 – Make An Offer</option><option value="6">6 – Negotiation / Finalize</option><option value="7">7 – Closing The Deal</option><option value="8">8 – Deliver The Product</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Deal Value (RM) *</label><input class="form-input" id="nd-value" type="number" placeholder="3000000"></div>
+      <div class="form-group"><label class="form-label">Days in Stage *</label><input class="form-input" id="nd-days" type="number" placeholder="5"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="nd-notes" placeholder="Optional notes..."></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('add-deal-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="addDeal()">Add Deal</button>
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="api-key-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">AI Settings</div>
+    <div class="modal-sub">Enter your Anthropic API key to enable AI features.</div>
+    <div class="form-group"><label class="form-label">Anthropic API Key</label><input class="form-input" type="password" id="api-key-input" placeholder="sk-ant-api03-..."></div>
+    <div id="api-key-status" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('api-key-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="saveApiKey()">Save &amp; Test Key</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────
+let apiKey = localStorage.getItem('ramssolApiKey') || '';
+
+const STAGES = [
+  {id:1,name:'Prospecting',sla:7,prob:0.10},
+  {id:2,name:'Qualifying Leads',sla:7,prob:0.20},
+  {id:3,name:'Initial Meeting',sla:14,prob:0.30},
+  {id:4,name:'Define Prospect Needs',sla:14,prob:0.40},
+  {id:5,name:'Make An Offer',sla:14,prob:0.55},
+  {id:6,name:'Negotiation / Finalize',sla:21,prob:0.70},
+  {id:7,name:'Closing The Deal',sla:14,prob:0.90},
+  {id:8,name:'Deliver The Product',sla:30,prob:1.00}
+];
+
+let allDeals = [
+  {rep:'Ahmad Razak',account:'Tzu Chi Foundation',stage:5,daysInStage:12,daysToClose:28,value:2800000,movement:'Advanced',status:'On Track',notes:'Q3 budget confirmed'},
+  {rep:'Priya Nair',account:'Tzu Chi – Disaster Platform',stage:6,daysInStage:18,daysToClose:15,value:4200000,movement:'Held',status:'At Risk',notes:'Awaiting board approval'},
+  {rep:'Wei Ling Tan',account:'Tzu Chi – Donor System',stage:3,daysInStage:8,daysToClose:45,value:1600000,movement:'Advanced',status:'On Track',notes:''},
+  {rep:'Ahmad Razak',account:'ABC Bank – Core Upgrade',stage:6,daysInStage:25,daysToClose:20,value:3100000,movement:'Advanced',status:'On Track',notes:'Final pricing submitted'},
+  {rep:'Siti Rahimah',account:'ABC Bank – AI Integration',stage:4,daysInStage:10,daysToClose:60,value:2200000,movement:'Advanced',status:'On Track',notes:''},
+  {rep:'Wei Ling Tan',account:'Gov Agency – Cloud Infra',stage:2,daysInStage:5,daysToClose:90,value:2200000,movement:'Held',status:'On Track',notes:'Pending RFP response'},
+  {rep:'Rajan Pillai',account:'Healthcare – Data Platform',stage:5,daysInStage:22,daysToClose:18,value:3100000,movement:'Regressed',status:'At Risk',notes:'Champion changed'},
+  {rep:'Priya Nair',account:'Healthcare – Data Analytics',stage:3,daysInStage:12,daysToClose:50,value:2000000,movement:'Advanced',status:'On Track',notes:''},
+  {rep:'Siti Rahimah',account:'Education Portal',stage:7,daysInStage:8,daysToClose:10,value:1800000,movement:'Advanced',status:'On Track',notes:'Contract being signed'},
+  {rep:'Faizal Hassan',account:'Logistics Co – WMS',stage:5,daysInStage:9,daysToClose:30,value:1900000,movement:'Advanced',status:'On Track',notes:''},
+  {rep:'Rajan Pillai',account:'NGO – Website Revamp',stage:4,daysInStage:6,daysToClose:40,value:1200000,movement:'Advanced',status:'On Track',notes:''},
+  {rep:'Faizal Hassan',account:'Telco – Security Solution',stage:6,daysInStage:30,daysToClose:12,value:2600000,movement:'Held',status:'Stalled',notes:'POC failed, re-scoping'},
+  {rep:'Ahmad Razak',account:'Manufacturing Co – ERP',stage:2,daysInStage:4,daysToClose:80,value:3000000,movement:'Advanced',status:'On Track',notes:''}
+];
+
+// ── HELPERS ───────────────────────────────────────────────
+function fmtRM(v) { return v>=1000000 ? 'RM '+(v/1000000).toFixed(2)+'M' : 'RM '+v.toLocaleString(); }
+
+// ── RENDER ────────────────────────────────────────────────
+function renderPipeline(filterRep) {
+  const deals = (filterRep && filterRep !== 'all') ? allDeals.filter(d=>d.rep===filterRep) : allDeals;
+
+  // KPIs
+  const total    = deals.reduce((s,d)=>s+d.value,0);
+  const weighted = deals.reduce((s,d)=>s+d.value*STAGES[d.stage-1].prob,0);
+  const stalled  = deals.filter(d=>d.daysInStage>STAGES[d.stage-1].sla).length;
+  const closeSoon= deals.filter(d=>d.daysToClose<=30).length;
+  const coverage = (weighted/15000000*100).toFixed(0);
+  document.getElementById('kpi-row').innerHTML = [
+    {label:'Active Deals',   value:deals.length,      sub:'',color:''},
+    {label:'Total Pipeline', value:fmtRM(total),       sub:'Gross value',color:''},
+    {label:'Weighted',       value:fmtRM(weighted),    sub:'Probability-adjusted',color:'kpi-up'},
+    {label:'Stalled Deals',  value:stalled,            sub:'Past SLA',color:stalled>0?'kpi-danger':''},
+    {label:'Close ≤30 Days', value:closeSoon,          sub:'Immediate attention',color:closeSoon>0?'kpi-warn':''},
+    {label:'Coverage',       value:coverage+'%',       sub:'vs RM 15M target',color:Number(coverage)>=100?'kpi-up':'kpi-warn'}
+  ].map(k=>`<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value ${k.color}">${k.value}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
+
+  // Funnel
+  const stageGroups = {};
+  deals.forEach(d=>{ if(!stageGroups[d.stage]) stageGroups[d.stage]={count:0,value:0}; stageGroups[d.stage].count++; stageGroups[d.stage].value+=d.value; });
+  const maxVal = Math.max(...Object.values(stageGroups).map(g=>g.value), 1);
+  document.getElementById('funnel-rows').innerHTML = STAGES.map(s=>{
+    const g = stageGroups[s.id]||{count:0,value:0};
+    const pct = (g.value/maxVal*100).toFixed(0);
+    return `<div class="funnel-row">
+      <div class="funnel-stage">${s.name}</div>
+      <div class="funnel-bar"><div class="funnel-bar-fill" style="width:${pct}%"></div></div>
+      <div class="funnel-val">${g.value ? fmtRM(g.value) : '—'}</div>
+      <div class="funnel-count">${g.count||''}</div>
+    </div>`;
+  }).join('');
+
+  // Rep chart
+  const reps = ['Ahmad Razak','Priya Nair','Wei Ling Tan','Rajan Pillai','Siti Rahimah','Faizal Hassan'];
+  const repData = reps.map(r=>{
+    const rd = deals.filter(d=>d.rep===r);
+    return { name:r.split(' ')[0], gross:rd.reduce((s,d)=>s+d.value,0), wt:rd.reduce((s,d)=>s+d.value*STAGES[d.stage-1].prob,0) };
+  }).filter(r=>r.gross>0);
+  const maxGross = Math.max(...repData.map(r=>r.gross), 1);
+  document.getElementById('rep-chart').innerHTML = `
+    <div style="display:flex;gap:12px;margin-bottom:10px;font-size:11px;color:var(--gray-500)">
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:var(--brand-200);border-radius:2px;display:inline-block"></span>Gross</span>
+      <span style="display:flex;align-items:center;gap:4px"><span style="width:10px;height:3px;background:var(--brand-500);border-radius:2px;display:inline-block"></span>Weighted</span>
+    </div>
+    ${repData.map(r=>`
+    <div class="rep-bar-row" style="margin-bottom:8px">
+      <div class="rep-name">${r.name}</div>
+      <div class="rep-bar-wrap">
+        <div class="rep-bar gross" style="width:${(r.gross/maxGross*100).toFixed(0)}%"></div>
+        <div class="rep-bar weighted" style="width:${(r.wt/maxGross*100).toFixed(0)}%"></div>
+      </div>
+      <div class="rep-bar-val">${fmtRM(r.gross)}</div>
+    </div>`).join('')}`;
+
+  renderDealsTable(deals);
+}
+
+function renderDealsTable(deals) {
+  const stageMeta = STAGES.reduce((m,s)=>{m[s.id]=s;return m},{});
+  document.getElementById('deals-tbody').innerHTML = deals.map(d=>{
+    const s = stageMeta[d.stage];
+    const stalled = d.daysInStage > s.sla;
+    const mvClass = {Advanced:'movement-up',Held:'movement-held',Regressed:'movement-down'}[d.movement]||'';
+    const mvIcon  = {Advanced:'▲',Held:'—',Regressed:'▼'}[d.movement]||'';
+    const closeDate = new Date(Date.now()+d.daysToClose*86400000).toLocaleDateString('en-GB',{day:'numeric',month:'short'});
+    return `<tr class="${stalled?'stalled':''}">
+      <td>${d.rep}</td>
+      <td style="font-weight:500">${d.account}</td>
+      <td><span class="stage-badge ${d.stage>=6?'stage-negotiation':d.stage>=4?'stage-proposal':'stage-qualification'}">${s.name}</span></td>
+      <td style="font-family:var(--mono);${stalled?'color:var(--red-700);font-weight:500':''}">${d.daysInStage}d ${stalled?'⚠️':''}</td>
+      <td style="font-family:var(--mono);font-weight:500">${fmtRM(d.value)}</td>
+      <td style="${d.daysToClose<=14?'color:var(--red-700);font-weight:500':d.daysToClose<=30?'color:var(--amber-600)':''}">${closeDate}</td>
+      <td class="${mvClass}">${mvIcon} ${d.movement}</td>
+      <td><span class="comply-badge ${d.status==='On Track'?'comply-yes':d.status==='At Risk'?'comply-wip':'comply-no'}">${d.status}</span></td>
+      <td style="color:var(--gray-500);max-width:140px;font-size:12px">${d.notes||'—'}</td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="9" style="text-align:center;padding:24px;color:var(--gray-400)">No deals found</td></tr>';
+}
+
+function filterPipeline(rep) { renderPipeline(rep); }
+
+function filterDealsTable(q) {
+  const lower = q.toLowerCase();
+  renderDealsTable(lower ? allDeals.filter(d=>d.account.toLowerCase().includes(lower)||d.rep.toLowerCase().includes(lower)) : allDeals);
+}
+
+function addDeal() {
+  const account = document.getElementById('nd-account').value.trim();
+  if (!account) { alert('Please enter an account name.'); return; }
+  allDeals.push({ rep:document.getElementById('nd-rep').value, account, stage:Number(document.getElementById('nd-stage').value), daysInStage:Number(document.getElementById('nd-days').value)||1, daysToClose:90, value:Number(document.getElementById('nd-value').value)||0, movement:'Advanced', status:'On Track', notes:document.getElementById('nd-notes').value.trim() });
+  document.getElementById('add-deal-modal').classList.remove('open');
+  renderPipeline();
+}
+
+// ── AI SETTINGS ───────────────────────────────────────────
+function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
+function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
+async function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) { alert('Please enter an API key.'); return; }
+  const s = document.getElementById('api-key-status');
+  s.style.display='block'; s.style.background='var(--brand-50)'; s.style.color='var(--brand-600)'; s.textContent='⏳ Testing key...';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:'Say: OK'}]})});
+    const d = await r.json();
+    if (d.error) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+d.error.message; return; }
+    apiKey=k; localStorage.setItem('ramssolApiKey',k); s.style.background='var(--brand-50)'; s.style.color='var(--brand-500)'; s.textContent='✅ Key verified!';
+    setTimeout(()=>{document.getElementById('api-key-modal').classList.remove('open');s.style.display='none';},1500);
+  } catch(e) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+e.message; }
+}
+
+// ── INIT ─────────────────────────────────────────────────
+renderPipeline();
+</script>
+</body>
+</html>

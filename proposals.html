@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proposals — Ramssol Pre-Sales Copilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon"><svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="#1AA57A" opacity="0.18"/><text x="9" y="27" font-family="Inter,sans-serif" font-size="22" font-weight="700" fill="white">R</text></svg></div>
+      <div><div class="logo-name">Ramssol</div><div class="logo-sub">Pre-Sales Copilot</div></div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Workspace</div>
+    <a class="nav-item" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</a>
+    <a class="nav-item" href="prospects.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Prospects</a>
+    <a class="nav-item" href="compliance.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Compliance (RFP)</a>
+    <a class="nav-item active" href="proposals.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Proposals</a>
+    <div class="nav-section-label">Analytics</div>
+    <a class="nav-item" href="pipeline.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Pipeline</a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reports</a>
+    <div class="nav-section-label">Settings</div>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Admin</a>
+    <button class="nav-item" onclick="showApiKeyModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AI Settings</button>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar">AA</div>
+    <div><div class="user-name">Amir Arif</div><div class="user-role">COO Office</div></div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Proposals</span>
+    <div class="topbar-right">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Search anything...">
+      </div>
+      <div class="badge-notif">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-header">
+      <div class="page-title">Proposal Generator</div>
+      <div style="display:flex;gap:10px">
+        <button class="btn-secondary">Preview</button>
+        <button class="btn-primary" onclick="exportProposal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export
+        </button>
+      </div>
+    </div>
+
+    <!-- Proposal meta -->
+    <div style="display:flex;align-items:center;gap:0;margin-bottom:20px">
+      <span style="font-size:13px;color:var(--gray-500);margin-right:16px">Tzu Chi – Volunteer Management System</span>
+      <span style="background:var(--gray-100);color:var(--gray-500);font-size:11px;padding:2px 8px;border-radius:20px">Draft</span>
+      <span style="font-size:11px;color:var(--gray-400);margin-left:12px">Last updated: 14 May 2026, 11:15 AM</span>
+    </div>
+
+    <!-- Progress steps -->
+    <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:20px">
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--brand-400);display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+      <span style="font-weight:500;color:var(--brand-500)">Outline</span>
+      <div style="width:40px;height:1px;background:var(--gray-200)"></div>
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--brand-700);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600">2</div>
+      <span style="font-weight:500;color:var(--gray-900)">Content</span>
+      <div style="width:40px;height:1px;background:var(--gray-200)"></div>
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:11px">3</div>
+      <span style="color:var(--gray-500)">Review</span>
+      <div style="width:40px;height:1px;background:var(--gray-200)"></div>
+      <div style="width:22px;height:22px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:11px">4</div>
+      <span style="color:var(--gray-500)">Finalize</span>
+    </div>
+
+    <div class="proposal-grid">
+      <!-- LEFT: Section Nav -->
+      <div>
+        <div class="proposal-nav">
+          <div class="proposal-nav-header">Proposal Sections</div>
+          <button class="proposal-step active" onclick="loadProposalSection('executive', this)">
+            <span class="step-num done-num"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+            Executive Summary
+          </button>
+          <button class="proposal-step" onclick="loadProposalSection('challenges', this)"><span class="step-num">2</span> Challenges</button>
+          <button class="proposal-step" onclick="loadProposalSection('solution', this)"><span class="step-num">3</span> Our Solution</button>
+          <button class="proposal-step" onclick="loadProposalSection('benefits', this)"><span class="step-num">4</span> Benefits</button>
+          <button class="proposal-step" onclick="loadProposalSection('implementation', this)"><span class="step-num">5</span> Implementation</button>
+          <button class="proposal-step" onclick="loadProposalSection('commercials', this)"><span class="step-num">6</span> Commercials</button>
+          <button class="proposal-step" onclick="loadProposalSection('casestudies', this)"><span class="step-num">7</span> Case Studies</button>
+          <button class="proposal-step" onclick="loadProposalSection('nextsteps', this)"><span class="step-num">8</span> Next Steps</button>
+        </div>
+        <div style="margin-top:14px;background:var(--brand-50);border:1px solid var(--brand-100);border-radius:10px;padding:14px 16px">
+          <div style="font-size:12px;font-weight:500;color:var(--brand-500);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+            AI Suggestions <span style="font-size:10px;background:var(--brand-400);color:white;padding:1px 6px;border-radius:10px">NEW</span>
+          </div>
+          <div style="font-size:12px;color:var(--gray-600);line-height:1.5;margin-bottom:10px">AI has generated content suggestions based on your inputs.</div>
+          <button class="btn-primary" style="width:100%;justify-content:center;font-size:12px;padding:8px" onclick="generateAIContent()">✨ View Suggestions</button>
+        </div>
+      </div>
+
+      <!-- RIGHT: Editor -->
+      <div>
+        <div class="proposal-editor">
+          <div class="editor-toolbar">
+            <span style="font-size:13px;font-weight:500;color:var(--gray-900);margin-right:8px" id="section-label">Executive Summary</span>
+            <button class="tool-btn" style="font-weight:600">B</button>
+            <button class="tool-btn" style="font-style:italic">I</button>
+            <button class="tool-btn" style="text-decoration:underline">U</button>
+            <button class="tool-btn">H2</button>
+            <button class="tool-btn">≡</button>
+            <button class="tool-btn">🔗</button>
+            <div style="flex:1"></div>
+            <button class="btn-secondary" style="font-size:12px;padding:5px 12px" onclick="generateAIContent()">✨ Generate with AI</button>
+          </div>
+          <div class="editor-body">
+            <textarea class="editor-textarea" id="proposal-textarea" rows="14"
+              oninput="updateWordCount()">Tzu Chi Foundation requires a comprehensive volunteer management solution to streamline recruitment, deployment, communication, and reporting across its global operations.
+
+Our proposed solution will help Tzu Chi improve volunteer coordination, increase operational efficiency, and enhance impact measurement while supporting multiple languages and regions.</textarea>
+            <div id="ai-suggestion-area" style="display:none" class="ai-suggestion-box">
+              <div class="ai-suggestion-label">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                AI Suggestion
+              </div>
+              <div class="ai-suggestion-text" id="ai-suggestion-text"></div>
+              <div class="ai-suggestion-actions">
+                <button class="use-btn" onclick="useSuggestion()">Use This</button>
+                <button class="discard-btn" onclick="document.getElementById('ai-suggestion-area').style.display='none'">Discard</button>
+              </div>
+            </div>
+          </div>
+          <div class="word-count">Words: <span id="word-count">0</span> · Saved ✓</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="api-key-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">AI Settings</div>
+    <div class="modal-sub">Enter your Anthropic API key to enable AI features.</div>
+    <div class="form-group"><label class="form-label">Anthropic API Key</label><input class="form-input" type="password" id="api-key-input" placeholder="sk-ant-api03-..."></div>
+    <div id="api-key-status" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('api-key-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="saveApiKey()">Save &amp; Test Key</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DATA ─────────────────────────────────────────────────
+let apiKey = localStorage.getItem('ramssolApiKey') || '';
+
+const SECTION_CONTENT = {
+  executive: 'Tzu Chi Foundation requires a comprehensive volunteer management solution to streamline recruitment, deployment, communication, and reporting across its global operations.\n\nOur proposed solution will help Tzu Chi improve volunteer coordination, increase operational efficiency, and enhance impact measurement while supporting multiple languages and regions.',
+  challenges: 'Tzu Chi faces several operational challenges:\n\n1. Managing 10,000+ volunteers across 60+ countries with diverse languages\n2. Manual volunteer coordination leading to delays in disaster response\n3. Limited visibility into volunteer availability and skills inventory\n4. Fragmented donor tracking and fund utilization reporting',
+  solution: 'Ramssol proposes a cloud-based Volunteer Management System (VMS) that provides:\n\n• Centralized volunteer registry with multilingual support (20+ languages)\n• AI-powered matching of volunteers to deployment needs\n• Real-time coordination and communication platform\n• Integrated donor management with fund tracking dashboards',
+  benefits: 'Key benefits for Tzu Chi:\n\n• 60% reduction in volunteer coordination time\n• Real-time visibility across all regional operations\n• Automated compliance reporting for donors and regulators\n• Mobile-first design for field volunteers',
+  implementation: 'Phase 1 (Weeks 1-4): System setup, data migration, admin training\nPhase 2 (Weeks 5-8): Pilot with Taiwan and Malaysia chapters\nPhase 3 (Weeks 9-12): Global rollout and optimization\nPhase 4 (Month 4+): Ongoing support and enhancement',
+  commercials: 'System License: RM 180,000/year (up to 15,000 active users)\nImplementation: RM 85,000 (one-time)\nTraining: RM 25,000\nSupport: RM 36,000/year (8x5 SLA)\n\nTotal Year 1: RM 326,000',
+  casestudies: 'Red Cross Malaysia — Implemented volunteer management for 5,000 volunteers. Result: 45% faster disaster response deployment.\n\nWelfare Department Malaysia — Donor tracking system for 200,000 donors. Result: 98% fund utilization transparency.',
+  nextsteps: '1. Schedule a technical demo (30 mins) with your IT team\n2. Conduct a 2-week proof-of-concept pilot\n3. Finalize commercial terms and SLA\n4. Sign MOU and kick off implementation'
+};
+
+// ── FUNCTIONS ─────────────────────────────────────────────
+function loadProposalSection(sec, btn) {
+  document.querySelectorAll('.proposal-step').forEach(s => s.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const labels = { executive:'Executive Summary', challenges:'Challenges', solution:'Our Solution', benefits:'Benefits', implementation:'Implementation', commercials:'Commercials', casestudies:'Case Studies', nextsteps:'Next Steps' };
+  document.getElementById('section-label').textContent = labels[sec] || sec;
+  document.getElementById('proposal-textarea').value = SECTION_CONTENT[sec] || '';
+  document.getElementById('ai-suggestion-area').style.display = 'none';
+  updateWordCount();
+}
+
+function updateWordCount() {
+  const text = document.getElementById('proposal-textarea').value;
+  document.getElementById('word-count').textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
+}
+
+function useSuggestion() {
+  document.getElementById('proposal-textarea').value = document.getElementById('ai-suggestion-text').textContent;
+  document.getElementById('ai-suggestion-area').style.display = 'none';
+  updateWordCount();
+}
+
+function exportProposal() {
+  const content = document.getElementById('proposal-textarea').value;
+  const section = document.getElementById('section-label').textContent;
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type:'text/plain' }));
+  a.download = 'proposal_' + section.toLowerCase().replace(/ /g,'_') + '.txt';
+  a.click();
+}
+
+// ── AI ────────────────────────────────────────────────────
+function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
+
+function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
+
+async function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) { alert('Please enter an API key.'); return; }
+  const s = document.getElementById('api-key-status');
+  s.style.display='block'; s.style.background='var(--brand-50)'; s.style.color='var(--brand-600)'; s.textContent='⏳ Testing key...';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:'Say: OK'}]})});
+    const d = await r.json();
+    if (d.error) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+d.error.message; return; }
+    apiKey=k; localStorage.setItem('ramssolApiKey',k); s.style.background='var(--brand-50)'; s.style.color='var(--brand-500)'; s.textContent='✅ Key verified!';
+    setTimeout(()=>{document.getElementById('api-key-modal').classList.remove('open');s.style.display='none';},1500);
+  } catch(e) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+e.message; }
+}
+
+async function callClaude(messages, system, maxTokens=800) {
+  const key = getApiKey(); if (!key) return '⚠️ Please set your Anthropic API key in AI Settings.';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,system,messages})});
+    const d = await r.json(); if (d.error) return '⚠️ '+d.error.message;
+    return d.content.map(c=>c.text||'').join('');
+  } catch(e) { return '⚠️ '+e.message; }
+}
+
+async function generateAIContent() {
+  const section = document.getElementById('section-label').textContent;
+  const area = document.getElementById('ai-suggestion-area');
+  const text = document.getElementById('ai-suggestion-text');
+  area.style.display = 'block';
+  text.innerHTML = '<div class="loading-spinner"><span></span><span></span><span></span></div> Generating...';
+  const system = 'You are a professional proposal writer for Ramssol Group, a Malaysian technology solutions company. Write compelling, specific proposal content. Be concise and professional.';
+  const msg = `Write the "${section}" section of a proposal for: Tzu Chi Foundation (NGO, humanitarian, 10,000+ volunteers, 60+ countries). Keep it under 150 words, professional and persuasive.`;
+  const reply = await callClaude([{ role:'user', content:msg }], system, 400);
+  text.textContent = reply;
+}
+
+// ── INIT ─────────────────────────────────────────────────
+updateWordCount();
+</script>
+</body>
+</html>

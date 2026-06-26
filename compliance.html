@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Compliance (RFP) — Ramssol Pre-Sales Copilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon"><svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="#1AA57A" opacity="0.18"/><text x="9" y="27" font-family="Inter,sans-serif" font-size="22" font-weight="700" fill="white">R</text></svg></div>
+      <div><div class="logo-name">Ramssol</div><div class="logo-sub">Pre-Sales Copilot</div></div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Workspace</div>
+    <a class="nav-item" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</a>
+    <a class="nav-item" href="prospects.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Prospects</a>
+    <a class="nav-item active" href="compliance.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Compliance (RFP)</a>
+    <a class="nav-item" href="proposals.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Proposals</a>
+    <div class="nav-section-label">Analytics</div>
+    <a class="nav-item" href="pipeline.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Pipeline</a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reports</a>
+    <div class="nav-section-label">Settings</div>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Admin</a>
+    <button class="nav-item" onclick="showApiKeyModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AI Settings</button>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar">AA</div>
+    <div><div class="user-name">Amir Arif</div><div class="user-role">COO Office</div></div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Compliance (RFP)</span>
+    <div class="topbar-right">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Search anything...">
+      </div>
+      <div class="badge-notif">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="page-header">
+      <div class="page-title">Compliance Assistant (RFP)</div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="font-size:12px;color:var(--gray-500)" id="comp-file-label">No file loaded</span>
+        <button class="btn-primary" onclick="document.getElementById('rfp-file-input').click()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>
+          Upload RFP
+        </button>
+        <input type="file" id="rfp-file-input" accept=".xlsx,.xls,.csv,.pdf" style="display:none" onchange="handleRFPUpload(this)">
+      </div>
+    </div>
+
+    <div class="compliance-wrapper">
+      <div>
+        <div id="comp-upload-zone" class="upload-zone" onclick="document.getElementById('rfp-file-input').click()">
+          <div class="upload-icon">📋</div>
+          <div class="upload-title">Drop your RFP / compliance form here</div>
+          <div class="upload-sub">Supports .xlsx, .xls, .csv, .pdf · The AI will fill it using our knowledge base</div>
+        </div>
+        <div id="comp-results" style="display:none">
+          <div class="compliance-stats" id="comp-stats"></div>
+          <div class="compliance-table">
+            <div class="comp-table-header">
+              <div class="comp-table-tabs">
+                <button class="comp-tab active" onclick="switchCompTab('review',this)">Rows to Review (<span id="review-count">0</span>)</button>
+                <button class="comp-tab" onclick="switchCompTab('all',this)">All Rows (<span id="all-count">0</span>)</button>
+                <button class="comp-tab" onclick="switchCompTab('sources',this)">Source Matches</button>
+              </div>
+              <button class="btn-primary" onclick="downloadCompliance()">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Download Completed File
+              </button>
+            </div>
+            <table class="rfp-table">
+              <thead><tr><th>#</th><th>Requirement</th><th>AI Answer</th><th>Confidence</th><th>Reason</th><th>Action</th></tr></thead>
+              <tbody id="comp-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="comp-ai-panel">
+        <div class="ai-panel" style="height:600px">
+          <div class="ai-copilot-header">
+            <div class="ai-copilot-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+              Compliance Copilot <span class="ai-badge">AI</span>
+            </div>
+          </div>
+          <div class="ai-messages" id="comp-ai-messages">
+            <div class="ai-msg-system">Hi Amir, I'm your Compliance Copilot. Upload an RFP file and I'll fill it automatically from our knowledge base — or ask me anything about past responses.</div>
+            <div class="ai-quick-btn" onclick="compAsk('What categories of requirements do we handle best?')" style="cursor:pointer">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              What categories do we handle best?
+            </div>
+            <div class="ai-quick-btn" onclick="compAsk('Explain the confidence scoring system')" style="cursor:pointer">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+              Explain the confidence scoring system
+            </div>
+          </div>
+          <div class="ai-input-area">
+            <textarea class="ai-input" id="comp-ai-input" placeholder="Ask about a requirement, row, or policy..." rows="2"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();compAsk()}"></textarea>
+            <button class="ai-send-btn" onclick="compAsk()">
+              <svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="api-key-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">AI Settings</div>
+    <div class="modal-sub">Enter your Anthropic API key to enable AI features.</div>
+    <div class="form-group"><label class="form-label">Anthropic API Key</label><input class="form-input" type="password" id="api-key-input" placeholder="sk-ant-api03-..."></div>
+    <div id="api-key-status" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('api-key-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="saveApiKey()">Save &amp; Test Key</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE & DATA ─────────────────────────────────────────
+let apiKey = localStorage.getItem('ramssolApiKey') || '';
+let complianceRows = [];
+let activeCompTab = 'review';
+
+const SAMPLE_RFP_ROWS = [
+  {id:18,req:'Do you have ISO 27001 certification?',answer:'Comply',conf:'Medium',reason:'Similar but not exact match'},
+  {id:23,req:'Provide details of data backup location.',answer:'Comply with Configuration',conf:'Low',reason:'No close match in KB'},
+  {id:31,req:'Do you support disaster recovery site?',answer:'Comply',conf:'Medium',reason:'Needs confirmation'},
+  {id:47,req:'Provide your financial statements.',answer:'WIP – RAMS to confirm',conf:'Low',reason:'Information not available'},
+  {id:4, req:'Does the system support multi-tenancy?',answer:'Comply',conf:'High',reason:'Exact match from EdgePoint RFP 2024'},
+  {id:7, req:'SSL/TLS encryption for data in transit?',answer:'Comply',conf:'High',reason:'Close match – Security KB'},
+  {id:12,req:'Role-based access control (RBAC)?',answer:'Comply',conf:'High',reason:'Standard feature confirmed'},
+  {id:15,req:'On-premise deployment option?',answer:'Comply with Configuration',conf:'Medium',reason:'Adapted – cloud-first but can be discussed'},
+  {id:29,req:'24/7 support SLA?',answer:'Comply with Configuration',conf:'Medium',reason:'Depends on contract tier'},
+  {id:36,req:'Mobile application available?',answer:'Comply',conf:'High',reason:'iOS and Android confirmed'},
+  {id:41,req:'API integration capabilities?',answer:'Comply',conf:'High',reason:'REST API documented'},
+  {id:50,req:'Regulatory compliance with PDPA?',answer:'Comply',conf:'High',reason:'Legal team confirmed'},
+];
+
+// ── FUNCTIONS ─────────────────────────────────────────────
+function handleRFPUpload(input) {
+  const file = input.files[0]; if (!file) return;
+  document.getElementById('comp-file-label').textContent = file.name;
+  const zone = document.getElementById('comp-upload-zone');
+  zone.classList.add('has-file');
+  zone.innerHTML = `<div class="upload-icon">⏳</div><div class="upload-title">${file.name}</div><div class="upload-sub">Processing with AI...</div>`;
+  complianceRows = SAMPLE_RFP_ROWS;
+  setTimeout(() => {
+    zone.innerHTML = `<div class="upload-icon">✅</div><div class="upload-title">${file.name}</div><div class="upload-sub">48 of 50 rows completed · Click to upload another</div>`;
+    document.getElementById('comp-results').style.display = 'block';
+    renderComplianceRows();
+    appendMessage('comp-ai-messages','bot',`✅ I've filled <strong>${file.name}</strong> — 48 rows complete.\n\n<strong>Rows to review:</strong>\n• Row 18 — No close match; drafted standard answer\n• Row 23 — Data backup location unclear\n• Row 47 — Financial statements — please fill placeholder`);
+  }, 1800);
+}
+
+function renderComplianceRows() {
+  if (!complianceRows.length) return;
+  const rows = activeCompTab === 'review' ? complianceRows.filter(r=>r.conf!=='High') : complianceRows;
+  document.getElementById('review-count').textContent = complianceRows.filter(r=>r.conf!=='High').length;
+  document.getElementById('all-count').textContent = complianceRows.length;
+  const confClass = {'High':'conf-high','Medium':'conf-medium','Low':'conf-low'};
+  const answerClass = {'Comply':'comply-yes','Comply with Configuration':'comply-config','WIP – RAMS to confirm':'comply-wip','Not Comply':'comply-no'};
+  document.getElementById('comp-table-body').innerHTML = rows.map(r=>`
+    <tr>
+      <td style="font-family:var(--mono);color:var(--gray-500)">${r.id}</td>
+      <td style="max-width:220px">${r.req}</td>
+      <td><span class="comply-badge ${answerClass[r.answer]||'comply-yes'}">${r.answer}</span></td>
+      <td class="${confClass[r.conf]}">${r.conf}</td>
+      <td style="color:var(--gray-500);max-width:160px;font-size:12px">${r.reason}</td>
+      <td><button class="review-btn" onclick="reviewRow(${r.id})">Review</button></td>
+    </tr>`).join('');
+  const stats = [
+    {label:'Total Rows',value:complianceRows.length,sub:''},
+    {label:'Completed',value:48,sub:'97%'},
+    {label:'High Confidence',value:complianceRows.filter(r=>r.conf==='High').length,sub:(complianceRows.filter(r=>r.conf==='High').length/complianceRows.length*100).toFixed(0)+'%'},
+    {label:'Needs Review',value:complianceRows.filter(r=>r.conf!=='High').length,sub:'Check these first'}
+  ];
+  document.getElementById('comp-stats').innerHTML = stats.map(s=>`
+    <div class="stat-card">
+      <div class="stat-label">${s.label}</div>
+      <div class="stat-value">${s.value}</div>
+      ${s.sub?`<div class="stat-sub">${s.sub}</div>`:''}
+    </div>`).join('');
+}
+
+function switchCompTab(tab, btn) {
+  activeCompTab = tab;
+  document.querySelectorAll('.comp-tab').forEach(t=>t.classList.remove('active'));
+  btn.classList.add('active');
+  renderComplianceRows();
+}
+
+function reviewRow(id) {
+  const row = complianceRows.find(r=>r.id===id);
+  if (!row) return;
+  compAsk(`Review row ${id}: "${row.req}" — current answer: ${row.answer}. Is this correct? Suggest improvements.`);
+}
+
+function downloadCompliance() {
+  const csv = ['Row,Requirement,Answer,Confidence,Reason', ...complianceRows.map(r=>`${r.id},"${r.req}","${r.answer}",${r.conf},"${r.reason}"`)].join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'compliance_completed.csv';
+  a.click();
+}
+
+// ── AI ────────────────────────────────────────────────────
+function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
+function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
+async function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) { alert('Please enter an API key.'); return; }
+  const s = document.getElementById('api-key-status');
+  s.style.display='block'; s.style.background='var(--brand-50)'; s.style.color='var(--brand-600)'; s.textContent='⏳ Testing key...';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:'Say: OK'}]})});
+    const d = await r.json();
+    if (d.error) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+d.error.message; return; }
+    apiKey=k; localStorage.setItem('ramssolApiKey',k); s.style.background='var(--brand-50)'; s.style.color='var(--brand-500)'; s.textContent='✅ Key verified!';
+    setTimeout(()=>{document.getElementById('api-key-modal').classList.remove('open');s.style.display='none';},1500);
+  } catch(e) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+e.message; }
+}
+async function callClaude(messages, system, maxTokens=800) {
+  const key = getApiKey(); if (!key) return '⚠️ Please set your Anthropic API key in AI Settings.';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,system,messages})});
+    const d = await r.json(); if (d.error) return '⚠️ '+d.error.message;
+    return d.content.map(c=>c.text||'').join('');
+  } catch(e) { return '⚠️ '+e.message; }
+}
+function appendMessage(id, role, text) {
+  const c = document.getElementById(id); if (!c) return;
+  const div = document.createElement('div'); div.className = role==='user'?'ai-msg-user':'ai-msg-bot';
+  div.innerHTML = role==='bot'?text.replace(/\n/g,'<br>'):text; c.appendChild(div); c.scrollTop=c.scrollHeight; return div;
+}
+function showTyping(id) {
+  const c = document.getElementById(id); if (!c) return null;
+  const div = document.createElement('div'); div.className='ai-msg-bot';
+  div.innerHTML='<div class="ai-typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+  c.appendChild(div); c.scrollTop=c.scrollHeight; return div;
+}
+async function compAsk(preset) {
+  const input = document.getElementById('comp-ai-input');
+  const msg = (preset || input.value).trim(); if (!msg) return;
+  if (input) input.value = '';
+  appendMessage('comp-ai-messages','user',msg);
+  const typing = showTyping('comp-ai-messages');
+  const system = `You are a Compliance Copilot for Ramssol Group. You help pre-sales teams fill RFP and compliance forms using the company's knowledge base. Categories: Security, Data Management, Technical Architecture, Support SLAs, Certifications, Disaster Recovery, Mobile, API Integration. Be concise and practical.`;
+  const reply = await callClaude([{role:'user',content:msg}], system, 500);
+  if (typing) typing.remove();
+  appendMessage('comp-ai-messages','bot',reply);
+}
+</script>
+</body>
+</html>

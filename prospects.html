@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prospects — Ramssol Pre-Sales Copilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon"><svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="#1AA57A" opacity="0.18"/><text x="9" y="27" font-family="Inter,sans-serif" font-size="22" font-weight="700" fill="white">R</text></svg></div>
+      <div><div class="logo-name">Ramssol</div><div class="logo-sub">Pre-Sales Copilot</div></div>
+    </div>
+  </div>
+  <nav class="sidebar-nav">
+    <div class="nav-section-label">Workspace</div>
+    <a class="nav-item" href="index.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>Home</a>
+    <a class="nav-item active" href="prospects.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Prospects</a>
+    <a class="nav-item" href="compliance.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Compliance (RFP)</a>
+    <a class="nav-item" href="proposals.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Proposals</a>
+    <div class="nav-section-label">Analytics</div>
+    <a class="nav-item" href="pipeline.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Pipeline</a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reports</a>
+    <div class="nav-section-label">Settings</div>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Admin</a>
+    <button class="nav-item" onclick="showApiKeyModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AI Settings</button>
+  </nav>
+  <div class="sidebar-user">
+    <div class="user-avatar">AA</div>
+    <div><div class="user-name">Amir Arif</div><div class="user-role">COO Office</div></div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">Prospects</span>
+    <div class="topbar-right">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Search anything...">
+      </div>
+      <div class="badge-notif">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <!-- LIST VIEW -->
+    <div id="prospects-list-view">
+      <div class="page-header">
+        <div class="page-title">Prospects</div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-secondary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            Filters
+          </button>
+          <button class="btn-primary" onclick="document.getElementById('add-prospect-modal').classList.add('open')">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Add Prospect
+          </button>
+        </div>
+      </div>
+      <div class="prospects-grid" id="prospects-grid"></div>
+    </div>
+
+    <!-- DETAIL VIEW -->
+    <div id="prospect-detail-view" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ADD PROSPECT MODAL -->
+<div class="modal-overlay" id="add-prospect-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">Add New Prospect</div>
+    <div class="modal-sub">Add a company to your prospect workspace.</div>
+    <div class="form-group"><label class="form-label">Company Name *</label><input class="form-input" id="np-name" placeholder="e.g. Tzu Chi Foundation"></div>
+    <div class="form-group">
+      <label class="form-label">Industry *</label>
+      <select class="form-select" id="np-industry">
+        <option>NGO / Non-profit</option><option>Banking</option><option>Healthcare</option>
+        <option>Government</option><option>Education</option><option>Manufacturing</option><option>Retail</option>
+      </select>
+    </div>
+    <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="np-website" placeholder="www.example.com"></div>
+    <div class="form-group"><label class="form-label">Key Focus Areas (comma-separated)</label><input class="form-input" id="np-tags" placeholder="e.g. Healthcare, Education, AI"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('add-prospect-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="addProspect()">Add Prospect</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADD DEAL MODAL -->
+<div class="modal-overlay" id="add-deal-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">Add New Deal</div>
+    <div class="modal-sub">Add an active deal to the pipeline.</div>
+    <div class="form-group"><label class="form-label">Salesperson *</label>
+      <select class="form-select" id="nd-rep"><option>Ahmad Razak</option><option>Priya Nair</option><option>Wei Ling Tan</option><option>Rajan Pillai</option><option>Siti Rahimah</option><option>Faizal Hassan</option></select>
+    </div>
+    <div class="form-group"><label class="form-label">Account / Client *</label><input class="form-input" id="nd-account" placeholder="Company name"></div>
+    <div class="form-group"><label class="form-label">Stage *</label>
+      <select class="form-select" id="nd-stage">
+        <option value="1">1 – Prospecting</option><option value="2">2 – Qualifying Leads</option><option value="3">3 – Initial Meeting</option><option value="4">4 – Define Prospect Needs</option>
+        <option value="5">5 – Make An Offer</option><option value="6">6 – Negotiation / Finalize</option><option value="7">7 – Closing The Deal</option><option value="8">8 – Deliver The Product</option>
+      </select>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+      <div class="form-group"><label class="form-label">Deal Value (RM) *</label><input class="form-input" id="nd-value" type="number" placeholder="3000000"></div>
+      <div class="form-group"><label class="form-label">Days in Stage *</label><input class="form-input" id="nd-days" type="number" placeholder="5"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="nd-notes" placeholder="Optional notes..."></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('add-deal-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="addDeal()">Add Deal</button>
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-overlay" id="api-key-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal">
+    <div class="modal-title">AI Settings</div>
+    <div class="modal-sub">Enter your Anthropic API key to enable AI features.</div>
+    <div class="form-group"><label class="form-label">Anthropic API Key</label><input class="form-input" type="password" id="api-key-input" placeholder="sk-ant-api03-..."></div>
+    <div id="api-key-status" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="document.getElementById('api-key-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-primary" onclick="saveApiKey()">Save &amp; Test Key</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── STATE ────────────────────────────────────────────────
+let apiKey = localStorage.getItem('ramssolApiKey') || '';
+let currentProspect = null;
+
+// ── DATA ────────────────────────────────────────────────
+let prospects = [
+  {id:1,name:'Tzu Chi Foundation',type:'NGO / Non-profit',country:'Taiwan',website:'www.tzuchi.org.tw',added:'12 Apr 2026',tags:['Humanitarian Aid','Healthcare','Education','Environment'],employees:'10,000+ Volunteers',opportunities:3,totalValue:8.4,painPoints:['Managing global volunteers across multiple regions','Tracking donations and fund utilization transparently','Coordinating disaster relief in real-time','Measuring program impact and reporting to donors','Language and cultural diversity in operations']},
+  {id:2,name:'ABC Bank',type:'Banking',country:'Malaysia',website:'www.abcbank.com.my',added:'2 Mar 2026',tags:['Digital Banking','Core Systems','AI'],employees:'3,500',opportunities:2,totalValue:6.1,painPoints:['Legacy core banking system causing downtime','Manual loan processing slowing approvals','Regulatory compliance reporting burden']},
+  {id:3,name:'Gov Agency',type:'Government',country:'Malaysia',website:'gov.my',added:'15 Jan 2026',tags:['Cloud Infra','Digital Gov','Data'],employees:'800',opportunities:1,totalValue:2.2,painPoints:['Paper-based processes for citizen services','Data silos across departments','Lack of real-time reporting dashboard']},
+  {id:4,name:'Healthcare Group',type:'Healthcare',country:'Malaysia',website:'healthcare-group.my',added:'20 Feb 2026',tags:['Data Platform','Analytics','AI'],employees:'2,000+',opportunities:2,totalValue:5.1,painPoints:['Fragmented patient data across facilities','No unified analytics platform','Compliance with PDPA and health regulations']},
+  {id:5,name:'Manufacturing Co',type:'Manufacturing',country:'Malaysia',website:'manufco.my',added:'5 Apr 2026',tags:['ERP','Supply Chain','IoT'],employees:'1,200',opportunities:1,totalValue:3.0,painPoints:['No end-to-end supply chain visibility','Manual inventory tracking','Slow order-to-delivery cycle']}
+];
+
+let allDeals = [
+  {rep:'Ahmad Razak',account:'Tzu Chi Foundation',stage:5,daysInStage:12,daysToClose:28,value:2800000,movement:'Advanced',status:'On Track',notes:'Q3 budget confirmed'},
+  {rep:'Priya Nair',account:'ABC Bank – Core Upgrade',stage:6,daysInStage:25,daysToClose:20,value:3100000,movement:'Advanced',status:'On Track',notes:'Final pricing submitted'},
+  {rep:'Wei Ling Tan',account:'Gov Agency – Cloud Infra',stage:2,daysInStage:5,daysToClose:90,value:2200000,movement:'Held',status:'On Track',notes:'Pending RFP response'},
+  {rep:'Siti Rahimah',account:'Healthcare Group – Data Platform',stage:7,daysInStage:8,daysToClose:10,value:1800000,movement:'Advanced',status:'On Track',notes:'Contract being signed'},
+  {rep:'Faizal Hassan',account:'Manufacturing Co – ERP',stage:2,daysInStage:4,daysToClose:80,value:3000000,movement:'Advanced',status:'On Track',notes:''}
+];
+
+// ── RENDER PROSPECTS GRID ────────────────────────────────
+function renderProspects() {
+  document.getElementById('prospects-grid').innerHTML = prospects.map(p => `
+    <div class="prospect-card" onclick="openProspect(${p.id})">
+      <div class="prospect-header">
+        <div><div class="prospect-name">${p.name}</div><div class="prospect-type">${p.type}</div></div>
+        <span class="prospect-tag">Active</span>
+      </div>
+      <div class="prospect-meta"><span>🌐 ${p.country}</span><span>👥 ${p.employees}</span></div>
+      <div class="prospect-tags">${p.tags.slice(0,3).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <div class="prospect-footer">
+        <span class="prospect-opp"><strong>${p.opportunities}</strong> opportunities</span>
+        <span style="font-size:12px;font-family:var(--mono);font-weight:500;color:var(--brand-500)">RM ${p.totalValue.toFixed(1)}M</span>
+      </div>
+    </div>`).join('');
+}
+
+// ── OPEN PROSPECT DETAIL ─────────────────────────────────
+function openProspect(id) {
+  const p = prospects.find(x=>x.id===id);
+  if (!p) return;
+  currentProspect = p;
+  document.getElementById('prospects-list-view').style.display = 'none';
+  const det = document.getElementById('prospect-detail-view');
+  det.style.display = 'block';
+  const icons = ['🟠','⚠️','🔴','📊','🌐'];
+  det.innerHTML = `
+    <button class="back-btn" onclick="closeProspect()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>Prospects
+    </button>
+    <div class="prospect-detail-header">
+      <div class="prospect-detail-top">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <div class="prospect-detail-name">${p.name}</div>
+            <span class="prospect-tag">${p.type}</span>
+          </div>
+          <div class="prospect-detail-meta">
+            <span class="meta-item">🌐 <a href="#">${p.website}</a></span>
+            <span class="meta-item">📅 Added ${p.added}</span>
+            <span class="meta-item">👥 ${p.employees}</span>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-secondary">⭐ Watch</button>
+          <button class="btn-primary" onclick="document.getElementById('add-deal-modal').classList.add('open')">+ New Deal</button>
+        </div>
+      </div>
+      <div class="detail-tabs">
+        <button class="detail-tab active">Overview</button>
+        <button class="detail-tab">Insights</button>
+        <button class="detail-tab">Solutions</button>
+        <button class="detail-tab">Opportunities</button>
+        <button class="detail-tab">Documents</button>
+        <button class="detail-tab">Notes</button>
+      </div>
+    </div>
+    <div class="detail-grid">
+      <div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header"><span class="card-title">Company Overview</span></div>
+          <p style="font-size:13px;color:var(--gray-700);line-height:1.7;margin-bottom:16px">${p.name} is a ${p.type} organization based in ${p.country}. They operate across multiple regions with ${p.employees} employees/volunteers.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <div><div style="font-size:11px;color:var(--gray-400)">Industry</div><div style="font-size:13px">${p.type}</div></div>
+            <div><div style="font-size:11px;color:var(--gray-400)">Country</div><div style="font-size:13px">${p.country}</div></div>
+            <div><div style="font-size:11px;color:var(--gray-400)">Employees</div><div style="font-size:13px">${p.employees}</div></div>
+            <div><div style="font-size:11px;color:var(--gray-400)">Website</div><div style="font-size:13px;color:var(--brand-500)">${p.website}</div></div>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px">
+          <div class="card-header">
+            <span class="card-title">Key Pain Points <span style="font-size:11px;background:var(--amber-50);color:var(--amber-600);padding:2px 7px;border-radius:20px;margin-left:6px">${p.painPoints.length} AI Identified</span></span>
+          </div>
+          <ul class="pain-points-list">
+            ${p.painPoints.map((pt,i)=>`<li class="pain-item"><span class="picon">${icons[i%icons.length]}</span><p>${pt}</p></li>`).join('')}
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-title">Active Opportunities</span></div>
+          <table class="opp-table">
+            <thead><tr><th>Opportunity</th><th>Stage</th><th>Owner</th><th>Close Date</th><th>Value (RM)</th><th>Health</th></tr></thead>
+            <tbody>
+              ${allDeals.filter(d=>d.account.toLowerCase().includes(p.name.split(' ')[0].toLowerCase())).map(d=>`
+              <tr>
+                <td>${d.account}</td>
+                <td><span class="stage-badge stage-proposal">Stage ${d.stage}</span></td>
+                <td>${d.rep}</td>
+                <td>${new Date(Date.now()+d.daysToClose*86400000).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}</td>
+                <td style="font-family:var(--mono)">${(d.value/1000000).toFixed(2)}M</td>
+                <td>${d.status==='On Track'?'🟢':d.status==='At Risk'?'🟡':'🔴'}</td>
+              </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--gray-400);padding:16px">No active opportunities</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div class="ai-panel" style="height:580px">
+          <div class="ai-copilot-header">
+            <div class="ai-copilot-title">AI Copilot <span class="ai-badge">AI</span></div>
+          </div>
+          <div class="ai-messages" id="prospect-ai-messages">
+            <div class="ai-msg-system">Hi Amir,<br>How can I help you with <strong>${p.name}</strong>?</div>
+          </div>
+          <div class="ai-quick-actions">
+            <button class="ai-quick-btn" onclick="prospectAsk('Research ${p.name} and identify their biggest technology needs')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              Research this organization
+            </button>
+            <button class="ai-quick-btn" onclick="prospectAsk('What are the key challenges facing ${p.name} and how can Ramssol help?')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              What are their key challenges?
+            </button>
+            <button class="ai-quick-btn" onclick="prospectAsk('Suggest the best Ramssol solutions for ${p.name} in the ${p.type} sector')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+              Suggest solutions to pitch
+            </button>
+            <button class="ai-quick-btn" onclick="prospectAsk('Generate a proposal outline for ${p.name} in the ${p.type} sector')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+              Generate proposal outline
+            </button>
+          </div>
+          <div class="ai-input-area">
+            <textarea class="ai-input" id="prospect-ai-input" placeholder="Ask anything about ${p.name}..." rows="2"
+              onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();prospectAsk()}"></textarea>
+            <button class="ai-send-btn" onclick="prospectAsk()">
+              <svg viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function closeProspect() {
+  document.getElementById('prospects-list-view').style.display = 'block';
+  document.getElementById('prospect-detail-view').style.display = 'none';
+  currentProspect = null;
+}
+
+function addProspect() {
+  const name = document.getElementById('np-name').value.trim();
+  if (!name) { alert('Please enter a company name.'); return; }
+  const ind = document.getElementById('np-industry').value;
+  const web = document.getElementById('np-website').value.trim();
+  const tags = document.getElementById('np-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
+  prospects.push({ id:Date.now(), name, type:ind, country:'Malaysia', website:web||'—', added:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}), tags:tags.length?tags:[ind], employees:'—', opportunities:0, totalValue:0, painPoints:['To be researched with AI'] });
+  document.getElementById('add-prospect-modal').classList.remove('open');
+  renderProspects();
+}
+
+function addDeal() {
+  const account = document.getElementById('nd-account').value.trim();
+  if (!account) { alert('Please enter an account name.'); return; }
+  allDeals.push({ rep:document.getElementById('nd-rep').value, account, stage:Number(document.getElementById('nd-stage').value), daysInStage:Number(document.getElementById('nd-days').value)||1, daysToClose:90, value:Number(document.getElementById('nd-value').value)||0, movement:'Advanced', status:'On Track', notes:document.getElementById('nd-notes').value.trim() });
+  document.getElementById('add-deal-modal').classList.remove('open');
+}
+
+// ── AI ───────────────────────────────────────────────────
+function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
+
+function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
+
+async function saveApiKey() {
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) { alert('Please enter an API key.'); return; }
+  const s = document.getElementById('api-key-status');
+  s.style.display='block'; s.style.background='var(--brand-50)'; s.style.color='var(--brand-600)'; s.textContent='⏳ Testing key...';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:'Say: OK'}]})});
+    const d = await r.json();
+    if (d.error) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+d.error.message; return; }
+    apiKey=k; localStorage.setItem('ramssolApiKey',k); s.style.background='var(--brand-50)'; s.style.color='var(--brand-500)'; s.textContent='✅ Key verified!';
+    setTimeout(()=>{document.getElementById('api-key-modal').classList.remove('open');s.style.display='none';},1500);
+  } catch(e) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+e.message; }
+}
+
+async function callClaude(messages, system, maxTokens=800) {
+  const key = getApiKey();
+  if (!key) return '⚠️ Please set your Anthropic API key in AI Settings.';
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,system,messages})});
+    const d = await r.json();
+    if (d.error) return '⚠️ '+d.error.message;
+    return d.content.map(c=>c.text||'').join('');
+  } catch(e) { return '⚠️ '+e.message; }
+}
+
+function appendMessage(id, role, text) {
+  const c = document.getElementById(id); if (!c) return;
+  const div = document.createElement('div');
+  div.className = role==='user' ? 'ai-msg-user' : 'ai-msg-bot';
+  div.innerHTML = role==='bot' ? text.replace(/\n/g,'<br>') : text;
+  c.appendChild(div); c.scrollTop = c.scrollHeight; return div;
+}
+
+function showTyping(id) {
+  const c = document.getElementById(id); if (!c) return null;
+  const div = document.createElement('div'); div.className='ai-msg-bot';
+  div.innerHTML='<div class="ai-typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+  c.appendChild(div); c.scrollTop=c.scrollHeight; return div;
+}
+
+async function prospectAsk(preset) {
+  const input = document.getElementById('prospect-ai-input');
+  const msg = (preset || input.value).trim();
+  if (!msg) return;
+  if (input) input.value = '';
+  appendMessage('prospect-ai-messages','user',msg);
+  const typing = showTyping('prospect-ai-messages');
+  const p = currentProspect;
+  const system = `You are an AI Pre-Sales Consultant for Ramssol Group, a Malaysian technology solutions company. Current prospect: ${p?p.name:''} (${p?p.type:''}). Known pain points: ${p?p.painPoints.join(', '):''}.Be concise, practical, and sales-focused.`;
+  const reply = await callClaude([{role:'user',content:msg}], system, 700);
+  if (typing) typing.remove();
+  appendMessage('prospect-ai-messages','bot',reply);
+}
+
+// ── INIT ─────────────────────────────────────────────────
+renderProspects();
+</script>
+</body>
+</html>
