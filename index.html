@@ -195,6 +195,9 @@
 </div>
 
 <script>
+if (!sessionStorage.getItem('ramssolSession')) {
+  window.location.href = 'login.html';
+}
 let apiKey = localStorage.getItem('ramssolApiKey') || '';
 function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
 function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
