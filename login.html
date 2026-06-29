@@ -181,6 +181,7 @@
     box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5) !important;
     transform: translateY(-1px);
   }
+  
   </style>
 </head>
 <body>
@@ -353,7 +354,9 @@
       </div>
     </div>
 
-  </div></div><script>
+  </div>
+</div>
+  </div><script>
 // Logic remains identical to your original login.html file
 function getAccounts() { try { return JSON.parse(localStorage.getItem('ramssolAccounts') || '[]'); } catch { return []; } }
 function saveAccounts(accounts) { localStorage.setItem('ramssolAccounts', JSON.stringify(accounts)); }
