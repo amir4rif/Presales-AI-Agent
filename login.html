@@ -134,6 +134,53 @@
       .card-footer { padding: 12px 22px 18px; }
       .field-row { grid-template-columns: 1fr; gap: 0; }
     }
+
+    /* ── CYBERTECH LOGIN SCREEN UPGRADE ── */
+  body {
+    background: radial-gradient(circle at center, #1B0F36 0%, #030308 70%, #030308 100%) fixed !important;
+  }
+  
+  /* Turns the login wrapper into a gorgeous floating tech glass panel */
+  .auth-card, .login-container, .card { 
+    background: rgba(11, 11, 18, 0.6) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(139, 92, 246, 0.15) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(139, 92, 246, 0.05) !important;
+    border-radius: 16px !important;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  }
+  
+  .auth-card:hover, .login-container:hover {
+    border-color: rgba(139, 92, 246, 0.35) !important;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7), 0 0 50px rgba(139, 92, 246, 0.15) !important;
+  }
+
+  /* Sleek interactive input fields */
+  .form-input {
+    background: rgba(3, 3, 8, 0.8) !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 8px !important;
+    transition: all 0.2s ease !important;
+  }
+  .form-input:focus {
+    border-color: #8B5CF6 !important;
+    box-shadow: 0 0 12px rgba(139, 92, 246, 0.25) !important;
+    background: #030308 !important;
+  }
+
+  /* Glowing submit buttons */
+  button[type="submit"], #login-btn, #register-btn {
+    background: linear-gradient(135deg, #7C3AED, #5B21B6) !important;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3) !important;
+    border: none !important;
+    font-weight: 600 !important;
+    transition: all 0.2s ease !important;
+  }
+  button[type="submit"]:hover, #login-btn:hover, #register-btn:hover {
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5) !important;
+    transform: translateY(-1px);
+  }
   </style>
 </head>
 <body>
@@ -377,6 +424,49 @@ function showAlert(id, type, msg) { const el = document.getElementById(id); el.c
 function setLoading(form, loading) { const btn = document.getElementById(form + '-btn'); const text = document.getElementById(form + '-btn-text'); const spinner = document.getElementById(form + '-spinner'); const arrow = document.getElementById(form + '-arrow'); btn.disabled = loading; spinner.style.display = loading ? 'block' : 'none'; if (arrow) arrow.style.display = loading ? 'none' : ''; text.textContent = loading ? (form === 'login' ? 'Signing in...' : 'Creating account...') : (form === 'login' ? 'Sign In' : 'Create Account'); }
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 document.addEventListener('keydown', e => { if (e.key !== 'Enter') return; if (document.getElementById('view-login').classList.contains('active')) handleLogin(); else if (document.getElementById('view-register').classList.contains('active')) handleRegister(); });
+
+  
+  document.addEventListener("DOMContentLoaded", () => {
+    const cards = document.querySelectorAll('.qa-card, .card, .auth-card');
+
+    cards.forEach(card => {
+      card.style.transition = 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.4s ease';
+
+      card.addEventListener('mousemove', (e) => {
+        card.style.transition = 'none';
+
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left; 
+        const y = e.clientY - rect.top;  
+        
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        
+        // 🔹 REDUCED MOVEMENT: Changed multiplier from 15 down to 5
+        const rotateX = ((y - centerY) / centerY) * -5; 
+        const rotateY = ((x - centerX) / centerX) * 5;
+
+        // 🔹 FLATTER PERSPECTIVE & LESS SCALE: Changed perspective to 1500px and scale to 1.01
+        card.style.transform = `
+          perspective(1500px) 
+          rotateX(${rotateX}deg) 
+          rotateY(${rotateY}deg) 
+          scale3d(1.01, 1.01, 1.01)
+        `;
+        
+        // 🔹 SUBTLER SHADOW SHIFT
+        const shadowX = (rotateY * -0.5);
+        const shadowY = (rotateX * -0.5);
+        card.style.boxShadow = `${shadowX}px ${shadowY + 8}px 24px rgba(139, 92, 246, 0.25)`;
+      });
+
+      card.addEventListener('mouseleave', () => {
+        card.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.6s ease';
+        card.style.transform = `perspective(1500px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+        card.style.boxShadow = `0 8px 24px -8px rgba(0, 0, 0, 0.4)`; 
+      });
+    });
+  });
 </script>
 </body>
 </html>

@@ -274,3 +274,101 @@ table.deals-table tr:last-child td { border-bottom: none; }
 .loading-spinner span { width: 6px; height: 6px; background: var(--brand-400); border-radius: 50%; animation: blink 1s infinite; }
 .loading-spinner span:nth-child(2) { animation-delay: 0.15s; }
 .loading-spinner span:nth-child(3) { animation-delay: 0.3s; }
+
+/* ── 1. MODERN BACKGROUND & SCROLLBAR ── */
+body {
+  /* Adds a deep, glowing tech background */
+  background: radial-gradient(circle at top left, var(--brand-900) 0%, #030308 40%, #030308 100%);
+  background-attachment: fixed;
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brand-600);
+}
+
+/* ── 2. GLASSMORPHISM & 3D CARDS ── */
+.card, .qa-card, .sidebar, .topbar {
+  /* Frosted glass effect */
+  background: rgba(19, 19, 31, 0.65) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  box-shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* 3D Float effect for Quick Actions and regular cards */
+.qa-card, .card {
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), 
+              box-shadow 0.3s ease, 
+              border-color 0.3s ease;
+}
+
+.qa-card:hover, .card:hover {
+  transform: translateY(-5px) scale(1.01);
+  box-shadow: 0 12px 32px -8px rgba(139, 92, 246, 0.25) !important;
+  border-color: rgba(139, 92, 246, 0.4) !important;
+  z-index: 10;
+}
+
+/* ── 3. NEON GLOWS & BUTTONS ── */
+.nav-item.active {
+  background: linear-gradient(90deg, rgba(139,92,246,0.15) 0%, transparent 100%) !important;
+  border-left: 3px solid var(--brand-400);
+  box-shadow: inset 20px 0 20px -20px rgba(139,92,246,0.5);
+}
+
+.btn-primary, .qa-btn:hover {
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700)) !important;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+  border: none !important;
+  transition: all 0.2s ease;
+}
+
+.btn-primary:hover, .qa-btn:hover {
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6);
+  transform: translateY(-1px);
+}
+
+/* Glowing Notification Dot */
+.notif-dot {
+  box-shadow: 0 0 8px #E03C3C, 0 0 12px rgba(224,60,60,0.5) !important;
+  animation: pulse-glow 2s infinite;
+}
+
+@keyframes pulse-glow {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.2); opacity: 0.8; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+/* ── 4. ENTRY ANIMATIONS ── */
+.main .content > * {
+  animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+  transform: translateY(15px);
+}
+
+/* Stagger the animations so they load in a sequence */
+.main .content > :nth-child(1) { animation-delay: 0.05s; }
+.main .content > :nth-child(2) { animation-delay: 0.1s; }
+.main .content > :nth-child(3) { animation-delay: 0.15s; }
+.main .content > :nth-child(4) { animation-delay: 0.2s; }
+
+@keyframes fadeSlideUp {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

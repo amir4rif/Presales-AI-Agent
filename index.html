@@ -163,6 +163,71 @@
     .btn-secondary:hover { background: var(--border); }
     .btn-primary { padding: 8px 16px; border-radius: 8px; border: none; background: var(--brand); color: #fff; font-size: 13px; font-weight: 500; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.15s; }
     .btn-primary:hover { background: var(--brand-dark); }
+
+    /* ═══════════════════════════════════════════════════════════
+     NEW CYBERTECH VISUAL EXTENSIONS (SAFE OVERRIDES)
+     ═══════════════════════════════════════════════════════════ */
+  body {
+    background: radial-gradient(circle at top left, #1B0F36 0%, #030308 40%, #030308 100%) fixed !important;
+  }
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--brand); }
+
+  /* Glassmorphism & 3D Layering */
+  .card, .qa-card, .sidebar, .topbar {
+    background: rgba(11, 11, 18, 0.65) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.04) !important;
+  }
+  .qa-card, .card {
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s ease, border-color 0.3s ease !important;
+  }
+  .qa-card:hover, .card:hover {
+    transform: translateY(-5px) scale(1.01) !important;
+    box-shadow: 0 12px 32px -8px rgba(139, 92, 246, 0.3) !important;
+    border-color: rgba(139, 92, 246, 0.4) !important;
+  }
+
+  /* Neon Sidebar Active Tab & Buttons */
+  .nav-item.active {
+    background: linear-gradient(90deg, rgba(139,92,246,0.15) 0%, transparent 100%) !important;
+    border-left: 3px solid var(--brand) !important;
+    box-shadow: inset 20px 0 20px -20px rgba(139,92,246,0.5) !important;
+  }
+  .btn-primary, .qa-btn:hover {
+    background: linear-gradient(135deg, var(--brand), var(--brand-dark)) !important;
+    box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4) !important;
+    border: none !important;
+    transition: all 0.2s ease !important;
+  }
+  .btn-primary:hover, .qa-btn:hover {
+    box-shadow: 0 6px 20px rgba(139, 92, 246, 0.6) !important;
+    transform: translateY(-1px) !important;
+  }
+  .notif-dot {
+    box-shadow: 0 0 8px #E03C3C, 0 0 12px rgba(224,60,60,0.5) !important;
+    animation: pulse-glow 2s infinite;
+  }
+  @keyframes pulse-glow {
+    0% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.2); opacity: 0.8; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Staggered Interface Load-In */
+  .main .content > * {
+    animation: fadeSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  .main .content > :nth-child(1) { animation-delay: 0.05s; }
+  .main .content > :nth-child(2) { animation-delay: 0.12s; }
+  .main .content > :nth-child(3) { animation-delay: 0.18s; }
+  .main .content > :nth-child(4) { animation-delay: 0.24s; }
+  @keyframes fadeSlideUp { to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
@@ -428,6 +493,49 @@ async function saveApiKey() {
     statusEl.textContent = '❌ ' + e.message;
   }
 }
+
+  
+  document.addEventListener("DOMContentLoaded", () => {
+    const cards = document.querySelectorAll('.qa-card, .card, .auth-card');
+
+    cards.forEach(card => {
+      card.style.transition = 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.4s ease';
+
+      card.addEventListener('mousemove', (e) => {
+        card.style.transition = 'none';
+
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left; 
+        const y = e.clientY - rect.top;  
+        
+        const centerX = rect.width / 2;
+        const centerY = rect.height / 2;
+        
+        // 🔹 REDUCED MOVEMENT: Changed multiplier from 15 down to 5
+        const rotateX = ((y - centerY) / centerY) * -5; 
+        const rotateY = ((x - centerX) / centerX) * 5;
+
+        // 🔹 FLATTER PERSPECTIVE & LESS SCALE: Changed perspective to 1500px and scale to 1.01
+        card.style.transform = `
+          perspective(1500px) 
+          rotateX(${rotateX}deg) 
+          rotateY(${rotateY}deg) 
+          scale3d(1.01, 1.01, 1.01)
+        `;
+        
+        // 🔹 SUBTLER SHADOW SHIFT
+        const shadowX = (rotateY * -0.5);
+        const shadowY = (rotateX * -0.5);
+        card.style.boxShadow = `${shadowX}px ${shadowY + 8}px 24px rgba(139, 92, 246, 0.25)`;
+      });
+
+      card.addEventListener('mouseleave', () => {
+        card.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.6s ease';
+        card.style.transform = `perspective(1500px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)`;
+        card.style.boxShadow = `0 8px 24px -8px rgba(0, 0, 0, 0.4)`; 
+      });
+    });
+  });
 </script>
 </body>
 </html>
