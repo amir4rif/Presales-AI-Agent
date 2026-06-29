@@ -6,6 +6,61 @@
   <title>Prospects — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* ── EXPANDED MODAL ─────────────────────────────────── */
+    .modal-wide { max-width: 720px; max-height: 88vh; overflow-y: auto; }
+    .modal-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
+    .modal-ai-badge { font-size: 11px; font-weight: 600; background: var(--brand-50); color: var(--brand-600); padding: 3px 10px; border-radius: 20px; }
+    .sec-divider { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--brand-500); margin: 16px 0 10px; padding-bottom: 8px; border-bottom: 2px solid var(--brand-50); display: flex; align-items: center; gap: 6px; }
+    .sec-divider::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--brand-400); flex-shrink:0; }
+    .fg { margin-bottom: 10px; }
+    .fl { font-size: 11px; font-weight: 500; color: var(--gray-600); margin-bottom: 4px; display: block; }
+    .fl .req { color: var(--red-700); }
+    .fi { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; }
+    .fi:focus { border-color:var(--brand-400); }
+    .fs { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; background:white; }
+    .ft { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; resize:vertical; min-height:64px; line-height:1.5; }
+    .ft:focus, .fs:focus { border-color:var(--brand-400); }
+    .g2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
+
+    /* AI Research trigger */
+    .ai-agent-btn { width:100%; padding:13px; margin-top:18px; border-radius:10px; border:2px dashed var(--brand-300); background:var(--brand-50); color:var(--brand-600); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font); display:flex; align-items:center; justify-content:center; gap:8px; transition:all .15s; }
+    .ai-agent-btn:hover { background:var(--brand-100); border-color:var(--brand-400); }
+    .ai-agent-btn.loading { opacity:.7; pointer-events:none; }
+
+    /* Research Results */
+    .ai-results { display:none; margin-top:14px; border:1px solid var(--brand-100); border-radius:10px; overflow:hidden; }
+    .ai-results.visible { display:block; }
+    .ai-results-header { background:var(--brand-50); padding:10px 14px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--brand-100); }
+    .ai-results-header-title { font-size:12px; font-weight:700; color:var(--brand-700); }
+    .ai-results-body { padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+    .ai-wide-card { background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px; padding:10px 12px; }
+    .ai-card-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--gray-400); margin-bottom:4px; }
+    .ai-card-val { font-size:12px; color:var(--gray-700); line-height:1.5; }
+    .ai-metrics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
+    .ai-metric-box { background:white; border:1px solid var(--gray-100); border-radius:8px; padding:10px 12px; text-align:center; }
+    .ai-metric-num { font-size:14px; font-weight:700; color:var(--brand-600); font-family:var(--mono); }
+    .ai-metric-lbl { font-size:10px; color:var(--gray-400); margin-top:2px; }
+    .buying-wrap { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .buying-badge { font-size:11px; font-weight:700; padding:3px 12px; border-radius:20px; }
+    .b-high { background:var(--brand-50); color:var(--brand-600); }
+    .b-med  { background:var(--amber-50); color:var(--amber-600); }
+    .b-low  { background:var(--red-50); color:var(--red-700); }
+    .buying-reason { font-size:12px; color:var(--gray-600); }
+
+    /* AI Action buttons */
+    .ai-actions-row { display:flex; gap:10px; margin-top:14px; }
+    .ai-act-btn { flex:1; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font); display:flex; align-items:center; justify-content:center; gap:7px; transition:all .15s; }
+    .ai-act-btn svg { width:14px; height:14px; }
+    .btn-rec  { background:var(--brand-700); color:white; border:none; }
+    .btn-rec:hover  { background:var(--brand-600); }
+    .btn-prop { background:white; color:var(--brand-700); border:1.5px solid var(--brand-300); }
+    .btn-prop:hover { background:var(--brand-50); }
+    .ai-output { display:none; background:white; border:1px solid var(--brand-100); border-left:3px solid var(--brand-400); border-radius:8px; padding:14px 16px; margin-top:10px; font-size:12px; color:var(--gray-700); line-height:1.7; white-space:pre-wrap; }
+    .ai-output.visible { display:block; }
+    .ai-output-title { font-size:10px; font-weight:700; color:var(--brand-600); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+  </style>
 </head>
 <body>
 
@@ -51,7 +106,6 @@
   </div>
 
   <div class="content">
-    <!-- LIST VIEW -->
     <div id="prospects-list-view">
       <div class="page-header">
         <div class="page-title">Prospects</div>
@@ -60,7 +114,7 @@
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
             Filters
           </button>
-          <button class="btn-primary" onclick="document.getElementById('add-prospect-modal').classList.add('open')">
+          <button class="btn-primary" onclick="openAddProspectModal()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Prospect
           </button>
@@ -68,30 +122,247 @@
       </div>
       <div class="prospects-grid" id="prospects-grid"></div>
     </div>
-
-    <!-- DETAIL VIEW -->
     <div id="prospect-detail-view" style="display:none"></div>
   </div>
 </div>
 
-<!-- ADD PROSPECT MODAL -->
+<!-- ══ ADD PROSPECT MODAL (EXPANDED) ══════════════════════════════════ -->
 <div class="modal-overlay" id="add-prospect-modal" onclick="if(event.target===this)this.classList.remove('open')">
-  <div class="modal">
-    <div class="modal-title">Add New Prospect</div>
-    <div class="modal-sub">Add a company to your prospect workspace.</div>
-    <div class="form-group"><label class="form-label">Company Name *</label><input class="form-input" id="np-name" placeholder="e.g. Tzu Chi Foundation"></div>
-    <div class="form-group">
-      <label class="form-label">Industry *</label>
-      <select class="form-select" id="np-industry">
-        <option>NGO / Non-profit</option><option>Banking</option><option>Healthcare</option>
-        <option>Government</option><option>Education</option><option>Manufacturing</option><option>Retail</option>
+  <div class="modal modal-wide">
+
+    <!-- Header -->
+    <div class="modal-header-row">
+      <div>
+        <div class="modal-title">Add New Prospect</div>
+        <div class="modal-sub">Fill in the details, then let the AI Sales Agent research the company.</div>
+      </div>
+      <span class="modal-ai-badge">🤖 AI Sales Agent</span>
+    </div>
+
+    <!-- ── SECTION 1: COMPANY INFORMATION ── -->
+    <div class="sec-divider">Company Information</div>
+    <div class="fg">
+      <label class="fl">Company Name <span class="req">*</span></label>
+      <input class="fi" id="np-name" placeholder="e.g. Tzu Chi Foundation">
+    </div>
+    <div class="g3">
+      <div class="fg">
+        <label class="fl">Industry <span class="req">*</span></label>
+        <select class="fs" id="np-industry">
+          <option value="">Select industry</option>
+          <option>Banking & Finance</option>
+          <option>Healthcare</option>
+          <option>Government</option>
+          <option>Education</option>
+          <option>Manufacturing</option>
+          <option>Retail & FMCG</option>
+          <option>NGO / Non-profit</option>
+          <option>Technology</option>
+          <option>Logistics & Supply Chain</option>
+          <option>Telecommunications</option>
+          <option>Property & Construction</option>
+          <option>Oil & Gas</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">Location</label>
+        <input class="fi" id="np-location" placeholder="e.g. Kuala Lumpur, Malaysia">
+      </div>
+      <div class="fg">
+        <label class="fl">Employee Size</label>
+        <select class="fs" id="np-emp-size">
+          <option value="">Select size</option>
+          <option>1 – 50</option>
+          <option>51 – 200</option>
+          <option>201 – 500</option>
+          <option>501 – 1,000</option>
+          <option>1,001 – 5,000</option>
+          <option>5,001 – 10,000</option>
+          <option>10,000+</option>
+        </select>
+      </div>
+    </div>
+    <div class="fg">
+      <label class="fl">Website</label>
+      <input class="fi" id="np-website" placeholder="www.company.com">
+    </div>
+
+    <!-- ── SECTION 2: CONTACT DETAILS ── -->
+    <div class="sec-divider">Contact Details</div>
+    <div class="g2">
+      <div class="fg">
+        <label class="fl">Contact Name</label>
+        <input class="fi" id="np-contact-name" placeholder="Full name">
+      </div>
+      <div class="fg">
+        <label class="fl">Position / Title</label>
+        <input class="fi" id="np-contact-pos" placeholder="e.g. Head of HR, CIO">
+      </div>
+    </div>
+
+    <!-- ── SECTION 3: SALES INTELLIGENCE ── -->
+    <div class="sec-divider">Sales Intelligence</div>
+    <div class="g2">
+      <div class="fg">
+        <label class="fl">Current System</label>
+        <input class="fi" id="np-curr-system" placeholder="e.g. SAP, Oracle, In-house">
+      </div>
+      <div class="fg">
+        <label class="fl">Current Module / Function</label>
+        <input class="fi" id="np-curr-module" placeholder="e.g. Payroll, Recruitment, ERP">
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fg">
+        <label class="fl">IT Budget (estimated)</label>
+        <select class="fs" id="np-it-budget">
+          <option value="">Unknown</option>
+          <option>Below RM 500K</option>
+          <option>RM 500K – RM 1M</option>
+          <option>RM 1M – RM 3M</option>
+          <option>RM 3M – RM 10M</option>
+          <option>RM 10M – RM 50M</option>
+          <option>Above RM 50M</option>
+        </select>
+      </div>
+      <div class="fg">
+        <label class="fl">HR Budget (estimated)</label>
+        <select class="fs" id="np-hr-budget">
+          <option value="">Unknown</option>
+          <option>Below RM 200K</option>
+          <option>RM 200K – RM 500K</option>
+          <option>RM 500K – RM 1M</option>
+          <option>RM 1M – RM 3M</option>
+          <option>RM 3M – RM 10M</option>
+          <option>Above RM 10M</option>
+        </select>
+      </div>
+    </div>
+    <div class="g2">
+      <div class="fg">
+        <label class="fl">Authority — Decision Maker Name</label>
+        <input class="fi" id="np-auth-name" placeholder="Name of final decision maker">
+      </div>
+      <div class="fg">
+        <label class="fl">Authority — Position</label>
+        <input class="fi" id="np-auth-pos" placeholder="e.g. CEO, CFO, CHRO, CIO">
+      </div>
+    </div>
+
+    <!-- ── SECTION 4: REQUIREMENTS ── -->
+    <div class="sec-divider">Requirements</div>
+    <div class="fg">
+      <label class="fl">Key Focus Areas — Pain Points &amp; Needs</label>
+      <textarea class="ft" id="np-pain" rows="3" placeholder="Describe the company's main challenges, unmet needs, and what they're looking to solve..."></textarea>
+    </div>
+    <div class="fg">
+      <label class="fl">Timeline — When do they need a solution?</label>
+      <select class="fs" id="np-timeline">
+        <option value="">Unknown / Not specified</option>
+        <option>Immediate (within 1 month)</option>
+        <option>Short-term (1 – 3 months)</option>
+        <option>Medium-term (3 – 6 months)</option>
+        <option>Long-term (6 – 12 months)</option>
+        <option>Future planning (12+ months)</option>
       </select>
     </div>
-    <div class="form-group"><label class="form-label">Website</label><input class="form-input" id="np-website" placeholder="www.example.com"></div>
-    <div class="form-group"><label class="form-label">Key Focus Areas (comma-separated)</label><input class="form-input" id="np-tags" placeholder="e.g. Healthcare, Education, AI"></div>
-    <div class="modal-actions">
+
+    <!-- ── AI SALES AGENT RESEARCH ── -->
+    <button class="ai-agent-btn" id="ai-research-btn" onclick="runAISalesAgent()">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      🤖 Research Company with AI Sales Agent
+    </button>
+    <div style="font-size:11px;color:var(--gray-400);text-align:center;margin-top:6px">
+      AI will analyse company background, financials, decision makers and buying potential
+    </div>
+
+    <!-- AI Research Results -->
+    <div class="ai-results" id="ai-results">
+      <div class="ai-results-header">
+        <svg viewBox="0 0 24 24" fill="none" stroke="var(--brand-500)" stroke-width="2" width="15" height="15"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span class="ai-results-header-title">AI Sales Intelligence Report</span>
+        <span id="ai-buying-badge" style="margin-left:auto"></span>
+      </div>
+      <div class="ai-results-body">
+
+        <!-- Background -->
+        <div class="ai-wide-card">
+          <div class="ai-card-lbl">Company Background</div>
+          <div class="ai-card-val" id="ai-background">—</div>
+        </div>
+
+        <!-- Financial metrics -->
+        <div class="ai-metrics-grid">
+          <div class="ai-metric-box">
+            <div class="ai-metric-num" id="ai-revenue">—</div>
+            <div class="ai-metric-lbl">Est. Annual Revenue</div>
+          </div>
+          <div class="ai-metric-box">
+            <div class="ai-metric-num" id="ai-it-spend">—</div>
+            <div class="ai-metric-lbl">Est. IT Spending</div>
+          </div>
+          <div class="ai-metric-box">
+            <div class="ai-metric-num" id="ai-hr-spend">—</div>
+            <div class="ai-metric-lbl">Est. HR Spending</div>
+          </div>
+        </div>
+
+        <!-- Employee & Decision Maker -->
+        <div class="g2">
+          <div class="ai-wide-card">
+            <div class="ai-card-lbl">Employee Size (AI Estimate)</div>
+            <div class="ai-card-val" id="ai-emp-est">—</div>
+          </div>
+          <div class="ai-wide-card">
+            <div class="ai-card-lbl">Likely Decision Maker</div>
+            <div class="ai-card-val" id="ai-decision-maker">—</div>
+          </div>
+        </div>
+
+        <!-- Buying Potential -->
+        <div class="ai-wide-card">
+          <div class="ai-card-lbl">Buying Potential</div>
+          <div class="buying-wrap">
+            <span id="ai-buying-inline"></span>
+            <span class="buying-reason" id="ai-buying-reason">—</span>
+          </div>
+        </div>
+
+        <!-- Action buttons -->
+        <div class="ai-actions-row">
+          <button class="ai-act-btn btn-rec" onclick="runRecommendProducts()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+            Recommend Products &amp; Solutions
+          </button>
+          <button class="ai-act-btn btn-prop" onclick="runGenerateProposal()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            Generate Proposal Outline
+          </button>
+        </div>
+
+        <!-- Products output -->
+        <div class="ai-output" id="ai-products-output">
+          <div class="ai-output-title">🎯 Recommended Products &amp; Solutions</div>
+          <div id="ai-products-text"></div>
+        </div>
+
+        <!-- Proposal output -->
+        <div class="ai-output" id="ai-proposal-output">
+          <div class="ai-output-title">📄 Proposal Outline</div>
+          <div id="ai-proposal-text"></div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Modal footer -->
+    <div class="modal-actions" style="margin-top:18px">
       <button class="btn-secondary" onclick="document.getElementById('add-prospect-modal').classList.remove('open')">Cancel</button>
-      <button class="btn-primary" onclick="addProspect()">Add Prospect</button>
+      <button class="btn-primary" onclick="addProspect()">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Add Prospect
+      </button>
     </div>
   </div>
 </div>
@@ -141,11 +412,12 @@
 // ── STATE ────────────────────────────────────────────────
 let apiKey = localStorage.getItem('ramssolApiKey') || '';
 let currentProspect = null;
+let lastAIResearch = null; // stores research results for reuse
 
 // ── DATA ────────────────────────────────────────────────
 let prospects = [
   {id:1,name:'Tzu Chi Foundation',type:'NGO / Non-profit',country:'Taiwan',website:'www.tzuchi.org.tw',added:'12 Apr 2026',tags:['Humanitarian Aid','Healthcare','Education','Environment'],employees:'10,000+ Volunteers',opportunities:3,totalValue:8.4,painPoints:['Managing global volunteers across multiple regions','Tracking donations and fund utilization transparently','Coordinating disaster relief in real-time','Measuring program impact and reporting to donors','Language and cultural diversity in operations']},
-  {id:2,name:'ABC Bank',type:'Banking',country:'Malaysia',website:'www.abcbank.com.my',added:'2 Mar 2026',tags:['Digital Banking','Core Systems','AI'],employees:'3,500',opportunities:2,totalValue:6.1,painPoints:['Legacy core banking system causing downtime','Manual loan processing slowing approvals','Regulatory compliance reporting burden']},
+  {id:2,name:'ABC Bank',type:'Banking & Finance',country:'Malaysia',website:'www.abcbank.com.my',added:'2 Mar 2026',tags:['Digital Banking','Core Systems','AI'],employees:'3,500',opportunities:2,totalValue:6.1,painPoints:['Legacy core banking system causing downtime','Manual loan processing slowing approvals','Regulatory compliance reporting burden']},
   {id:3,name:'Gov Agency',type:'Government',country:'Malaysia',website:'gov.my',added:'15 Jan 2026',tags:['Cloud Infra','Digital Gov','Data'],employees:'800',opportunities:1,totalValue:2.2,painPoints:['Paper-based processes for citizen services','Data silos across departments','Lack of real-time reporting dashboard']},
   {id:4,name:'Healthcare Group',type:'Healthcare',country:'Malaysia',website:'healthcare-group.my',added:'20 Feb 2026',tags:['Data Platform','Analytics','AI'],employees:'2,000+',opportunities:2,totalValue:5.1,painPoints:['Fragmented patient data across facilities','No unified analytics platform','Compliance with PDPA and health regulations']},
   {id:5,name:'Manufacturing Co',type:'Manufacturing',country:'Malaysia',website:'manufco.my',added:'5 Apr 2026',tags:['ERP','Supply Chain','IoT'],employees:'1,200',opportunities:1,totalValue:3.0,painPoints:['No end-to-end supply chain visibility','Manual inventory tracking','Slow order-to-delivery cycle']}
@@ -159,6 +431,271 @@ let allDeals = [
   {rep:'Faizal Hassan',account:'Manufacturing Co – ERP',stage:2,daysInStage:4,daysToClose:80,value:3000000,movement:'Advanced',status:'On Track',notes:''}
 ];
 
+// ── OPEN / RESET MODAL ───────────────────────────────────
+function openAddProspectModal() {
+  // Reset all fields
+  ['np-name','np-location','np-website','np-contact-name','np-contact-pos',
+   'np-curr-system','np-curr-module','np-auth-name','np-auth-pos','np-pain'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  ['np-industry','np-emp-size','np-it-budget','np-hr-budget','np-timeline'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.selectedIndex = 0;
+  });
+  document.getElementById('ai-results').classList.remove('visible');
+  document.getElementById('ai-products-output').classList.remove('visible');
+  document.getElementById('ai-proposal-output').classList.remove('visible');
+  const btn = document.getElementById('ai-research-btn');
+  btn.classList.remove('loading');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> 🤖 Research Company with AI Sales Agent`;
+  lastAIResearch = null;
+  document.getElementById('add-prospect-modal').classList.add('open');
+}
+
+// ── AI SALES AGENT: RESEARCH COMPANY ────────────────────
+async function runAISalesAgent() {
+  const name    = document.getElementById('np-name').value.trim();
+  const industry= document.getElementById('np-industry').value;
+  const location= document.getElementById('np-location').value.trim();
+  const website = document.getElementById('np-website').value.trim();
+  const empSize = document.getElementById('np-emp-size').value;
+  const itBudget= document.getElementById('np-it-budget').value;
+  const hrBudget= document.getElementById('np-hr-budget').value;
+  const pain    = document.getElementById('np-pain').value.trim();
+  const timeline= document.getElementById('np-timeline').value;
+
+  if (!name) { alert('Please enter a Company Name before running AI research.'); return; }
+
+  const btn = document.getElementById('ai-research-btn');
+  btn.classList.add('loading');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> Researching ${name}...`;
+
+  const system = `You are an expert AI Sales Intelligence Agent for Ramssol Group, a Malaysian B2B technology company specialising in enterprise software:
+- RAMS PeopleTech: HCM/HR consulting (Oracle Fusion HCM, Darwinbox, Hono.ai, RAMCO Payce)
+- RAMS A.I.Tech: AI, IoT, cloud solutions (iFlytek, Tencent Cloud partnerships)
+- RAMS AutoTech: Robotic process automation and industrial automation
+- RAMS EduTech: Education technology platforms
+- RAMS MarTech: Marketing technology and CRM solutions
+
+You help Ramssol's pre-sales team qualify prospects and win deals in Malaysia and Southeast Asia.
+IMPORTANT: Return ONLY valid JSON, no markdown, no extra text.`;
+
+  const prompt = `Research this prospect for Ramssol Group and return a JSON object:
+
+Company: ${name}
+Industry: ${industry || 'Unknown'}
+Location: ${location || 'Malaysia'}
+Website: ${website || 'Not provided'}
+Employee Size: ${empSize || 'Unknown'}
+Known IT Budget: ${itBudget || 'Unknown'}
+Known HR Budget: ${hrBudget || 'Unknown'}
+Pain Points / Needs: ${pain || 'Not provided'}
+Timeline: ${timeline || 'Unknown'}
+
+Return ONLY this JSON structure (no markdown, no backticks):
+{
+  "companyBackground": "2-3 sentence factual overview of the company, industry, and operations",
+  "estimatedRevenue": "e.g. RM 50M – 200M/year",
+  "estimatedITSpend": "e.g. RM 2M – 5M/year",
+  "estimatedHRSpend": "e.g. RM 500K – 1M/year",
+  "employeeSize": "best estimate as a number range",
+  "decisionMaker": "most likely decision-maker title and why",
+  "buyingPotential": "High or Medium or Low",
+  "buyingPotentialReason": "1-2 sentences on why this potential rating was given, considering budget, need urgency, and fit with Ramssol products"
+}`;
+
+  const raw = await callClaude([{role:'user',content:prompt}], system, 900);
+
+  btn.classList.remove('loading');
+  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg> ✅ Research Complete — Click to Re-run`;
+
+  try {
+    const clean = raw.replace(/```json|```/g,'').trim();
+    const data = JSON.parse(clean);
+    lastAIResearch = data;
+    renderAIResults(data, name, industry, pain, timeline);
+  } catch(e) {
+    // If JSON parse fails, show raw text in background section
+    lastAIResearch = { raw };
+    document.getElementById('ai-background').textContent = raw;
+    document.getElementById('ai-revenue').textContent = '—';
+    document.getElementById('ai-it-spend').textContent = '—';
+    document.getElementById('ai-hr-spend').textContent = '—';
+    document.getElementById('ai-emp-est').textContent = '—';
+    document.getElementById('ai-decision-maker').textContent = '—';
+    document.getElementById('ai-buying-badge').innerHTML = '';
+    document.getElementById('ai-buying-inline').innerHTML = '';
+    document.getElementById('ai-buying-reason').textContent = '';
+    document.getElementById('ai-results').classList.add('visible');
+  }
+}
+
+function renderAIResults(data, name, industry, pain, timeline) {
+  document.getElementById('ai-background').textContent     = data.companyBackground || '—';
+  document.getElementById('ai-revenue').textContent        = data.estimatedRevenue  || '—';
+  document.getElementById('ai-it-spend').textContent       = data.estimatedITSpend  || '—';
+  document.getElementById('ai-hr-spend').textContent       = data.estimatedHRSpend  || '—';
+  document.getElementById('ai-emp-est').textContent        = data.employeeSize       || '—';
+  document.getElementById('ai-decision-maker').textContent = data.decisionMaker      || '—';
+  document.getElementById('ai-buying-reason').textContent  = data.buyingPotentialReason || '—';
+
+  const pot = (data.buyingPotential || 'Medium').trim();
+  const cls = pot === 'High' ? 'b-high' : pot === 'Low' ? 'b-low' : 'b-med';
+  const badge = `<span class="buying-badge ${cls}">${pot}</span>`;
+  document.getElementById('ai-buying-badge').innerHTML  = badge;
+  document.getElementById('ai-buying-inline').innerHTML = badge;
+
+  document.getElementById('ai-results').classList.add('visible');
+  document.getElementById('ai-products-output').classList.remove('visible');
+  document.getElementById('ai-proposal-output').classList.remove('visible');
+}
+
+// ── AI: RECOMMEND PRODUCTS ───────────────────────────────
+async function runRecommendProducts() {
+  const name     = document.getElementById('np-name').value.trim() || 'the prospect';
+  const industry = document.getElementById('np-industry').value || 'Unknown';
+  const empSize  = document.getElementById('np-emp-size').value || 'Unknown';
+  const itBudget = document.getElementById('np-it-budget').value || 'Unknown';
+  const hrBudget = document.getElementById('np-hr-budget').value || 'Unknown';
+  const pain     = document.getElementById('np-pain').value.trim() || 'Not specified';
+  const timeline = document.getElementById('np-timeline').value || 'Unknown';
+  const research = lastAIResearch ? JSON.stringify(lastAIResearch) : 'No prior research available';
+
+  const outputEl = document.getElementById('ai-products-output');
+  const textEl   = document.getElementById('ai-products-text');
+  outputEl.classList.add('visible');
+  textEl.innerHTML = '⏳ Analysing and recommending products...';
+
+  const system = `You are a senior pre-sales consultant at Ramssol Group. Ramssol's product portfolio:
+
+RAMS PeopleTech (HCM / HR):
+• Oracle Fusion HCM — Enterprise HR, Payroll, Talent Management (large enterprise, 1,000+ employees)
+• Darwinbox — Mid-market HCM cloud platform (SEA focus, 200–5,000 employees)
+• Hono.ai — AI-powered HR & workforce analytics
+• RAMCO Payce — Payroll automation for complex multi-country payroll
+
+RAMS A.I.Tech (AI / Cloud):
+• iFlytek AI Platform — NLP, speech recognition, AI solutions
+• Tencent Cloud — Cloud infrastructure, AI services, private cloud
+
+RAMS AutoTech:
+• RPA and industrial automation solutions
+
+RAMS EduTech:
+• Learning management systems and student lifecycle platforms
+
+RAMS MarTech:
+• CRM, digital marketing automation
+
+Recommend the most suitable products. Be specific on why each product fits this prospect.`;
+
+  const prompt = `Prospect: ${name} | Industry: ${industry} | Employees: ${empSize}
+IT Budget: ${itBudget} | HR Budget: ${hrBudget}
+Pain Points: ${pain}
+Timeline: ${timeline}
+AI Research: ${research}
+
+Recommend the top 2-3 Ramssol products/solutions for this prospect. For each:
+1. Product name
+2. Why it fits (2-3 specific reasons tied to their industry/pain)
+3. Estimated deal value range
+4. Recommended next step
+
+Format clearly with numbered sections.`;
+
+  const reply = await callClaude([{role:'user',content:prompt}], system, 800);
+  textEl.innerHTML = reply.replace(/\n/g,'<br>');
+}
+
+// ── AI: GENERATE PROPOSAL OUTLINE ───────────────────────
+async function runGenerateProposal() {
+  const name     = document.getElementById('np-name').value.trim() || 'the prospect';
+  const industry = document.getElementById('np-industry').value || 'Unknown';
+  const location = document.getElementById('np-location').value.trim() || 'Malaysia';
+  const pain     = document.getElementById('np-pain').value.trim() || 'Not specified';
+  const itBudget = document.getElementById('np-it-budget').value || 'Unknown';
+  const hrBudget = document.getElementById('np-hr-budget').value || 'Unknown';
+  const authName = document.getElementById('np-auth-name').value.trim();
+  const authPos  = document.getElementById('np-auth-pos').value.trim();
+  const timeline = document.getElementById('np-timeline').value || 'Unknown';
+  const research = lastAIResearch ? JSON.stringify(lastAIResearch) : '';
+
+  const outputEl = document.getElementById('ai-proposal-output');
+  const textEl   = document.getElementById('ai-proposal-text');
+  outputEl.classList.add('visible');
+  textEl.innerHTML = '⏳ Generating proposal outline...';
+
+  const system = `You are a senior proposal writer for Ramssol Group, a Malaysian technology solutions company. Write professional, persuasive proposal outlines tailored to the prospect's industry and pain points. Be specific, not generic.`;
+
+  const prompt = `Generate a full proposal outline for this prospect:
+
+Company: ${name}
+Industry: ${industry}
+Location: ${location}
+Decision Maker: ${authName ? authName + (authPos ? ', ' + authPos : '') : 'Not specified'}
+IT Budget: ${itBudget} | HR Budget: ${hrBudget}
+Key Pain Points: ${pain}
+Timeline: ${timeline}
+Research Notes: ${research}
+
+Create a structured proposal outline with these 8 sections:
+1. Executive Summary
+2. Understanding of ${name}'s Challenges
+3. Proposed Solution (specific Ramssol products)
+4. Key Benefits & ROI
+5. Implementation Approach & Timeline
+6. Commercial Proposal (pricing structure)
+7. Case Studies & References
+8. Next Steps & Call to Action
+
+For each section, write 2-3 bullet points of specific content guidance tailored to ${name}.`;
+
+  const reply = await callClaude([{role:'user',content:prompt}], system, 1200);
+  textEl.innerHTML = reply.replace(/\n/g,'<br>');
+}
+
+// ── ADD PROSPECT ─────────────────────────────────────────
+function addProspect() {
+  const name = document.getElementById('np-name').value.trim();
+  if (!name) { alert('Please enter a Company Name.'); return; }
+  const ind      = document.getElementById('np-industry').value || 'Other';
+  const location = document.getElementById('np-location').value.trim();
+  const web      = document.getElementById('np-website').value.trim();
+  const empSize  = document.getElementById('np-emp-size').value;
+  const pain     = document.getElementById('np-pain').value.trim();
+  const cName    = document.getElementById('np-contact-name').value.trim();
+  const cPos     = document.getElementById('np-contact-pos').value.trim();
+  const authName = document.getElementById('np-auth-name').value.trim();
+  const authPos  = document.getElementById('np-auth-pos').value.trim();
+  const itBudget = document.getElementById('np-it-budget').value;
+  const hrBudget = document.getElementById('np-hr-budget').value;
+  const timeline = document.getElementById('np-timeline').value;
+  const currSys  = document.getElementById('np-curr-system').value.trim();
+  const currMod  = document.getElementById('np-curr-module').value.trim();
+
+  const painArr = pain ? pain.split('\n').filter(Boolean) : ['To be researched with AI'];
+  const tags = [ind, currSys, currMod].filter(Boolean).slice(0,3);
+
+  prospects.push({
+    id: Date.now(), name, type: ind,
+    country: location || 'Malaysia',
+    website: web || '—',
+    added: new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),
+    tags: tags.length ? tags : [ind],
+    employees: empSize || '—',
+    opportunities: 0, totalValue: 0,
+    painPoints: painArr,
+    contact: cName ? `${cName}${cPos ? ', '+cPos : ''}` : '—',
+    authority: authName ? `${authName}${authPos ? ', '+authPos : ''}` : '—',
+    itBudget, hrBudget, timeline,
+    currentSystem: currSys || '—',
+    currentModule: currMod || '—',
+    aiResearch: lastAIResearch
+  });
+
+  document.getElementById('add-prospect-modal').classList.remove('open');
+  renderProspects();
+}
+
 // ── RENDER PROSPECTS GRID ────────────────────────────────
 function renderProspects() {
   document.getElementById('prospects-grid').innerHTML = prospects.map(p => `
@@ -168,10 +705,10 @@ function renderProspects() {
         <span class="prospect-tag">Active</span>
       </div>
       <div class="prospect-meta"><span>🌐 ${p.country}</span><span>👥 ${p.employees}</span></div>
-      <div class="prospect-tags">${p.tags.slice(0,3).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
+      <div class="prospect-tags">${(p.tags||[]).slice(0,3).map(t=>`<span class="tag">${t}</span>`).join('')}</div>
       <div class="prospect-footer">
         <span class="prospect-opp"><strong>${p.opportunities}</strong> opportunities</span>
-        <span style="font-size:12px;font-family:var(--mono);font-weight:500;color:var(--brand-500)">RM ${p.totalValue.toFixed(1)}M</span>
+        <span style="font-size:12px;font-family:var(--mono);font-weight:500;color:var(--brand-500)">RM ${(p.totalValue||0).toFixed(1)}M</span>
       </div>
     </div>`).join('');
 }
@@ -200,6 +737,8 @@ function openProspect(id) {
             <span class="meta-item">🌐 <a href="#">${p.website}</a></span>
             <span class="meta-item">📅 Added ${p.added}</span>
             <span class="meta-item">👥 ${p.employees}</span>
+            ${p.contact && p.contact!=='—' ? `<span class="meta-item">👤 ${p.contact}</span>` : ''}
+            ${p.authority && p.authority!=='—' ? `<span class="meta-item">🔑 ${p.authority}</span>` : ''}
           </div>
         </div>
         <div style="display:flex;gap:8px">
@@ -220,20 +759,24 @@ function openProspect(id) {
       <div>
         <div class="card" style="margin-bottom:16px">
           <div class="card-header"><span class="card-title">Company Overview</span></div>
-          <p style="font-size:13px;color:var(--gray-700);line-height:1.7;margin-bottom:16px">${p.name} is a ${p.type} organization based in ${p.country}. They operate across multiple regions with ${p.employees} employees/volunteers.</p>
+          <p style="font-size:13px;color:var(--gray-700);line-height:1.7;margin-bottom:16px">${p.aiResearch?.companyBackground || p.name + ' is a ' + p.type + ' organization based in ' + p.country + '.'}</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
             <div><div style="font-size:11px;color:var(--gray-400)">Industry</div><div style="font-size:13px">${p.type}</div></div>
             <div><div style="font-size:11px;color:var(--gray-400)">Country</div><div style="font-size:13px">${p.country}</div></div>
             <div><div style="font-size:11px;color:var(--gray-400)">Employees</div><div style="font-size:13px">${p.employees}</div></div>
             <div><div style="font-size:11px;color:var(--gray-400)">Website</div><div style="font-size:13px;color:var(--brand-500)">${p.website}</div></div>
+            ${p.currentSystem && p.currentSystem!=='—' ? `<div><div style="font-size:11px;color:var(--gray-400)">Current System</div><div style="font-size:13px">${p.currentSystem}</div></div>` : ''}
+            ${p.itBudget ? `<div><div style="font-size:11px;color:var(--gray-400)">IT Budget</div><div style="font-size:13px">${p.itBudget}</div></div>` : ''}
+            ${p.aiResearch?.estimatedRevenue ? `<div><div style="font-size:11px;color:var(--gray-400)">Est. Revenue</div><div style="font-size:13px;font-family:var(--mono)">${p.aiResearch.estimatedRevenue}</div></div>` : ''}
+            ${p.aiResearch?.buyingPotential ? `<div><div style="font-size:11px;color:var(--gray-400)">Buying Potential</div><div style="font-size:13px"><span style="font-weight:600;color:${p.aiResearch.buyingPotential==='High'?'var(--brand-600)':p.aiResearch.buyingPotential==='Low'?'var(--red-700)':'var(--amber-600)'}">${p.aiResearch.buyingPotential}</span></div></div>` : ''}
           </div>
         </div>
         <div class="card" style="margin-bottom:16px">
           <div class="card-header">
-            <span class="card-title">Key Pain Points <span style="font-size:11px;background:var(--amber-50);color:var(--amber-600);padding:2px 7px;border-radius:20px;margin-left:6px">${p.painPoints.length} AI Identified</span></span>
+            <span class="card-title">Key Pain Points <span style="font-size:11px;background:var(--amber-50);color:var(--amber-600);padding:2px 7px;border-radius:20px;margin-left:6px">${(p.painPoints||[]).length} identified</span></span>
           </div>
           <ul class="pain-points-list">
-            ${p.painPoints.map((pt,i)=>`<li class="pain-item"><span class="picon">${icons[i%icons.length]}</span><p>${pt}</p></li>`).join('')}
+            ${(p.painPoints||[]).map((pt,i)=>`<li class="pain-item"><span class="picon">${icons[i%icons.length]}</span><p>${pt}</p></li>`).join('')}
           </ul>
         </div>
         <div class="card">
@@ -264,21 +807,13 @@ function openProspect(id) {
           </div>
           <div class="ai-quick-actions">
             <button class="ai-quick-btn" onclick="prospectAsk('Research ${p.name} and identify their biggest technology needs')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-              Research this organization
-            </button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>Research this organization</button>
             <button class="ai-quick-btn" onclick="prospectAsk('What are the key challenges facing ${p.name} and how can Ramssol help?')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-              What are their key challenges?
-            </button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>What are their key challenges?</button>
             <button class="ai-quick-btn" onclick="prospectAsk('Suggest the best Ramssol solutions for ${p.name} in the ${p.type} sector')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
-              Suggest solutions to pitch
-            </button>
-            <button class="ai-quick-btn" onclick="prospectAsk('Generate a proposal outline for ${p.name} in the ${p.type} sector')">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
-              Generate proposal outline
-            </button>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>Suggest solutions to pitch</button>
+            <button class="ai-quick-btn" onclick="prospectAsk('Generate a full proposal outline for ${p.name} in the ${p.type} sector with pricing')">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Generate proposal outline</button>
           </div>
           <div class="ai-input-area">
             <textarea class="ai-input" id="prospect-ai-input" placeholder="Ask anything about ${p.name}..." rows="2"
@@ -298,17 +833,6 @@ function closeProspect() {
   currentProspect = null;
 }
 
-function addProspect() {
-  const name = document.getElementById('np-name').value.trim();
-  if (!name) { alert('Please enter a company name.'); return; }
-  const ind = document.getElementById('np-industry').value;
-  const web = document.getElementById('np-website').value.trim();
-  const tags = document.getElementById('np-tags').value.split(',').map(t=>t.trim()).filter(Boolean);
-  prospects.push({ id:Date.now(), name, type:ind, country:'Malaysia', website:web||'—', added:new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}), tags:tags.length?tags:[ind], employees:'—', opportunities:0, totalValue:0, painPoints:['To be researched with AI'] });
-  document.getElementById('add-prospect-modal').classList.remove('open');
-  renderProspects();
-}
-
 function addDeal() {
   const account = document.getElementById('nd-account').value.trim();
   if (!account) { alert('Please enter an account name.'); return; }
@@ -316,9 +840,8 @@ function addDeal() {
   document.getElementById('add-deal-modal').classList.remove('open');
 }
 
-// ── AI ───────────────────────────────────────────────────
+// ── AI UTILITIES ─────────────────────────────────────────
 function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
-
 function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
 
 async function saveApiKey() {
@@ -337,11 +860,10 @@ async function saveApiKey() {
 
 async function callClaude(messages, system, maxTokens=800) {
   const key = getApiKey();
-  if (!key) return '⚠️ Please set your Anthropic API key in AI Settings.';
+  if (!key) return '⚠️ Please set your Anthropic API key in AI Settings (sidebar).';
   try {
     const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,system,messages})});
-    const d = await r.json();
-    if (d.error) return '⚠️ '+d.error.message;
+    const d = await r.json(); if (d.error) return '⚠️ '+d.error.message;
     return d.content.map(c=>c.text||'').join('');
   } catch(e) { return '⚠️ '+e.message; }
 }
@@ -363,13 +885,12 @@ function showTyping(id) {
 
 async function prospectAsk(preset) {
   const input = document.getElementById('prospect-ai-input');
-  const msg = (preset || input.value).trim();
-  if (!msg) return;
+  const msg = (preset || input.value).trim(); if (!msg) return;
   if (input) input.value = '';
   appendMessage('prospect-ai-messages','user',msg);
   const typing = showTyping('prospect-ai-messages');
   const p = currentProspect;
-  const system = `You are an AI Pre-Sales Consultant for Ramssol Group, a Malaysian technology solutions company. Current prospect: ${p?p.name:''} (${p?p.type:''}). Known pain points: ${p?p.painPoints.join(', '):''}.Be concise, practical, and sales-focused.`;
+  const system = `You are an AI Pre-Sales Consultant for Ramssol Group. Current prospect: ${p?p.name:''} (${p?p.type:''}). Pain points: ${p?(p.painPoints||[]).join(', '):''}. Be concise and sales-focused.`;
   const reply = await callClaude([{role:'user',content:msg}], system, 700);
   if (typing) typing.remove();
   appendMessage('prospect-ai-messages','bot',reply);
