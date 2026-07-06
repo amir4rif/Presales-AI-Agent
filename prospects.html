@@ -10,62 +10,59 @@
     /* ── EXPANDED MODAL ─────────────────────────────────── */
     .modal-wide { max-width: 720px; max-height: 88vh; overflow-y: auto; }
     .modal-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
-    .modal-ai-badge { font-size: 11px; font-weight: 600; background: rgba(139,92,246,0.15); color: var(--brand-300); padding: 3px 10px; border-radius: 20px; border: 1px solid rgba(139,92,246,0.3); }
-    .sec-divider { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--brand-300); margin: 16px 0 10px; padding-bottom: 8px; border-bottom: 2px solid var(--gray-100); display: flex; align-items: center; gap: 6px; }
+    .modal-ai-badge { font-size: 11px; font-weight: 600; background: var(--brand-50); color: var(--brand-600); padding: 3px 10px; border-radius: 20px; }
+    .sec-divider { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--brand-500); margin: 16px 0 10px; padding-bottom: 8px; border-bottom: 2px solid var(--brand-50); display: flex; align-items: center; gap: 6px; }
     .sec-divider::before { content:''; width:8px; height:8px; border-radius:50%; background:var(--brand-400); flex-shrink:0; }
     .fg { margin-bottom: 10px; }
-    .fl { font-size: 11px; font-weight: 500; color: var(--gray-700); margin-bottom: 4px; display: block; }
+    .fl { font-size: 11px; font-weight: 500; color: var(--gray-600); margin-bottom: 4px; display: block; }
     .fl .req { color: var(--red-700); }
-    .fi { width:100%; border:1px solid var(--gray-200); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); background:var(--gray-50); outline:none; }
-    .fi::placeholder { color: var(--gray-400); }
-    .fi:focus { border-color:var(--brand-400); box-shadow: 0 0 0 3px rgba(139,92,246,0.15); }
-    .fs { width:100%; border:1px solid var(--gray-200); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; background:var(--gray-50); appearance:none;
-          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
-          background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; padding-right: 30px; }
-    .fs option { background: var(--white); color: var(--gray-900); }
-    .ft { width:100%; border:1px solid var(--gray-200); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); background:var(--gray-50); outline:none; resize:vertical; min-height:64px; line-height:1.5; }
-    .ft::placeholder { color: var(--gray-400); }
-    .ft:focus, .fs:focus { border-color:var(--brand-400); box-shadow: 0 0 0 3px rgba(139,92,246,0.15); }
+    .fi { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; }
+    .fi:focus { border-color:var(--brand-400); }
+    .fs { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; background:white; }
+    .ft { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; resize:vertical; min-height:64px; line-height:1.5; }
+    .ft:focus, .fs:focus { border-color:var(--brand-400); }
     .g2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .g3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; }
 
     /* AI Research trigger */
-    .ai-agent-btn { width:100%; padding:13px; margin-top:18px; border-radius:10px; border:2px dashed var(--brand-400); background:rgba(139,92,246,0.08); color:var(--brand-300); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font); display:flex; align-items:center; justify-content:center; gap:8px; transition:all .15s; }
-    .ai-agent-btn:hover { background:rgba(139,92,246,0.15); border-color:var(--brand-300); }
+    .ai-agent-btn { width:100%; padding:13px; margin-top:18px; border-radius:10px; border:2px dashed var(--brand-300); background:var(--brand-50); color:var(--brand-600); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font); display:flex; align-items:center; justify-content:center; gap:8px; transition:all .15s; }
+    .ai-agent-btn:hover { background:var(--brand-100); border-color:var(--brand-400); }
     .ai-agent-btn.loading { opacity:.7; pointer-events:none; }
 
     /* Research Results */
-    .ai-results { display:none; margin-top:14px; border:1px solid var(--gray-200); border-radius:10px; overflow:hidden; }
+    .ai-results { display:none; margin-top:14px; border:1px solid var(--brand-100); border-radius:10px; overflow:hidden; }
     .ai-results.visible { display:block; }
-    .ai-results-header { background:rgba(139,92,246,0.10); padding:10px 14px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--gray-200); }
-    .ai-results-header-title { font-size:12px; font-weight:700; color:var(--brand-300); }
-    .ai-results-body { padding:12px 14px; display:flex; flex-direction:column; gap:10px; background: var(--white); }
-    .ai-wide-card { background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:10px 12px; }
+    .ai-results-header { background:var(--brand-50); padding:10px 14px; display:flex; align-items:center; gap:8px; border-bottom:1px solid var(--brand-100); }
+    .ai-results-header-title { font-size:12px; font-weight:700; color:var(--brand-700); }
+    .ai-results-body { padding:12px 14px; display:flex; flex-direction:column; gap:10px; }
+    .ai-wide-card { background:var(--gray-50); border:1px solid var(--gray-100); border-radius:8px; padding:10px 12px; }
     .ai-card-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--gray-400); margin-bottom:4px; }
     .ai-card-val { font-size:12px; color:var(--gray-700); line-height:1.5; }
     .ai-metrics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-    .ai-metric-box { background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:10px 12px; text-align:center; }
-    .ai-metric-num { font-size:14px; font-weight:700; color:var(--brand-400); font-family:var(--mono); }
+    .ai-metric-box { background:white; border:1px solid var(--gray-100); border-radius:8px; padding:10px 12px; text-align:center; }
+    .ai-metric-num { font-size:14px; font-weight:700; color:var(--brand-600); font-family:var(--mono); }
     .ai-metric-lbl { font-size:10px; color:var(--gray-400); margin-top:2px; }
     .buying-wrap { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
     .buying-badge { font-size:11px; font-weight:700; padding:3px 12px; border-radius:20px; }
-    .b-high { background:rgba(139,92,246,0.15); color:var(--brand-300); border:1px solid var(--brand-400); }
-    .b-med  { background:var(--amber-50); color:var(--amber-400); border:1px solid var(--amber-600); }
-    .b-low  { background:var(--red-50); color:var(--red-500); border:1px solid var(--red-700); }
-    .buying-reason { font-size:12px; color:var(--gray-500); }
+    .b-high { background:var(--brand-50); color:var(--brand-600); }
+    .b-med  { background:var(--amber-50); color:var(--amber-600); }
+    .b-low  { background:var(--red-50); color:var(--red-700); }
+    .buying-reason { font-size:12px; color:var(--gray-600); }
 
     /* AI Action buttons */
     .ai-actions-row { display:flex; gap:10px; margin-top:14px; }
     .ai-act-btn { flex:1; padding:10px 14px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font); display:flex; align-items:center; justify-content:center; gap:7px; transition:all .15s; }
     .ai-act-btn svg { width:14px; height:14px; }
-    .btn-rec  { background:var(--brand-600); color:white; border:none; }
-    .btn-rec:hover  { background:var(--brand-500); }
-    .btn-prop { background:var(--gray-50); color:var(--brand-300); border:1.5px solid var(--brand-400); }
-    .btn-prop:hover { background:rgba(139,92,246,0.10); }
-    .ai-output { display:none; background:var(--gray-50); border:1px solid var(--gray-200); border-left:3px solid var(--brand-400); border-radius:8px; padding:14px 16px; margin-top:10px; font-size:12px; color:var(--gray-700); line-height:1.7; white-space:pre-wrap; }
+    .btn-rec  { background:var(--brand-700); color:white; border:none; }
+    .btn-rec:hover  { background:var(--brand-600); }
+    .btn-prop { background:white; color:var(--brand-700); border:1.5px solid var(--brand-300); }
+    .btn-prop:hover { background:var(--brand-50); }
+    .ai-output { display:none; background:white; border:1px solid var(--brand-100); border-left:3px solid var(--brand-400); border-radius:8px; padding:14px 16px; margin-top:10px; font-size:12px; color:var(--gray-700); line-height:1.7; white-space:pre-wrap; }
     .ai-output.visible { display:block; }
-    .ai-output-title { font-size:10px; font-weight:700; color:var(--brand-400); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+    .ai-output-title { font-size:10px; font-weight:700; color:var(--brand-600); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
   </style>
+  <!-- html2pdf — converts HTML to downloadable PDF in the browser -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
 
@@ -86,12 +83,12 @@
     <a class="nav-item" href="pipeline.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Pipeline</a>
     <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reports</a>
     <div class="nav-section-label">Settings</div>
-    <a class="nav-item" href="settings.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Admin</a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Admin</a>
     <button class="nav-item" onclick="showApiKeyModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AI Settings</button>
   </nav>
   <div class="sidebar-user">
-    <div class="user-avatar">U</div>
-    <div><div class="user-name">User</div><div class="user-role">COO Office</div></div>
+    <div class="user-avatar">AA</div>
+    <div><div class="user-name">Amir Arif</div><div class="user-role">COO Office</div></div>
   </div>
 </aside>
 
@@ -658,6 +655,42 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
   textEl.innerHTML = reply.replace(/\n/g,'<br>');
 }
 
+// ── LARK SHEETS INTEGRATION ───────────────────────────────
+// Paste your deployed Google Apps Script Web App URL here (see lark_sheets_sync.gs)
+const LARK_BASE_PROXY_URL = 'PASTE_YOUR_GOOGLE_APPS_SCRIPT_URL_HERE';
+
+async function pushToLarkBase(data) {
+  if (!LARK_BASE_PROXY_URL || LARK_BASE_PROXY_URL.indexOf('PASTE_YOUR') === 0) {
+    console.warn('Lark Base sync skipped — LARK_BASE_PROXY_URL not configured yet.');
+    return;
+  }
+  try {
+    const res = await fetch(LARK_BASE_PROXY_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight on Apps Script
+      body: JSON.stringify(data)
+    });
+    const result = await res.json();
+    if (result.success) {
+      showToast('✅ Synced to Lark Base');
+    } else {
+      console.warn('Lark Base sync failed:', result.error);
+      showToast('⚠️ Saved locally — Lark sync failed', true);
+    }
+  } catch(e) {
+    console.warn('Lark Base push error (offline?):', e.message);
+    showToast('⚠️ Saved locally — Lark sync failed', true);
+  }
+}
+
+function showToast(msg, isWarning) {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;background:${isWarning ? '#BA7517' : '#085041'};color:white;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:opacity .3s`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
 // ── ADD PROSPECT ─────────────────────────────────────────
 function addProspect() {
   const name = document.getElementById('np-name').value.trim();
@@ -699,6 +732,22 @@ function addProspect() {
 
   document.getElementById('add-prospect-modal').classList.remove('open');
   renderProspects();
+
+  // Push the same data to Lark Sheets in the background
+  pushToLarkBase({
+    companyName: name,
+    contactName: cName,
+    contactPos: cPos,
+    location, empSize,
+    currSystem: currSys,
+    currModule: currMod,
+    industry: ind,
+    website: web,
+    itBudget, hrBudget,
+    authName, authPos,
+    pain, timeline,
+    aiResearch: lastAIResearch
+  });
 }
 
 // ── RENDER PROSPECTS GRID ────────────────────────────────
@@ -819,6 +868,9 @@ function openProspect(id) {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>Suggest solutions to pitch</button>
             <button class="ai-quick-btn" onclick="prospectAsk('Generate a full proposal outline for ${p.name} in the ${p.type} sector with pricing')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Generate proposal outline</button>
+            <button class="ai-quick-btn" onclick="prospectAsk('Generate a PDF report for ${p.name}')" style="border-color:var(--brand-400);color:var(--brand-500);background:var(--brand-50);font-weight:600">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              ⬇ Generate PDF / Word report</button>
           </div>
           <div class="ai-input-area">
             <textarea class="ai-input" id="prospect-ai-input" placeholder="Ask anything about ${p.name}..." rows="2"
@@ -888,17 +940,270 @@ function showTyping(id) {
   c.appendChild(div); c.scrollTop=c.scrollHeight; return div;
 }
 
+// ── DOCUMENT INTENT DETECTION ────────────────────────────
+function detectDocIntent(msg) {
+  const lower = msg.toLowerCase();
+  const docWords  = ['generate','create','make','produce','export','download','write','build','draft'];
+  const fileWords = ['pdf','word','doc','document','report','file','paper','brief','summary','profile'];
+  const hasDoc  = docWords.some(w => lower.includes(w));
+  const hasFile = fileWords.some(w => lower.includes(w));
+  return hasDoc && hasFile;
+}
+
+// ── BUILD REPORT HTML TEMPLATE ───────────────────────────
+function buildReportHTML(data, prospect) {
+  const date = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
+  const pot   = (data.buyingPotential || 'Medium').trim();
+  const potColor  = pot==='High' ? '#0A6650' : pot==='Low' ? '#A32D2D' : '#BA7517';
+  const potBg     = pot==='High' ? '#E7F9F2' : pot==='Low' ? '#FEF2F2' : '#FEF9EC';
+  const pains     = (data.keyPainPoints || []).map(p=>`<li style="margin-bottom:6px">${p}</li>`).join('');
+  const solutions = (data.recommendedSolutions || []).map((s,i)=>`
+    <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #F0EFF0">
+      <div style="width:24px;height:24px;border-radius:50%;background:#1B2A4A;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
+      <div><div style="font-size:13px;font-weight:600;color:#1B2A4A">${s.product||s}</div><div style="font-size:12px;color:#6B7280;margin-top:2px">${s.reason||''}</div></div>
+    </div>`).join('');
+  const nextSteps = (data.nextSteps || []).map((s,i)=>`
+    <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
+      <div style="background:#00B4A0;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:1px">Step ${i+1}</div>
+      <div style="font-size:12px;color:#374151">${s}</div>
+    </div>`).join('');
+
+  return `
+<div id="ramssol-report" style="font-family:'Calibri',Arial,sans-serif;max-width:780px;margin:0 auto;color:#111827;background:white;padding:0">
+
+  <!-- HEADER -->
+  <div style="background:#1B2A4A;padding:36px 40px;border-radius:10px 10px 0 0;margin-bottom:0">
+    <div style="font-size:9px;font-weight:700;color:#00D4B4;letter-spacing:2px;text-transform:uppercase;margin-bottom:10px">RAMSSOL GROUP · SALES INTELLIGENCE REPORT</div>
+    <div style="font-size:30px;font-weight:700;color:white;line-height:1.2">${prospect.name}</div>
+    <div style="font-size:13px;color:rgba(255,255,255,0.6);margin-top:6px">${prospect.type} &nbsp;·&nbsp; ${prospect.country} &nbsp;·&nbsp; Generated ${date}</div>
+  </div>
+
+  <!-- TEAL ACCENT BAR -->
+  <div style="height:4px;background:linear-gradient(90deg,#00B4A0,#00D4B4);margin-bottom:28px"></div>
+
+  <!-- EXECUTIVE SUMMARY -->
+  <div style="padding:0 40px 24px">
+    <div style="font-size:10px;font-weight:700;color:#00B4A0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px">Executive Summary</div>
+    <div style="font-size:13px;color:#374151;line-height:1.7;background:#F8F9FA;border-radius:8px;padding:16px 20px;border-left:4px solid #00B4A0">${data.executiveSummary || data.companyBackground || '—'}</div>
+  </div>
+
+  <!-- FINANCIAL METRICS -->
+  <div style="padding:0 40px 24px">
+    <div style="font-size:10px;font-weight:700;color:#00B4A0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px">Financial Intelligence</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+      ${[
+        ['Est. Annual Revenue',    data.financials?.revenue    || data.estimatedRevenue    || '—'],
+        ['Est. IT Spending',       data.financials?.itSpend    || data.estimatedITSpend    || '—'],
+        ['Est. HR Spending',       data.financials?.hrSpend    || data.estimatedHRSpend    || '—'],
+        ['Employee Size',          data.employeeSize           || prospect.employees       || '—'],
+      ].map(([label,val])=>`
+        <div style="background:#F4F6F8;border-radius:8px;padding:14px 16px;border-top:3px solid #1B2A4A">
+          <div style="font-size:10px;color:#6B7280;font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px">${label}</div>
+          <div style="font-size:14px;font-weight:700;color:#1B2A4A;font-family:'Courier New',monospace">${val}</div>
+        </div>`).join('')}
+    </div>
+  </div>
+
+  <!-- DECISION MAKER + BUYING POTENTIAL -->
+  <div style="padding:0 40px 24px;display:grid;grid-template-columns:1fr 1fr;gap:16px">
+    <div style="background:#F4F6F8;border-radius:8px;padding:16px 20px;border-top:3px solid #1B2A4A">
+      <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Decision Maker</div>
+      <div style="font-size:14px;font-weight:600;color:#1B2A4A">${data.decisionMaker || '—'}</div>
+    </div>
+    <div style="background:${potBg};border-radius:8px;padding:16px 20px;border-top:3px solid ${potColor}">
+      <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">Buying Potential</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:16px;font-weight:700;color:${potColor}">${pot}</span>
+        <span style="font-size:11px;color:#6B7280;line-height:1.4">${data.buyingPotentialReason || ''}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAIN POINTS -->
+  <div style="padding:0 40px 24px">
+    <div style="font-size:10px;font-weight:700;color:#00B4A0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Key Pain Points &amp; Needs</div>
+    <ul style="margin:0;padding-left:18px;font-size:13px;color:#374151;line-height:1.8">${pains || '<li>No pain points identified</li>'}</ul>
+  </div>
+
+  <!-- RECOMMENDED SOLUTIONS -->
+  <div style="padding:0 40px 24px">
+    <div style="font-size:10px;font-weight:700;color:#00B4A0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:10px">Recommended Ramssol Solutions</div>
+    ${solutions || '<div style="font-size:13px;color:#6B7280">No solutions specified</div>'}
+  </div>
+
+  <!-- NEXT STEPS -->
+  <div style="padding:0 40px 28px">
+    <div style="font-size:10px;font-weight:700;color:#00B4A0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px">Recommended Next Steps</div>
+    ${nextSteps || '<div style="font-size:13px;color:#6B7280">No next steps specified</div>'}
+  </div>
+
+  <!-- FOOTER -->
+  <div style="background:#F4F6F8;padding:18px 40px;border-radius:0 0 10px 10px;display:flex;justify-content:space-between;align-items:center;border-top:1px solid #E5E9EF">
+    <div style="font-size:12px;font-weight:700;color:#1B2A4A">Ramssol Group &nbsp;·&nbsp; Pre-Sales Intelligence</div>
+    <div style="font-size:11px;color:#9CA3AF">Confidential · For Internal Use Only · ${date}</div>
+  </div>
+
+</div>`;
+}
+
+// ── GENERATE REPORT AND SHOW DOWNLOAD BUTTONS ─────────────
+async function generateProspectReport(userMsg) {
+  const p = currentProspect;
+  if (!p) { appendMessage('prospect-ai-messages','bot','⚠️ Please open a prospect first before generating a report.'); return; }
+
+  const typing = showTyping('prospect-ai-messages');
+
+  // Ask Claude to generate structured report data
+  const system = `You are a Sales Intelligence AI for Ramssol Group. Generate a structured JSON report for a prospect.
+Return ONLY valid JSON — no markdown, no backticks, no other text.
+JSON structure:
+{
+  "executiveSummary": "2-3 sentence overview of the company and why they are a good prospect for Ramssol",
+  "financials": { "revenue": "e.g. RM 50M–200M/year", "itSpend": "e.g. RM 2M–5M/year", "hrSpend": "e.g. RM 500K–1M/year" },
+  "employeeSize": "best estimate as number range",
+  "decisionMaker": "most likely decision-maker title and department",
+  "buyingPotential": "High or Medium or Low",
+  "buyingPotentialReason": "1 sentence explanation",
+  "keyPainPoints": ["pain point 1", "pain point 2", "pain point 3", "pain point 4"],
+  "recommendedSolutions": [
+    { "product": "Product name", "reason": "Why it fits this client specifically" },
+    { "product": "Product name", "reason": "Why it fits this client specifically" }
+  ],
+  "nextSteps": ["step 1", "step 2", "step 3"]
+}`;
+
+  const prompt = `Generate a sales intelligence report for:
+Company: ${p.name}
+Industry: ${p.type}
+Country: ${p.country}
+Employees: ${p.employees}
+Website: ${p.website}
+Pain Points: ${(p.painPoints||[]).join(', ')}
+AI Research available: ${p.aiResearch ? JSON.stringify(p.aiResearch) : 'None'}
+User request: ${userMsg}`;
+
+  const raw = await callClaude([{role:'user',content:prompt}], system, 1200);
+  if (typing) typing.remove();
+
+  let reportData = {};
+  try {
+    reportData = JSON.parse(raw.replace(/```json|```/g,'').trim());
+  } catch(e) {
+    // If JSON fails, build a minimal report from existing prospect data
+    reportData = {
+      executiveSummary: p.aiResearch?.companyBackground || `${p.name} is a ${p.type} organisation based in ${p.country}.`,
+      financials: {
+        revenue: p.aiResearch?.estimatedRevenue || '—',
+        itSpend: p.aiResearch?.estimatedITSpend  || '—',
+        hrSpend: p.aiResearch?.estimatedHRSpend  || '—',
+      },
+      employeeSize: p.employees,
+      decisionMaker: p.aiResearch?.decisionMaker || '—',
+      buyingPotential: p.aiResearch?.buyingPotential || 'Medium',
+      buyingPotentialReason: p.aiResearch?.buyingPotentialReason || '—',
+      keyPainPoints: p.painPoints || [],
+      recommendedSolutions: [],
+      nextSteps: ['Schedule discovery call', 'Send introductory proposal', 'Follow up within 5 business days'],
+    };
+  }
+
+  // Build the HTML report
+  const reportHTML = buildReportHTML(reportData, p);
+
+  // Inject a hidden render div (needed for html2pdf)
+  let renderDiv = document.getElementById('__report-render');
+  if (!renderDiv) {
+    renderDiv = document.createElement('div');
+    renderDiv.id = '__report-render';
+    renderDiv.style.cssText = 'position:fixed;left:-9999px;top:0;width:800px;background:white';
+    document.body.appendChild(renderDiv);
+  }
+  renderDiv.innerHTML = reportHTML;
+
+  // Show success card in chat with download buttons
+  const c = document.getElementById('prospect-ai-messages');
+  const card = document.createElement('div');
+  card.style.cssText = 'align-self:flex-start;background:white;border:1px solid #E5E9EF;border-left:3px solid #00B4A0;border-radius:12px;padding:14px 16px;max-width:90%;margin-bottom:4px';
+  card.innerHTML = `
+    <div style="font-size:12px;font-weight:600;color:#1B2A4A;margin-bottom:4px">📄 Sales Intelligence Report — ${p.name}</div>
+    <div style="font-size:11px;color:#6B7280;margin-bottom:12px">Report generated successfully. Choose your format:</div>
+    <div style="display:flex;gap:8px">
+      <button onclick="downloadReportPDF()" style="flex:1;padding:8px 12px;background:#1B2A4A;color:white;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">⬇ PDF</button>
+      <button onclick="downloadReportWord()" style="flex:1;padding:8px 12px;background:white;color:#1B2A4A;border:1.5px solid #1B2A4A;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">⬇ Word (editable)</button>
+    </div>
+    <div style="font-size:10px;color:#9CA3AF;margin-top:8px">Word file opens in Microsoft Word, Google Docs, or LibreOffice</div>`;
+  c.appendChild(card);
+  c.scrollTop = c.scrollHeight;
+
+  // Store filename for the download buttons
+  window.__reportFilename = `Ramssol_Intelligence_${p.name.replace(/\s+/g,'_')}`;
+}
+
+// ── PDF DOWNLOAD ─────────────────────────────────────────
+function downloadReportPDF() {
+  const el = document.getElementById('__report-render');
+  if (!el) return;
+  const opt = {
+    margin: [8, 8, 8, 8],
+    filename: (window.__reportFilename || 'Ramssol_Report') + '.pdf',
+    image: { type: 'jpeg', quality: 0.97 },
+    html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  };
+  html2pdf().set(opt).from(el.querySelector('#ramssol-report')).save();
+}
+
+// ── WORD (EDITABLE) DOWNLOAD ──────────────────────────────
+function downloadReportWord() {
+  const el = document.getElementById('__report-render');
+  if (!el) return;
+  const content = el.innerHTML;
+  // Build Word-compatible HTML using concatenation to avoid parser issues
+  // (closing HTML tags inside <script> template literals confuse the browser parser)
+  const wordHtml = '<html xmlns:o="urn:schemas-microsoft-com:office:office"'
+    + ' xmlns:w="urn:schemas-microsoft-com:office:word"'
+    + ' xmlns="http://www.w3.org/TR/REC-html40">'
+    + '<head><meta charset="utf-8">'
+    + '<style>'
+    + 'body{font-family:Calibri,Arial,sans-serif;margin:40px;color:#111827;}'
+    + 'table{border-collapse:collapse;width:100%;}'
+    + 'td,th{padding:8px 12px;}'
+    + '<\/style><\/head>'
+    + '<body>' + content + '<\/body><\/html>';
+  const blob = new Blob([wordHtml], { type: 'application/msword' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  a.download = (window.__reportFilename || 'Ramssol_Report') + '.doc';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ── PROSPECT AI CHAT ─────────────────────────────────────
 async function prospectAsk(preset) {
   const input = document.getElementById('prospect-ai-input');
-  const msg = (preset || input.value).trim(); if (!msg) return;
+  const msg = (preset || input.value).trim();
+  if (!msg) return;
   if (input) input.value = '';
-  appendMessage('prospect-ai-messages','user',msg);
+
+  appendMessage('prospect-ai-messages', 'user', msg);
+
+  // ── DOCUMENT GENERATION FLOW ──────────────────────────
+  if (detectDocIntent(msg)) {
+    await generateProspectReport(msg);
+    return;
+  }
+
+  // ── NORMAL CHAT FLOW ──────────────────────────────────
   const typing = showTyping('prospect-ai-messages');
   const p = currentProspect;
-  const system = `You are an AI Pre-Sales Consultant for Ramssol Group. Current prospect: ${p?p.name:''} (${p?p.type:''}). Pain points: ${p?(p.painPoints||[]).join(', '):''}. Be concise and sales-focused.`;
+  const system = `You are an AI Pre-Sales Consultant for Ramssol Group. Current prospect: ${p?p.name:''} (${p?p.type:''}). Pain points: ${p?(p.painPoints||[]).join(', '):''}. Be concise and sales-focused.
+
+IMPORTANT: If the user asks you to generate a PDF, document, report, or file — tell them to type something like "generate a PDF report for this company" and the system will handle it automatically. Do not try to describe what the document would contain as text.`;
+
   const reply = await callClaude([{role:'user',content:msg}], system, 700);
   if (typing) typing.remove();
-  appendMessage('prospect-ai-messages','bot',reply);
+  appendMessage('prospect-ai-messages', 'bot', reply);
 }
 
 // ── INIT ─────────────────────────────────────────────────
