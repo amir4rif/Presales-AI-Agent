@@ -22,6 +22,7 @@
     <a class="nav-item" href="prospects.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>Prospects</a>
     <a class="nav-item" href="compliance.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>Compliance (RFP)</a>
     <a class="nav-item active" href="proposals.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>Proposals</a>
+    <a class="nav-item" href="admin-approvals.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.6 0 3.1.42 4.4 1.15"/><path d="M21 5l-9 9"/></svg>Approvals</a>
     <div class="nav-section-label">Analytics</div>
     <a class="nav-item" href="pipeline.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Pipeline</a>
     <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reports</a>
@@ -55,6 +56,10 @@
       <div class="page-title">Proposal Generator</div>
       <div style="display:flex;gap:10px">
         <button class="btn-secondary">Preview</button>
+        <button class="btn-secondary" id="submit-approval-btn" onclick="submitForApproval()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          Submit for Approval
+        </button>
         <button class="btn-primary" onclick="exportProposal()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Export
@@ -65,9 +70,10 @@
     <!-- Proposal meta -->
     <div style="display:flex;align-items:center;gap:0;margin-bottom:20px">
       <span style="font-size:13px;color:var(--gray-500);margin-right:16px">Tzu Chi – Volunteer Management System</span>
-      <span style="background:var(--gray-100);color:var(--gray-500);font-size:11px;padding:2px 8px;border-radius:20px">Draft</span>
+      <span id="proposal-status-badge" style="background:var(--gray-100);color:var(--gray-500);font-size:11px;padding:2px 8px;border-radius:20px">Draft</span>
       <span style="font-size:11px;color:var(--gray-400);margin-left:12px">Last updated: 14 May 2026, 11:15 AM</span>
     </div>
+    <div id="review-note-banner" style="display:none;font-size:12.5px;background:var(--gray-50);border:1px solid var(--gray-100);border-left:3px solid var(--brand-400);border-radius:8px;padding:10px 14px;margin:-8px 0 20px;color:var(--gray-700)"></div>
 
     <!-- Progress steps -->
     <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:20px">
@@ -179,7 +185,13 @@ const SECTION_CONTENT = {
 };
 
 // ── FUNCTIONS ─────────────────────────────────────────────
+let currentSection = 'executive';
+
 function loadProposalSection(sec, btn) {
+  // persist any edits made in the section we're leaving
+  SECTION_CONTENT[currentSection] = document.getElementById('proposal-textarea').value;
+  currentSection = sec;
+
   document.querySelectorAll('.proposal-step').forEach(s => s.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const labels = { executive:'Executive Summary', challenges:'Challenges', solution:'Our Solution', benefits:'Benefits', implementation:'Implementation', commercials:'Commercials', casestudies:'Case Studies', nextsteps:'Next Steps' };
@@ -249,8 +261,80 @@ async function generateAIContent() {
   text.textContent = reply;
 }
 
+// ── ADMIN APPROVAL WORKFLOW ───────────────────────────────
+const PROPOSAL_ID = 'demo-tzuchi-vms'; // fixed id ties this editor to the Approvals page
+const PROPOSAL_STORAGE_KEY = 'ramssolProposals';
+
+function getStoredProposals() {
+  try { return JSON.parse(localStorage.getItem(PROPOSAL_STORAGE_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function saveStoredProposals(list) { localStorage.setItem(PROPOSAL_STORAGE_KEY, JSON.stringify(list)); }
+
+function submitForApproval() {
+  // capture whatever is currently in the editor before submitting
+  SECTION_CONTENT[currentSection] = document.getElementById('proposal-textarea').value;
+
+  const list = getStoredProposals();
+  const idx = list.findIndex(p => p.id === PROPOSAL_ID);
+  const entry = {
+    id: PROPOSAL_ID,
+    company: 'Tzu Chi Foundation',
+    deal: 'Tzu Chi – Volunteer Management System',
+    value: 326000,
+    submittedBy: 'Amir Arif',
+    submittedDate: new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),
+    status: 'Pending Approval',
+    reviewNote: '',
+    sections: { ...SECTION_CONTENT }
+  };
+  if (idx > -1) list[idx] = entry; else list.push(entry);
+  saveStoredProposals(list);
+
+  reflectStatus('Pending Approval', '');
+  showToast('📤 Sent to Admin for approval');
+}
+
+function reflectStatus(status, note, reviewedDate) {
+  const badge = document.getElementById('proposal-status-badge');
+  const banner = document.getElementById('review-note-banner');
+  const styles = {
+    'Draft':            { bg:'var(--gray-100)',  color:'var(--gray-500)' },
+    'Pending Approval':  { bg:'var(--amber-50)',  color:'var(--amber-600)' },
+    'Approved':          { bg:'var(--brand-50)',  color:'var(--brand-400)' },
+    'Rejected':          { bg:'var(--red-50)',    color:'var(--red-700)' }
+  }[status] || { bg:'var(--gray-100)', color:'var(--gray-500)' };
+  badge.textContent = status;
+  badge.style.background = styles.bg;
+  badge.style.color = styles.color;
+
+  if (note && (status === 'Approved' || status === 'Rejected')) {
+    banner.style.display = 'block';
+    banner.textContent = (status === 'Approved' ? '✅ Admin note: ' : '✕ Admin note: ') + note + (reviewedDate ? ' — ' + reviewedDate : '');
+    banner.style.borderLeftColor = status === 'Approved' ? 'var(--brand-400)' : 'var(--red-700)';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+function syncStatusFromAdmin() {
+  const list = getStoredProposals();
+  const mine = list.find(p => p.id === PROPOSAL_ID);
+  if (mine) reflectStatus(mine.status, mine.reviewNote, mine.reviewedDate);
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function showToast(msg, isWarning) {
+  const t = document.createElement('div');
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;background:${isWarning ? '#BA7517' : '#085041'};color:white;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:opacity .3s`;
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
+}
+
 // ── INIT ─────────────────────────────────────────────────
 updateWordCount();
+syncStatusFromAdmin();
 </script>
 </body>
 </html>
