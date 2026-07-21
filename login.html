@@ -46,7 +46,7 @@
       <div class="logo-wrap">
         <div class="logo-icon-box">
           <svg width="24" height="24" viewBox="0 0 36 36" fill="none">
-            <text x="5" y="28" font-family="Inter,sans-serif" font-size="26" font-weight="700" fill="#8B5CF6">R</text>
+            <text x="5" y="28" font-family="Inter,sans-serif" font-size="26" font-weight="700" fill="#3B82F6">R</text>
           </svg>
         </div>
         <div>
@@ -103,7 +103,7 @@
           <svg id="login-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </button>
 
-        <div id="login-demo-hint" style="margin-top:14px;padding:11px 13px;background:var(--brand-50);border:1px solid rgba(139, 92, 246, 0.3);border-radius:8px;font-size:11.5px;color:var(--brand-400);line-height:1.6;display:none">
+        <div id="login-demo-hint" style="margin-top:14px;padding:11px 13px;background:var(--brand-50);border:1px solid rgba(59,130,246, 0.3);border-radius:8px;font-size:11.5px;color:var(--brand-400);line-height:1.6;display:none">
           <strong>Demo accounts ready.</strong> No accounts found yet — register one above, or use any email/password after creating an account.
         </div>
       </div>
@@ -243,7 +243,7 @@ function togglePwd(inputId, btn) {
 function checkPwdStrength(pwd) {
   const bars = [1,2,3,4].map(i => document.getElementById('pb'+i)); const label = document.getElementById('pwd-label');
   let score = 0; if (pwd.length >= 8) score++; if (/[A-Z]/.test(pwd)) score++; if (/[0-9]/.test(pwd)) score++; if (/[^A-Za-z0-9]/.test(pwd)) score++;
-  const colors = ['', '#EF4444', '#F97316', '#EAB308', '#8B5CF6'];
+  const colors = ['', '#EF4444', '#F97316', '#EAB308', '#3B82F6'];
   const labels = ['', 'Too weak', 'Weak', 'Good', 'Strong'];
   bars.forEach((b, i) => { b.style.background = i < score ? colors[score] : 'var(--gray-200)'; });
   label.style.color = score > 0 ? colors[score] : 'var(--gray-400)'; label.textContent = score === 0 ? 'At least 8 characters' : labels[score];
@@ -318,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const rotateY = ((x - centerX) / centerX) * 5;
       card.style.transform = `perspective(1500px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
       const shadowX = (rotateY * -0.5), shadowY = (rotateX * -0.5);
-      card.style.boxShadow = `${shadowX}px ${shadowY + 8}px 24px rgba(139, 92, 246, 0.25)`;
+      card.style.boxShadow = `${shadowX}px ${shadowY + 8}px 24px rgba(59,130,246, 0.25)`;
     });
     card.addEventListener('mouseleave', () => {
       card.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.6s ease';
@@ -511,7 +511,7 @@ function initGalaxyCanvas(speed) {
     const flareAlpha = Math.max(0, Math.min(0.06, (warpSpeed - 2) / 60));
     if (flareAlpha > 0) {
       const flare = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 280);
-      flare.addColorStop(0,   `rgba(191, 0, 255, ${flareAlpha})`);
+      flare.addColorStop(0,   `rgba(0,140,255, ${flareAlpha})`);
       flare.addColorStop(0.5, `rgba(100, 0, 180, ${flareAlpha * 0.4})`);
       flare.addColorStop(1,   'rgba(0,0,0,0)');
       ctx.fillStyle = flare;
