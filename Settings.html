@@ -180,7 +180,7 @@
 </div>
 
 <!-- Invite member modal -->
-<div class="modal-overlay" id="invite-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal-overlay" id="invite-modal" onclick="closeOnBackdrop(event, 'invite-modal')">
   <div class="modal">
     <div class="modal-title">Invite Team Member</div>
     <div class="modal-sub">Send an invite to add a new member to this workspace.</div>
@@ -199,14 +199,14 @@
       </select>
     </div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="document.getElementById('invite-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-secondary" onclick="closeModal('invite-modal')">Cancel</button>
       <button class="btn-primary" onclick="sendInvite()">Send Invite</button>
     </div>
   </div>
 </div>
 
 <!-- AI Settings modal (shared across app) -->
-<div class="modal-overlay" id="api-key-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal-overlay" id="api-key-modal" onclick="closeOnBackdrop(event, 'api-key-modal')">
   <div class="modal">
     <div class="modal-title">AI Settings</div>
     <div class="modal-sub">Enter your Anthropic API key to enable AI features across all modules.</div>
@@ -219,14 +219,37 @@
     </div>
     <div id="api-key-status" style="display:none;margin-top:4px;padding:8px 12px;border-radius:8px;font-size:12px"></div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="document.getElementById('api-key-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-secondary" onclick="closeModal('api-key-modal')">Cancel</button>
       <button class="btn-primary" onclick="saveApiKey()">Save &amp; Test Key</button>
     </div>
   </div>
 </div>
 
 <script>
+// ── DOM + MODAL HELPERS ──────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const openModal  = (id) => $(id).classList.add('open');
+const closeModal = (id) => $(id).classList.remove('open');
+function closeOnBackdrop(event, id) {
+  if (event.target === $(id)) closeModal(id);
+}
 
+// ── STATUS-BOX HELPERS ───────────────────────────────────
+const OK_BG  = 'rgba(52, 211, 153, 0.2)',  OK_COLOR  = '#34D399';
+const ERR_BG = 'rgba(239, 68, 68, 0.2)',   ERR_COLOR = '#F87171';
+
+function setStatus(id, bg, color, text) {
+  const el = $(id);
+  el.style.display = 'block';
+  el.style.background = bg;
+  el.style.color = color;
+  el.textContent = text;
+}
+const showOk    = (id, text) => setStatus(id, OK_BG, OK_COLOR, text);
+const showError = (id, text) => setStatus(id, ERR_BG, ERR_COLOR, text);
+const hideStatus = (id) => { $(id).style.display = 'none'; };
+
+// ── SESSION ──────────────────────────────────────────────
 function logout() {
   sessionStorage.removeItem('ramssolSession');
   window.location.href = 'login.html';
@@ -234,99 +257,102 @@ function logout() {
 if (!sessionStorage.getItem('ramssolSession')) {
   // window.location.href = 'login.html'; // commented out for preview
 }
+
+// ── AI SETTINGS ──────────────────────────────────────────
 let apiKey = localStorage.getItem('ramssolApiKey') || '';
 function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
+
 function showApiKeyModal() {
-  document.getElementById('api-key-input').value = getApiKey();
-  document.getElementById('api-key-modal').classList.add('open');
+  $('api-key-input').value = getApiKey();
+  openModal('api-key-modal');
 }
+
 async function saveApiKey() {
-  const k = document.getElementById('api-key-input').value.trim();
-  if (!k) { alert('Please enter an API key.'); return; }
-  const statusEl = document.getElementById('api-key-status');
-  statusEl.style.display = 'block';
-  statusEl.style.background = 'var(--surface)';
-  statusEl.style.color = 'var(--text-secondary)';
-  statusEl.textContent = '⏳ Testing key...';
+  const key = $('api-key-input').value.trim();
+  if (!key) { alert('Please enter an API key.'); return; }
+
+  setStatus('api-key-status', 'var(--surface)', 'var(--text-secondary)', '⏳ Testing key...');
+
   try {
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-api-key': k, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
       body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 10, messages: [{ role: 'user', content: 'Say: OK' }] })
     });
     const data = await resp.json();
+
     if (data.error) {
-      statusEl.style.background = 'rgba(239, 68, 68, 0.2)'; statusEl.style.color = '#F87171';
-      statusEl.textContent = '❌ ' + data.error.message; return;
+      showError('api-key-status', '❌ ' + data.error.message);
+      return;
     }
-    apiKey = k; localStorage.setItem('ramssolApiKey', k);
-    statusEl.style.background = 'rgba(52, 211, 153, 0.2)'; statusEl.style.color = '#34D399';
-    statusEl.textContent = '✅ Key verified! AI features are now enabled.';
-    setTimeout(() => { document.getElementById('api-key-modal').classList.remove('open'); statusEl.style.display = 'none'; }, 1500);
-  } catch(e) {
-    statusEl.style.background = 'rgba(239, 68, 68, 0.2)'; statusEl.style.color = '#F87171';
-    statusEl.textContent = '❌ ' + e.message;
+
+    apiKey = key;
+    localStorage.setItem('ramssolApiKey', key);
+    showOk('api-key-status', '✅ Key verified! AI features are now enabled.');
+    setTimeout(() => { closeModal('api-key-modal'); hideStatus('api-key-status'); }, 1500);
+  } catch (e) {
+    showError('api-key-status', '❌ ' + e.message);
   }
 }
 
-// ---- Settings tabs ----
+// ── SETTINGS TABS ────────────────────────────────────────
 function switchSettingsTab(name) {
-  document.getElementById('tab-profile').style.display = name === 'profile' ? 'block' : 'none';
-  document.getElementById('tab-team').style.display = name === 'team' ? 'block' : 'none';
-  document.getElementById('tab-btn-profile').classList.toggle('active', name === 'profile');
-  document.getElementById('tab-btn-team').classList.toggle('active', name === 'team');
+  $('tab-profile').style.display = name === 'profile' ? 'block' : 'none';
+  $('tab-team').style.display = name === 'team' ? 'block' : 'none';
+  $('tab-btn-profile').classList.toggle('active', name === 'profile');
+  $('tab-btn-team').classList.toggle('active', name === 'team');
 }
 
-// ---- Profile ----
+// ── PROFILE ──────────────────────────────────────────────
 const PROFILE_KEY = 'ramssolProfile';
+
 function loadProfile() {
   const raw = localStorage.getItem(PROFILE_KEY);
   const profile = raw ? JSON.parse(raw) : { name: 'User', email: 'user@ramssol.com', role: 'COO Office' };
-  document.getElementById('profile-name').value = profile.name;
-  document.getElementById('profile-email').value = profile.email;
-  document.getElementById('profile-role').value = profile.role;
-  document.getElementById('sidebar-name').textContent = profile.name;
-  document.getElementById('sidebar-role').textContent = profile.role;
-  document.getElementById('sidebar-avatar').textContent = profile.name.split(' ').map(p => p[0]).join('').slice(0,2).toUpperCase();
+  $('profile-name').value = profile.name;
+  $('profile-email').value = profile.email;
+  $('profile-role').value = profile.role;
+  $('sidebar-name').textContent = profile.name;
+  $('sidebar-role').textContent = profile.role;
+  $('sidebar-avatar').textContent = profile.name.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase();
 }
+
 function saveProfile() {
   const profile = {
-    name: document.getElementById('profile-name').value.trim() || 'User',
-    email: document.getElementById('profile-email').value.trim(),
-    role: document.getElementById('profile-role').value
+    name: $('profile-name').value.trim() || 'User',
+    email: $('profile-email').value.trim(),
+    role: $('profile-role').value
   };
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
   loadProfile();
-  const statusEl = document.getElementById('profile-status');
-  statusEl.style.display = 'block';
-  statusEl.style.background = 'rgba(52, 211, 153, 0.2)'; statusEl.style.color = '#34D399';
-  statusEl.textContent = '✅ Profile updated.';
-  setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
-}
-function changePassword() {
-  const cur = document.getElementById('pw-current').value;
-  const next = document.getElementById('pw-new').value;
-  const confirm = document.getElementById('pw-confirm').value;
-  const statusEl = document.getElementById('pw-status');
-  statusEl.style.display = 'block';
-  if (!cur || !next || !confirm) {
-    statusEl.style.background = 'rgba(239, 68, 68, 0.2)'; statusEl.style.color = '#F87171';
-    statusEl.textContent = '❌ Please fill in all password fields.'; return;
-  }
-  if (next !== confirm) {
-    statusEl.style.background = 'rgba(239, 68, 68, 0.2)'; statusEl.style.color = '#F87171';
-    statusEl.textContent = '❌ New passwords do not match.'; return;
-  }
-  statusEl.style.background = 'rgba(52, 211, 153, 0.2)'; statusEl.style.color = '#34D399';
-  statusEl.textContent = '✅ Password updated.';
-  document.getElementById('pw-current').value = '';
-  document.getElementById('pw-new').value = '';
-  document.getElementById('pw-confirm').value = '';
-  setTimeout(() => { statusEl.style.display = 'none'; }, 2000);
+  showOk('profile-status', '✅ Profile updated.');
+  setTimeout(() => hideStatus('profile-status'), 2000);
 }
 
-// ---- Team management ----
+function changePassword() {
+  const cur = $('pw-current').value;
+  const next = $('pw-new').value;
+  const confirm = $('pw-confirm').value;
+
+  if (!cur || !next || !confirm) {
+    showError('pw-status', '❌ Please fill in all password fields.');
+    return;
+  }
+  if (next !== confirm) {
+    showError('pw-status', '❌ New passwords do not match.');
+    return;
+  }
+
+  showOk('pw-status', '✅ Password updated.');
+  $('pw-current').value = '';
+  $('pw-new').value = '';
+  $('pw-confirm').value = '';
+  setTimeout(() => hideStatus('pw-status'), 2000);
+}
+
+// ── TEAM MANAGEMENT ──────────────────────────────────────
 const TEAM_KEY = 'ramssolTeam';
+
 function loadTeam() {
   let team = JSON.parse(localStorage.getItem(TEAM_KEY) || 'null');
   if (!team) {
@@ -340,12 +366,17 @@ function loadTeam() {
   }
   renderTeam(team);
 }
+
 function saveTeam(team) { localStorage.setItem(TEAM_KEY, JSON.stringify(team)); }
-function renderTeam(team) {
-  const statusBadge = s => s === 'active'
+
+function statusBadge(status) {
+  return status === 'active'
     ? '<span class="status-badge status-completed">Active</span>'
     : '<span class="status-badge status-review">Pending</span>';
-  document.getElementById('team-tbody').innerHTML = team.map((m, i) => `
+}
+
+function renderTeam(team) {
+  $('team-tbody').innerHTML = team.map((m, i) => `
     <tr>
       <td>${m.name}</td>
       <td style="color:var(--gray-500)">${m.email}</td>
@@ -358,27 +389,31 @@ function renderTeam(team) {
     </tr>
   `).join('');
 }
+
 function removeMember(index) {
   const team = JSON.parse(localStorage.getItem(TEAM_KEY) || '[]');
   team.splice(index, 1);
   saveTeam(team);
   renderTeam(team);
 }
+
 function openInviteModal() {
-  document.getElementById('invite-email').value = '';
-  document.getElementById('invite-modal').classList.add('open');
+  $('invite-email').value = '';
+  openModal('invite-modal');
 }
+
 function sendInvite() {
-  const email = document.getElementById('invite-email').value.trim();
-  const role = document.getElementById('invite-role').value;
+  const email = $('invite-email').value.trim();
+  const role = $('invite-role').value;
   if (!email) { alert('Please enter an email address.'); return; }
   const team = JSON.parse(localStorage.getItem(TEAM_KEY) || '[]');
   team.push({ name: email.split('@')[0], email, role, status: 'pending', lastActive: '—' });
   saveTeam(team);
   renderTeam(team);
-  document.getElementById('invite-modal').classList.remove('open');
+  closeModal('invite-modal');
 }
 
+// ── INIT ─────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   loadProfile();
   loadTeam();

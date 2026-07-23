@@ -141,7 +141,7 @@
 </div>
 
 <!-- ══ ADD PROSPECT MODAL (EXPANDED) ══════════════════════════════════ -->
-<div class="modal-overlay" id="add-prospect-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal-overlay" id="add-prospect-modal" onclick="closeOnBackdrop(event, 'add-prospect-modal')">
   <div class="modal modal-wide">
 
     <!-- Header -->
@@ -380,7 +380,7 @@
 
     <!-- Modal footer -->
     <div class="modal-actions" style="margin-top:18px">
-      <button class="btn-secondary" onclick="document.getElementById('add-prospect-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-secondary" onclick="closeModal('add-prospect-modal')">Cancel</button>
       <button class="btn-primary" onclick="addProspect()">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Add Prospect
@@ -390,7 +390,7 @@
 </div>
 
 <!-- ADD DEAL MODAL -->
-<div class="modal-overlay" id="add-deal-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal-overlay" id="add-deal-modal" onclick="closeOnBackdrop(event, 'add-deal-modal')">
   <div class="modal">
     <div class="modal-title">Add New Deal</div>
     <div class="modal-sub">Add an active deal to the pipeline.</div>
@@ -410,27 +410,35 @@
     </div>
     <div class="form-group"><label class="form-label">Notes</label><input class="form-input" id="nd-notes" placeholder="Optional notes..."></div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="document.getElementById('add-deal-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-secondary" onclick="closeModal('add-deal-modal')">Cancel</button>
       <button class="btn-primary" onclick="addDeal()">Add Deal</button>
     </div>
   </div>
 </div>
 
 <!-- API KEY MODAL -->
-<div class="modal-overlay" id="api-key-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal-overlay" id="api-key-modal" onclick="closeOnBackdrop(event, 'api-key-modal')">
   <div class="modal">
     <div class="modal-title">AI Settings</div>
     <div class="modal-sub">Enter your Anthropic API key to enable AI features.</div>
     <div class="form-group"><label class="form-label">Anthropic API Key</label><input class="form-input" type="password" id="api-key-input" placeholder="sk-ant-api03-..."></div>
     <div id="api-key-status" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px"></div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="document.getElementById('api-key-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-secondary" onclick="closeModal('api-key-modal')">Cancel</button>
       <button class="btn-primary" onclick="saveApiKey()">Save &amp; Test Key</button>
     </div>
   </div>
 </div>
 
 <script>
+// ── DOM + MODAL HELPERS ──────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const openModal  = (id) => $(id).classList.add('open');
+const closeModal = (id) => $(id).classList.remove('open');
+function closeOnBackdrop(event, id) {
+  if (event.target === $(id)) closeModal(id);
+}
+
 // ── STATE ────────────────────────────────────────────────
 let apiKey = localStorage.getItem('ramssolApiKey') || '';
 let currentProspect = null;
@@ -453,35 +461,61 @@ let allDeals = [
   {rep:'Faizal Hassan',account:'Manufacturing Co – ERP',stage:2,daysInStage:4,daysToClose:80,value:3000000,movement:'Advanced',status:'On Track',notes:''}
 ];
 
+// Prospect-form field ids, grouped by control type (used for reset + reads)
+const PROSPECT_TEXT_FIELDS = ['np-name','np-location','np-website','np-contact-name','np-contact-pos',
+  'np-curr-system','np-curr-module','np-auth-name','np-auth-pos','np-pain'];
+const PROSPECT_SELECT_FIELDS = ['np-industry','np-emp-size','np-it-budget','np-hr-budget','np-timeline'];
+
+// Reads all Add-Prospect form fields once. Callers apply their own defaults.
+function readProspectForm() {
+  return {
+    name:        $('np-name').value.trim(),
+    industry:    $('np-industry').value,
+    location:    $('np-location').value.trim(),
+    website:     $('np-website').value.trim(),
+    empSize:     $('np-emp-size').value,
+    itBudget:    $('np-it-budget').value,
+    hrBudget:    $('np-hr-budget').value,
+    pain:        $('np-pain').value.trim(),
+    timeline:    $('np-timeline').value,
+    contactName: $('np-contact-name').value.trim(),
+    contactPos:  $('np-contact-pos').value.trim(),
+    authName:    $('np-auth-name').value.trim(),
+    authPos:     $('np-auth-pos').value.trim(),
+    currSystem:  $('np-curr-system').value.trim(),
+    currModule:  $('np-curr-module').value.trim()
+  };
+}
+
+const RESEARCH_BTN_ICON_IDLE = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>`;
+
 // ── OPEN / RESET MODAL ───────────────────────────────────
 function openAddProspectModal() {
   // Reset all fields
-  ['np-name','np-location','np-website','np-contact-name','np-contact-pos',
-   'np-curr-system','np-curr-module','np-auth-name','np-auth-pos','np-pain'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.value = '';
-  });
-  ['np-industry','np-emp-size','np-it-budget','np-hr-budget','np-timeline'].forEach(id => {
-    const el = document.getElementById(id); if (el) el.selectedIndex = 0;
-  });
-  document.getElementById('ai-results').classList.remove('visible');
-  document.getElementById('ai-products-output').classList.remove('visible');
-  document.getElementById('ai-proposal-output').classList.remove('visible');
-  const btn = document.getElementById('ai-research-btn');
+  PROSPECT_TEXT_FIELDS.forEach(id => { const el = $(id); if (el) el.value = ''; });
+  PROSPECT_SELECT_FIELDS.forEach(id => { const el = $(id); if (el) el.selectedIndex = 0; });
+
+  $('ai-results').classList.remove('visible');
+  $('ai-products-output').classList.remove('visible');
+  $('ai-proposal-output').classList.remove('visible');
+
+  const btn = $('ai-research-btn');
   btn.classList.remove('loading');
-  btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="18" height="18"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> 🤖 Research Company with AI Sales Agent`;
+  btn.innerHTML = `${RESEARCH_BTN_ICON_IDLE} 🤖 Research Company with AI Sales Agent`;
+
   lastAIResearch = null;
-  document.getElementById('add-prospect-modal').classList.add('open');
+  openModal('add-prospect-modal');
 }
 
 // ── AI AUTOFILL: FILL FORM FROM NAME + WEBSITE ──────────
 function setInputIfEmpty(id, val) {
-  const el = document.getElementById(id);
+  const el = $(id);
   if (el && !el.value.trim() && val) el.value = val;
 }
 
 function setSelectByText(id, text) {
   if (!text) return;
-  const el = document.getElementById(id);
+  const el = $(id);
   if (!el || el.value) return; // don't overwrite an existing choice
   const target = text.trim().toLowerCase();
   const opts = Array.from(el.options).filter(o => o.value);
@@ -491,11 +525,10 @@ function setSelectByText(id, text) {
 }
 
 async function autofillProspectAI() {
-  const name = document.getElementById('np-name').value.trim();
-  const website = document.getElementById('np-website').value.trim();
+  const { name, website } = readProspectForm();
   if (!name) { alert('Please enter a Company Name first — AI needs at least that to work with.'); return; }
 
-  const btn = document.getElementById('autofill-btn');
+  const btn = $('autofill-btn');
   const originalHTML = btn.innerHTML;
   btn.disabled = true;
   btn.innerHTML = `<div class="loading-spinner"><span></span><span></span><span></span></div> Autofilling with AI...`;
@@ -539,8 +572,7 @@ Field rules:
   btn.innerHTML = originalHTML;
 
   try {
-    const clean = raw.replace(/```json|```/g,'').trim();
-    const data = JSON.parse(clean);
+    const data = JSON.parse(raw.replace(/```json|```/g,'').trim());
 
     setSelectByText('np-industry', data.industry);
     setInputIfEmpty('np-location', data.location);
@@ -553,7 +585,7 @@ Field rules:
     setInputIfEmpty('np-auth-pos', data.authorityPosition);
     setSelectByText('np-timeline', data.timeline);
 
-    const painEl = document.getElementById('np-pain');
+    const painEl = $('np-pain');
     if (painEl && !painEl.value.trim() && data.painPoints) painEl.value = data.painPoints;
 
     showToast('✨ Autofilled by AI — please review before saving');
@@ -564,19 +596,11 @@ Field rules:
 
 // ── AI SALES AGENT: RESEARCH COMPANY ────────────────────
 async function runAISalesAgent() {
-  const name    = document.getElementById('np-name').value.trim();
-  const industry= document.getElementById('np-industry').value;
-  const location= document.getElementById('np-location').value.trim();
-  const website = document.getElementById('np-website').value.trim();
-  const empSize = document.getElementById('np-emp-size').value;
-  const itBudget= document.getElementById('np-it-budget').value;
-  const hrBudget= document.getElementById('np-hr-budget').value;
-  const pain    = document.getElementById('np-pain').value.trim();
-  const timeline= document.getElementById('np-timeline').value;
+  const { name, industry, location, website, empSize, itBudget, hrBudget, pain, timeline } = readProspectForm();
 
   if (!name) { alert('Please enter a Company Name before running AI research.'); return; }
 
-  const btn = document.getElementById('ai-research-btn');
+  const btn = $('ai-research-btn');
   btn.classList.add('loading');
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg> Researching ${name}...`;
 
@@ -620,59 +644,59 @@ Return ONLY this JSON structure (no markdown, no backticks):
   btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16"><polyline points="20 6 9 17 4 12"/></svg> ✅ Research Complete — Click to Re-run`;
 
   try {
-    const clean = raw.replace(/```json|```/g,'').trim();
-    const data = JSON.parse(clean);
+    const data = JSON.parse(raw.replace(/```json|```/g,'').trim());
     lastAIResearch = data;
     renderAIResults(data, name, industry, pain, timeline);
   } catch(e) {
     // If JSON parse fails, show raw text in background section
     lastAIResearch = { raw };
-    document.getElementById('ai-background').textContent = raw;
-    document.getElementById('ai-revenue').textContent = '—';
-    document.getElementById('ai-it-spend').textContent = '—';
-    document.getElementById('ai-hr-spend').textContent = '—';
-    document.getElementById('ai-emp-est').textContent = '—';
-    document.getElementById('ai-decision-maker').textContent = '—';
-    document.getElementById('ai-buying-badge').innerHTML = '';
-    document.getElementById('ai-buying-inline').innerHTML = '';
-    document.getElementById('ai-buying-reason').textContent = '';
-    document.getElementById('ai-results').classList.add('visible');
+    $('ai-background').textContent = raw;
+    $('ai-revenue').textContent = '—';
+    $('ai-it-spend').textContent = '—';
+    $('ai-hr-spend').textContent = '—';
+    $('ai-emp-est').textContent = '—';
+    $('ai-decision-maker').textContent = '—';
+    $('ai-buying-badge').innerHTML = '';
+    $('ai-buying-inline').innerHTML = '';
+    $('ai-buying-reason').textContent = '';
+    $('ai-results').classList.add('visible');
   }
 }
 
 function renderAIResults(data, name, industry, pain, timeline) {
-  document.getElementById('ai-background').textContent     = data.companyBackground || '—';
-  document.getElementById('ai-revenue').textContent        = data.estimatedRevenue  || '—';
-  document.getElementById('ai-it-spend').textContent       = data.estimatedITSpend  || '—';
-  document.getElementById('ai-hr-spend').textContent       = data.estimatedHRSpend  || '—';
-  document.getElementById('ai-emp-est').textContent        = data.employeeSize       || '—';
-  document.getElementById('ai-decision-maker').textContent = data.decisionMaker      || '—';
-  document.getElementById('ai-buying-reason').textContent  = data.buyingPotentialReason || '—';
+  $('ai-background').textContent     = data.companyBackground || '—';
+  $('ai-revenue').textContent        = data.estimatedRevenue  || '—';
+  $('ai-it-spend').textContent       = data.estimatedITSpend  || '—';
+  $('ai-hr-spend').textContent       = data.estimatedHRSpend  || '—';
+  $('ai-emp-est').textContent        = data.employeeSize       || '—';
+  $('ai-decision-maker').textContent = data.decisionMaker      || '—';
+  $('ai-buying-reason').textContent  = data.buyingPotentialReason || '—';
 
   const pot = (data.buyingPotential || 'Medium').trim();
   const cls = pot === 'High' ? 'b-high' : pot === 'Low' ? 'b-low' : 'b-med';
   const badge = `<span class="buying-badge ${cls}">${pot}</span>`;
-  document.getElementById('ai-buying-badge').innerHTML  = badge;
-  document.getElementById('ai-buying-inline').innerHTML = badge;
+  $('ai-buying-badge').innerHTML  = badge;
+  $('ai-buying-inline').innerHTML = badge;
 
-  document.getElementById('ai-results').classList.add('visible');
-  document.getElementById('ai-products-output').classList.remove('visible');
-  document.getElementById('ai-proposal-output').classList.remove('visible');
+  $('ai-results').classList.add('visible');
+  $('ai-products-output').classList.remove('visible');
+  $('ai-proposal-output').classList.remove('visible');
 }
 
 // ── AI: RECOMMEND PRODUCTS ───────────────────────────────
 async function runRecommendProducts() {
-  const name     = document.getElementById('np-name').value.trim() || 'the prospect';
-  const industry = document.getElementById('np-industry').value || 'Unknown';
-  const empSize  = document.getElementById('np-emp-size').value || 'Unknown';
-  const itBudget = document.getElementById('np-it-budget').value || 'Unknown';
-  const hrBudget = document.getElementById('np-hr-budget').value || 'Unknown';
-  const pain     = document.getElementById('np-pain').value.trim() || 'Not specified';
-  const timeline = document.getElementById('np-timeline').value || 'Unknown';
+  const f = readProspectForm();
+  const name     = f.name || 'the prospect';
+  const industry = f.industry || 'Unknown';
+  const empSize  = f.empSize || 'Unknown';
+  const itBudget = f.itBudget || 'Unknown';
+  const hrBudget = f.hrBudget || 'Unknown';
+  const pain     = f.pain || 'Not specified';
+  const timeline = f.timeline || 'Unknown';
   const research = lastAIResearch ? JSON.stringify(lastAIResearch) : 'No prior research available';
 
-  const outputEl = document.getElementById('ai-products-output');
-  const textEl   = document.getElementById('ai-products-text');
+  const outputEl = $('ai-products-output');
+  const textEl   = $('ai-products-text');
   outputEl.classList.add('visible');
   textEl.innerHTML = '⏳ Analysing and recommending products...';
 
@@ -719,19 +743,20 @@ Format clearly with numbered sections.`;
 
 // ── AI: GENERATE PROPOSAL OUTLINE ───────────────────────
 async function runGenerateProposal() {
-  const name     = document.getElementById('np-name').value.trim() || 'the prospect';
-  const industry = document.getElementById('np-industry').value || 'Unknown';
-  const location = document.getElementById('np-location').value.trim() || 'Malaysia';
-  const pain     = document.getElementById('np-pain').value.trim() || 'Not specified';
-  const itBudget = document.getElementById('np-it-budget').value || 'Unknown';
-  const hrBudget = document.getElementById('np-hr-budget').value || 'Unknown';
-  const authName = document.getElementById('np-auth-name').value.trim();
-  const authPos  = document.getElementById('np-auth-pos').value.trim();
-  const timeline = document.getElementById('np-timeline').value || 'Unknown';
+  const f = readProspectForm();
+  const name     = f.name || 'the prospect';
+  const industry = f.industry || 'Unknown';
+  const location = f.location || 'Malaysia';
+  const pain     = f.pain || 'Not specified';
+  const itBudget = f.itBudget || 'Unknown';
+  const hrBudget = f.hrBudget || 'Unknown';
+  const authName = f.authName;
+  const authPos  = f.authPos;
+  const timeline = f.timeline || 'Unknown';
   const research = lastAIResearch ? JSON.stringify(lastAIResearch) : '';
 
-  const outputEl = document.getElementById('ai-proposal-output');
-  const textEl   = document.getElementById('ai-proposal-text');
+  const outputEl = $('ai-proposal-output');
+  const textEl   = $('ai-proposal-text');
   outputEl.classList.add('visible');
   textEl.innerHTML = '⏳ Generating proposal outline...';
 
@@ -802,66 +827,53 @@ function showToast(msg, isWarning) {
 
 // ── ADD PROSPECT ─────────────────────────────────────────
 function addProspect() {
-  const name = document.getElementById('np-name').value.trim();
-  if (!name) { alert('Please enter a Company Name.'); return; }
-  const ind      = document.getElementById('np-industry').value || 'Other';
-  const location = document.getElementById('np-location').value.trim();
-  const web      = document.getElementById('np-website').value.trim();
-  const empSize  = document.getElementById('np-emp-size').value;
-  const pain     = document.getElementById('np-pain').value.trim();
-  const cName    = document.getElementById('np-contact-name').value.trim();
-  const cPos     = document.getElementById('np-contact-pos').value.trim();
-  const authName = document.getElementById('np-auth-name').value.trim();
-  const authPos  = document.getElementById('np-auth-pos').value.trim();
-  const itBudget = document.getElementById('np-it-budget').value;
-  const hrBudget = document.getElementById('np-hr-budget').value;
-  const timeline = document.getElementById('np-timeline').value;
-  const currSys  = document.getElementById('np-curr-system').value.trim();
-  const currMod  = document.getElementById('np-curr-module').value.trim();
+  const f = readProspectForm();
+  if (!f.name) { alert('Please enter a Company Name.'); return; }
 
-  const painArr = pain ? pain.split('\n').filter(Boolean) : ['To be researched with AI'];
-  const tags = [ind, currSys, currMod].filter(Boolean).slice(0,3);
+  const ind = f.industry || 'Other';
+  const painArr = f.pain ? f.pain.split('\n').filter(Boolean) : ['To be researched with AI'];
+  const tags = [ind, f.currSystem, f.currModule].filter(Boolean).slice(0, 3);
 
   prospects.push({
-    id: Date.now(), name, type: ind,
-    country: location || 'Malaysia',
-    website: web || '—',
+    id: Date.now(), name: f.name, type: ind,
+    country: f.location || 'Malaysia',
+    website: f.website || '—',
     added: new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),
     tags: tags.length ? tags : [ind],
-    employees: empSize || '—',
+    employees: f.empSize || '—',
     opportunities: 0, totalValue: 0,
     painPoints: painArr,
-    contact: cName ? `${cName}${cPos ? ', '+cPos : ''}` : '—',
-    authority: authName ? `${authName}${authPos ? ', '+authPos : ''}` : '—',
-    itBudget, hrBudget, timeline,
-    currentSystem: currSys || '—',
-    currentModule: currMod || '—',
+    contact: f.contactName ? `${f.contactName}${f.contactPos ? ', '+f.contactPos : ''}` : '—',
+    authority: f.authName ? `${f.authName}${f.authPos ? ', '+f.authPos : ''}` : '—',
+    itBudget: f.itBudget, hrBudget: f.hrBudget, timeline: f.timeline,
+    currentSystem: f.currSystem || '—',
+    currentModule: f.currModule || '—',
     aiResearch: lastAIResearch
   });
 
-  document.getElementById('add-prospect-modal').classList.remove('open');
+  closeModal('add-prospect-modal');
   renderProspects();
 
   // Push the same data to Lark Sheets in the background
   pushToLarkBase({
-    companyName: name,
-    contactName: cName,
-    contactPos: cPos,
-    location, empSize,
-    currSystem: currSys,
-    currModule: currMod,
+    companyName: f.name,
+    contactName: f.contactName,
+    contactPos: f.contactPos,
+    location: f.location, empSize: f.empSize,
+    currSystem: f.currSystem,
+    currModule: f.currModule,
     industry: ind,
-    website: web,
-    itBudget, hrBudget,
-    authName, authPos,
-    pain, timeline,
+    website: f.website,
+    itBudget: f.itBudget, hrBudget: f.hrBudget,
+    authName: f.authName, authPos: f.authPos,
+    pain: f.pain, timeline: f.timeline,
     aiResearch: lastAIResearch
   });
 }
 
 // ── RENDER PROSPECTS GRID ────────────────────────────────
 function renderProspects() {
-  document.getElementById('prospects-grid').innerHTML = prospects.map(p => `
+  $('prospects-grid').innerHTML = prospects.map(p => `
     <div class="prospect-card" onclick="openProspect(${p.id})">
       <div class="prospect-header">
         <div><div class="prospect-name">${p.name}</div><div class="prospect-type">${p.type}</div></div>
@@ -881,8 +893,8 @@ function openProspect(id) {
   const p = prospects.find(x=>x.id===id);
   if (!p) return;
   currentProspect = p;
-  document.getElementById('prospects-list-view').style.display = 'none';
-  const det = document.getElementById('prospect-detail-view');
+  $('prospects-list-view').style.display = 'none';
+  const det = $('prospect-detail-view');
   det.style.display = 'block';
   const icons = ['🟠','⚠️','🔴','📊','🌐'];
   det.innerHTML = `
@@ -906,7 +918,7 @@ function openProspect(id) {
         </div>
         <div style="display:flex;gap:8px">
           <button class="btn-secondary">⭐ Watch</button>
-          <button class="btn-primary" onclick="document.getElementById('add-deal-modal').classList.add('open')">+ New Deal</button>
+          <button class="btn-primary" onclick="openModal('add-deal-modal')">+ New Deal</button>
         </div>
       </div>
       <div class="detail-tabs">
@@ -997,48 +1009,107 @@ function openProspect(id) {
 }
 
 function closeProspect() {
-  document.getElementById('prospects-list-view').style.display = 'block';
-  document.getElementById('prospect-detail-view').style.display = 'none';
+  $('prospects-list-view').style.display = 'block';
+  $('prospect-detail-view').style.display = 'none';
   currentProspect = null;
 }
 
 function addDeal() {
-  const account = document.getElementById('nd-account').value.trim();
+  const account = $('nd-account').value.trim();
   if (!account) { alert('Please enter an account name.'); return; }
-  allDeals.push({ rep:document.getElementById('nd-rep').value, account, stage:Number(document.getElementById('nd-stage').value), daysInStage:Number(document.getElementById('nd-days').value)||1, daysToClose:90, value:Number(document.getElementById('nd-value').value)||0, movement:'Advanced', status:'On Track', notes:document.getElementById('nd-notes').value.trim() });
-  document.getElementById('add-deal-modal').classList.remove('open');
+  allDeals.push({
+    rep: $('nd-rep').value,
+    account,
+    stage: Number($('nd-stage').value),
+    daysInStage: Number($('nd-days').value) || 1,
+    daysToClose: 90,
+    value: Number($('nd-value').value) || 0,
+    movement: 'Advanced',
+    status: 'On Track',
+    notes: $('nd-notes').value.trim()
+  });
+  closeModal('add-deal-modal');
 }
 
 // ── AI UTILITIES ─────────────────────────────────────────
-function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
-function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
-
-async function saveApiKey() {
-  const k = document.getElementById('api-key-input').value.trim();
-  if (!k) { alert('Please enter an API key.'); return; }
-  const s = document.getElementById('api-key-status');
-  s.style.display='block'; s.style.background='var(--brand-50)'; s.style.color='var(--brand-600)'; s.textContent='⏳ Testing key...';
-  try {
-    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:'Say: OK'}]})});
-    const d = await r.json();
-    if (d.error) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+d.error.message; return; }
-    apiKey=k; localStorage.setItem('ramssolApiKey',k); s.style.background='var(--brand-50)'; s.style.color='var(--brand-500)'; s.textContent='✅ Key verified!';
-    setTimeout(()=>{document.getElementById('api-key-modal').classList.remove('open');s.style.display='none';},1500);
-  } catch(e) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+e.message; }
+function getApiKey() {
+  return apiKey || localStorage.getItem('ramssolApiKey') || '';
 }
 
-async function callClaude(messages, system, maxTokens=800) {
+function showApiKeyModal() {
+  $('api-key-input').value = getApiKey();
+  openModal('api-key-modal');
+}
+
+function setApiKeyStatus(bg, color, text) {
+  const s = $('api-key-status');
+  s.style.display = 'block';
+  s.style.background = bg;
+  s.style.color = color;
+  s.textContent = text;
+}
+
+async function saveApiKey() {
+  const key = $('api-key-input').value.trim();
+  if (!key) { alert('Please enter an API key.'); return; }
+
+  setApiKeyStatus('var(--brand-50)', 'var(--brand-600)', '⏳ Testing key...');
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Say: OK' }]
+      })
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      setApiKeyStatus('var(--red-50)', 'var(--red-700)', '❌ ' + data.error.message);
+      return;
+    }
+
+    apiKey = key;
+    localStorage.setItem('ramssolApiKey', key);
+    setApiKeyStatus('var(--brand-50)', 'var(--brand-500)', '✅ Key verified!');
+    setTimeout(() => { closeModal('api-key-modal'); $('api-key-status').style.display = 'none'; }, 1500);
+  } catch (e) {
+    setApiKeyStatus('var(--red-50)', 'var(--red-700)', '❌ ' + e.message);
+  }
+}
+
+async function callClaude(messages, system, maxTokens = 800) {
   const key = getApiKey();
   if (!key) return '⚠️ Please set your Anthropic API key in AI Settings (sidebar).';
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,system,messages})});
-    const d = await r.json(); if (d.error) return '⚠️ '+d.error.message;
-    return d.content.map(c=>c.text||'').join('');
-  } catch(e) { return '⚠️ '+e.message; }
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, system, messages })
+    });
+    const data = await res.json();
+    if (data.error) return '⚠️ ' + data.error.message;
+    return data.content.map(c => c.text || '').join('');
+  } catch (e) {
+    return '⚠️ ' + e.message;
+  }
 }
 
 function appendMessage(id, role, text) {
-  const c = document.getElementById(id); if (!c) return;
+  const c = $(id); if (!c) return;
   const div = document.createElement('div');
   div.className = role==='user' ? 'ai-msg-user' : 'ai-msg-bot';
   div.innerHTML = role==='bot' ? text.replace(/\n/g,'<br>') : text;
@@ -1046,7 +1117,7 @@ function appendMessage(id, role, text) {
 }
 
 function showTyping(id) {
-  const c = document.getElementById(id); if (!c) return null;
+  const c = $(id); if (!c) return null;
   const div = document.createElement('div'); div.className='ai-msg-bot';
   div.innerHTML='<div class="ai-typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
   c.appendChild(div); c.scrollTop=c.scrollHeight; return div;
@@ -1214,7 +1285,7 @@ function buildProposalHTML(data, prospect) {
 
   // ── Slide 2: Executive Summary ──
   const slideSummary = S(`
-    ${slideHeader('Executive Summary', 'Why We\u2019re Here')}
+    ${slideHeader('Executive Summary', 'Why We’re Here')}
     <div style="padding:32px 72px 0">
       <div style="font-size:17px;line-height:1.9;color:#374151;background:#F8F9FA;border-left:4px solid ${teal};border-radius:8px;padding:24px 28px;max-width:1080px">${data.executiveSummary || `${prospect.name} is a ${prospect.type} organisation positioned to benefit from Ramssol's HR & enterprise technology solutions.`}</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:32px">
@@ -1405,7 +1476,7 @@ User request: ${userMsg}`;
 
   const proposalHTML = buildProposalHTML(proposalData, p);
 
-  let renderDiv = document.getElementById('__proposal-render');
+  let renderDiv = $('__proposal-render');
   if (!renderDiv) {
     renderDiv = document.createElement('div');
     renderDiv.id = '__proposal-render';
@@ -1414,7 +1485,7 @@ User request: ${userMsg}`;
   }
   renderDiv.innerHTML = proposalHTML;
 
-  const c = document.getElementById('prospect-ai-messages');
+  const c = $('prospect-ai-messages');
   const card = document.createElement('div');
   card.style.cssText = 'align-self:flex-start;background:white;border:1px solid #E5E9EF;border-left:3px solid #1B2A4A;border-radius:12px;padding:14px 16px;max-width:90%;margin-bottom:4px';
   card.innerHTML = `
@@ -1438,7 +1509,7 @@ User request: ${userMsg}`;
 // and inserting blanks. Driving html2canvas and jsPDF directly gives
 // exact, predictable control: one canvas per slide, one page per canvas.
 async function downloadProposalPDF(event) {
-  const el = document.getElementById('__proposal-render');
+  const el = $('__proposal-render');
   if (!el) return;
   const slides = Array.from(el.querySelectorAll('.rp-slide'));
   if (!slides.length) return;
@@ -1541,7 +1612,7 @@ User request: ${userMsg}`;
   const reportHTML = buildReportHTML(reportData, p);
 
   // Inject a hidden render div (needed for html2pdf)
-  let renderDiv = document.getElementById('__report-render');
+  let renderDiv = $('__report-render');
   if (!renderDiv) {
     renderDiv = document.createElement('div');
     renderDiv.id = '__report-render';
@@ -1551,7 +1622,7 @@ User request: ${userMsg}`;
   renderDiv.innerHTML = reportHTML;
 
   // Show success card in chat with download buttons
-  const c = document.getElementById('prospect-ai-messages');
+  const c = $('prospect-ai-messages');
   const card = document.createElement('div');
   card.style.cssText = 'align-self:flex-start;background:white;border:1px solid #E5E9EF;border-left:3px solid #00B4A0;border-radius:12px;padding:14px 16px;max-width:90%;margin-bottom:4px';
   card.innerHTML = `
@@ -1571,7 +1642,7 @@ User request: ${userMsg}`;
 
 // ── PDF DOWNLOAD ─────────────────────────────────────────
 function downloadReportPDF() {
-  const el = document.getElementById('__report-render');
+  const el = $('__report-render');
   if (!el) return;
   const opt = {
     margin: [8, 8, 8, 8],
@@ -1585,7 +1656,7 @@ function downloadReportPDF() {
 
 // ── WORD (EDITABLE) DOWNLOAD ──────────────────────────────
 function downloadReportWord() {
-  const el = document.getElementById('__report-render');
+  const el = $('__report-render');
   if (!el) return;
   const content = el.innerHTML;
   // Build Word-compatible HTML using concatenation to avoid parser issues
@@ -1611,7 +1682,7 @@ function downloadReportWord() {
 
 // ── PROSPECT AI CHAT ─────────────────────────────────────
 async function prospectAsk(preset) {
-  const input = document.getElementById('prospect-ai-input');
+  const input = $('prospect-ai-input');
   const msg = (preset || input.value).trim();
   if (!msg) return;
   if (input) input.value = '';

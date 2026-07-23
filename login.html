@@ -5,7 +5,10 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
-   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .demo-hint { margin-top: 14px; padding: 11px 13px; background: var(--brand-50); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 11.5px; color: var(--brand-400); line-height: 1.6; }
+  </style>
 </head>
 <body>
 
@@ -103,7 +106,7 @@
           <svg id="login-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </button>
 
-        <div id="login-demo-hint" style="margin-top:14px;padding:11px 13px;background:var(--brand-50);border:1px solid rgba(59,130,246, 0.3);border-radius:8px;font-size:11.5px;color:var(--brand-400);line-height:1.6;display:none">
+        <div id="login-demo-hint" class="demo-hint" style="display:none">
           <strong>Demo accounts ready.</strong> No accounts found yet — register one above, or use any email/password after creating an account.
         </div>
       </div>
@@ -207,8 +210,15 @@
 </div>
 
 <script>
+// ── DOM helper ───────────────────────────────────────────
+const $ = id => document.getElementById(id);
+
+// Eye / eye-off icons swapped by the password visibility toggle
+const EYE_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+const EYE_OFF_ICON = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+
 /* ════════════════════════════════════════
-   UTILITY
+   STORAGE
 ════════════════════════════════════════ */
 function getAccounts() { try { return JSON.parse(localStorage.getItem('ramssolAccounts') || '[]'); } catch { return []; } }
 function saveAccounts(accounts) { localStorage.setItem('ramssolAccounts', JSON.stringify(accounts)); }
@@ -216,110 +226,147 @@ function getSession() { try { return JSON.parse(sessionStorage.getItem('ramssolS
 function setSession(user) { sessionStorage.setItem('ramssolSession', JSON.stringify(user)); }
 
 window.addEventListener('DOMContentLoaded', () => {
-  const session = getSession(); if (session) window.location.href = 'index.html';
-  const accounts = getAccounts(); if (accounts.length === 0) document.getElementById('login-demo-hint').style.display = 'block';
+  if (getSession()) { window.location.href = 'index.html'; return; }
+  if (getAccounts().length === 0) $('login-demo-hint').style.display = 'block';
 });
 
+/* ════════════════════════════════════════
+   UI
+════════════════════════════════════════ */
 function switchTab(tab) {
   const isLogin = tab === 'login';
-  document.getElementById('tab-login').classList.toggle('active', isLogin);
-  document.getElementById('tab-register').classList.toggle('active', !isLogin);
-  document.getElementById('view-login').classList.toggle('active', isLogin);
-  document.getElementById('view-register').classList.toggle('active', !isLogin);
-  document.getElementById('footer-login-text').style.display = isLogin ? '' : 'none';
-  document.getElementById('footer-register-text').style.display = isLogin ? 'none' : '';
+  $('tab-login').classList.toggle('active', isLogin);
+  $('tab-register').classList.toggle('active', !isLogin);
+  $('view-login').classList.toggle('active', isLogin);
+  $('view-register').classList.toggle('active', !isLogin);
+  $('footer-login-text').style.display = isLogin ? '' : 'none';
+  $('footer-register-text').style.display = isLogin ? 'none' : '';
   clearAlerts();
 }
 
-function clearAlerts() { ['login-alert','register-alert'].forEach(id => { const el = document.getElementById(id); if(el){el.style.display = 'none'; el.className = 'alert';} }); }
+function clearAlerts() {
+  ['login-alert', 'register-alert'].forEach(id => {
+    const el = $(id);
+    if (el) { el.style.display = 'none'; el.className = 'alert'; }
+  });
+}
 
 function togglePwd(inputId, btn) {
-  const input = document.getElementById(inputId); const isText = input.type === 'text'; input.type = isText ? 'password' : 'text';
-  btn.innerHTML = isText
-    ? `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`
-    : `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  const input = $(inputId);
+  const wasHidden = input.type === 'password';
+  input.type = wasHidden ? 'text' : 'password';
+  btn.innerHTML = wasHidden ? EYE_OFF_ICON : EYE_ICON;
 }
 
 function checkPwdStrength(pwd) {
-  const bars = [1,2,3,4].map(i => document.getElementById('pb'+i)); const label = document.getElementById('pwd-label');
-  let score = 0; if (pwd.length >= 8) score++; if (/[A-Z]/.test(pwd)) score++; if (/[0-9]/.test(pwd)) score++; if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  const bars = [1, 2, 3, 4].map(i => $('pb' + i));
+  const label = $('pwd-label');
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+
   const colors = ['', '#EF4444', '#F97316', '#EAB308', '#3B82F6'];
   const labels = ['', 'Too weak', 'Weak', 'Good', 'Strong'];
   bars.forEach((b, i) => { b.style.background = i < score ? colors[score] : 'var(--gray-200)'; });
-  label.style.color = score > 0 ? colors[score] : 'var(--gray-400)'; label.textContent = score === 0 ? 'At least 8 characters' : labels[score];
+  label.style.color = score > 0 ? colors[score] : 'var(--gray-400)';
+  label.textContent = score === 0 ? 'At least 8 characters' : labels[score];
 }
 
-function showAlert(id, type, msg) { const el = document.getElementById(id); el.className = 'alert ' + type; el.textContent = msg; el.style.display = 'block'; }
-function setLoading(form, loading) {
-  const btn = document.getElementById(form + '-btn');
-  const text = document.getElementById(form + '-btn-text');
-  const spinner = document.getElementById(form + '-spinner');
-  const arrow = document.getElementById(form + '-arrow');
-  btn.disabled = loading;
-  spinner.style.display = loading ? 'block' : 'none';
-  if (arrow) arrow.style.display = loading ? 'none' : '';
-  text.textContent = loading ? (form === 'login' ? 'Signing in...' : 'Creating account...') : (form === 'login' ? 'Sign In' : 'Create Account');
+function showAlert(id, type, msg) {
+  const el = $(id);
+  el.className = 'alert ' + type;
+  el.textContent = msg;
+  el.style.display = 'block';
 }
+
+function setLoading(form, loading) {
+  const btn = $(form + '-btn');
+  const arrow = $(form + '-arrow');
+  btn.disabled = loading;
+  $(form + '-spinner').style.display = loading ? 'block' : 'none';
+  if (arrow) arrow.style.display = loading ? 'none' : '';
+  const busy = form === 'login' ? 'Signing in...' : 'Creating account...';
+  const idle = form === 'login' ? 'Sign In' : 'Create Account';
+  $(form + '-btn-text').textContent = loading ? busy : idle;
+}
+
 function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 /* ════════════════════════════════════════
    AUTH HANDLERS
 ════════════════════════════════════════ */
 async function handleLogin() {
-  const email = document.getElementById('login-email').value.trim();
-  const password = document.getElementById('login-password').value;
+  const email = $('login-email').value.trim();
+  const password = $('login-password').value;
   if (!email || !password) { showAlert('login-alert', 'error', '⚠️ Please enter your email and password.'); return; }
-  setLoading('login', true); await delay(800);
+
+  setLoading('login', true);
+  await delay(800);
   const user = getAccounts().find(a => a.email.toLowerCase() === email.toLowerCase() && a.password === password);
   setLoading('login', false);
+
   if (!user) { showAlert('login-alert', 'error', '❌ Incorrect email or password.'); return; }
   setSession(user);
   triggerGalaxyTransition();
 }
 
 async function handleRegister() {
-  const firstName = document.getElementById('reg-first').value.trim(), lastName = document.getElementById('reg-last').value.trim(),
-        email = document.getElementById('reg-email').value.trim(), role = document.getElementById('reg-role').value,
-        password = document.getElementById('reg-password').value, confirm = document.getElementById('reg-confirm').value,
-        terms = document.getElementById('reg-terms').checked;
-  if (!firstName || !lastName) { showAlert('register-alert','error','⚠️ Please enter your full name.'); return; }
-  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAlert('register-alert','error','⚠️ Valid email required.'); return; }
-  if (!role) { showAlert('register-alert','error','⚠️ Please select a role.'); return; }
-  if (password.length < 8) { showAlert('register-alert','error','⚠️ Password > 8 chars.'); return; }
-  if (password !== confirm) { showAlert('register-alert','error','⚠️ Passwords do not match.'); return; }
-  if (!terms) { showAlert('register-alert','error','⚠️ Accept terms to continue.'); return; }
+  const firstName = $('reg-first').value.trim();
+  const lastName = $('reg-last').value.trim();
+  const email = $('reg-email').value.trim();
+  const role = $('reg-role').value;
+  const password = $('reg-password').value;
+  const confirm = $('reg-confirm').value;
+  const terms = $('reg-terms').checked;
+
+  if (!firstName || !lastName) { showAlert('register-alert', 'error', '⚠️ Please enter your full name.'); return; }
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { showAlert('register-alert', 'error', '⚠️ Valid email required.'); return; }
+  if (!role) { showAlert('register-alert', 'error', '⚠️ Please select a role.'); return; }
+  if (password.length < 8) { showAlert('register-alert', 'error', '⚠️ Password > 8 chars.'); return; }
+  if (password !== confirm) { showAlert('register-alert', 'error', '⚠️ Passwords do not match.'); return; }
+  if (!terms) { showAlert('register-alert', 'error', '⚠️ Accept terms to continue.'); return; }
+
   const accounts = getAccounts();
-  if (accounts.find(a => a.email.toLowerCase() === email.toLowerCase())) { showAlert('register-alert','error','❌ Account exists.'); return; }
-  setLoading('register', true); await delay(1000);
-  const newUser = { id: 'usr_' + Date.now(), firstName, lastName, email, role, password, initials: (firstName[0] + lastName[0]).toUpperCase(), createdAt: new Date().toISOString() };
-  accounts.push(newUser); saveAccounts(accounts); setSession(newUser);
+  if (accounts.find(a => a.email.toLowerCase() === email.toLowerCase())) { showAlert('register-alert', 'error', '❌ Account exists.'); return; }
+
+  setLoading('register', true);
+  await delay(1000);
+  const newUser = {
+    id: 'usr_' + Date.now(), firstName, lastName, email, role, password,
+    initials: (firstName[0] + lastName[0]).toUpperCase(), createdAt: new Date().toISOString()
+  };
+  accounts.push(newUser);
+  saveAccounts(accounts);
+  setSession(newUser);
   window.location.href = 'index.html';
 }
 
 document.addEventListener('keydown', e => {
   if (e.key !== 'Enter') return;
-  if (document.getElementById('view-login').classList.contains('active')) handleLogin();
-  else if (document.getElementById('view-register').classList.contains('active')) handleRegister();
+  if ($('view-login').classList.contains('active')) handleLogin();
+  else if ($('view-register').classList.contains('active')) handleRegister();
 });
 
 /* ════════════════════════════════════════
    3D CARD TILT
 ════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
-  const cards = document.querySelectorAll('.qa-card, .card, .auth-card');
-  cards.forEach(card => {
+  document.querySelectorAll('.qa-card, .card, .auth-card').forEach(card => {
     card.style.transition = 'transform 0.4s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.4s ease';
+
     card.addEventListener('mousemove', (e) => {
       card.style.transition = 'none';
       const rect = card.getBoundingClientRect();
-      const x = e.clientX - rect.left, y = e.clientY - rect.top;
-      const centerX = rect.width / 2, centerY = rect.height / 2;
-      const rotateX = ((y - centerY) / centerY) * -5;
-      const rotateY = ((x - centerX) / centerX) * 5;
+      const centerX = rect.width / 2;
+      const centerY = rect.height / 2;
+      const rotateX = ((e.clientY - rect.top - centerY) / centerY) * -5;
+      const rotateY = ((e.clientX - rect.left - centerX) / centerX) * 5;
       card.style.transform = `perspective(1500px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.01, 1.01, 1.01)`;
-      const shadowX = (rotateY * -0.5), shadowY = (rotateX * -0.5);
-      card.style.boxShadow = `${shadowX}px ${shadowY + 8}px 24px rgba(59,130,246, 0.25)`;
+      card.style.boxShadow = `${rotateY * -0.5}px ${rotateX * -0.5 + 8}px 24px rgba(59,130,246, 0.25)`;
     });
+
     card.addEventListener('mouseleave', () => {
       card.style.transition = 'transform 0.6s cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.6s ease';
       card.style.transform = 'perspective(1500px) rotateX(0deg) rotateY(0deg) scale3d(1, 1, 1)';
@@ -334,46 +381,46 @@ document.addEventListener('DOMContentLoaded', () => {
 let galaxyRAF = null;
 
 function triggerGalaxyTransition() {
-  const overlay  = document.getElementById('galaxy-overlay');
-  const card     = document.getElementById('main-card');
-  const title    = document.getElementById('gx-title');
-  const subtitle = document.getElementById('gx-subtitle');
-  const progWrap = document.getElementById('gx-progress-wrap');
-  const progBar  = document.getElementById('gx-progress-bar');
-  const scanline = document.getElementById('gx-scanline');
-  const flash    = document.getElementById('gx-flash');
-  const grid     = document.getElementById('gx-grid');
+  const overlay  = $('galaxy-overlay');
+  const card     = $('main-card');
+  const title    = $('gx-title');
+  const subtitle = $('gx-subtitle');
+  const progWrap = $('gx-progress-wrap');
+  const progBar  = $('gx-progress-bar');
+  const scanline = $('gx-scanline');
+  const flash    = $('gx-flash');
+  const grid     = $('gx-grid');
 
-  // ── Phase 1: Card exits (0ms)
+  // Phase 1: Card exits (0ms)
   card.classList.add('exiting');
 
-  // ── Phase 2: Overlay fades in (200ms)
+  // Phase 2: Overlay fades in (200ms)
   setTimeout(() => {
     overlay.style.transition = 'opacity 0.55s ease';
     overlay.classList.add('visible');
-    initGalaxyCanvas('slow');
+    initGalaxyCanvas();
   }, 200);
 
-  // ── Phase 3: Grid scan + scanline (600ms)
+  // Phase 3: Grid scan + scanline (600ms)
   setTimeout(() => {
     grid.style.animationPlayState = 'running';
     scanline.style.animationPlayState = 'running';
   }, 600);
 
-  // ── Phase 4: Rings + title appear (1100ms)
+  // Phase 4: Rings + title appear (1100ms)
   setTimeout(() => {
     title.style.animationPlayState = 'running';
     title.classList.add('pulse');
   }, 1100);
 
-  // ── Phase 5: Subtitle + progress bar (1700ms)
+  // Phase 5: Subtitle + progress bar (1700ms)
   setTimeout(() => {
     subtitle.style.animationPlayState = 'running';
     progWrap.style.animationPlayState = 'running';
     animateProgress(progBar, 0, 85, 1200);
   }, 1700);
 
-  // ── Phase 6: Warp speed + progress to 100 (2900ms)
+  // Phase 6: Warp speed + progress to 100 (2900ms)
   setTimeout(() => {
     setWarpSpeed(true);
     animateProgress(progBar, 85, 100, 500);
@@ -382,7 +429,7 @@ function triggerGalaxyTransition() {
     subtitle.style.textShadow = '0 0 12px rgba(160,255,100,0.6)';
   }, 2900);
 
-  // ── Phase 7: White flash + redirect (3500ms)
+  // Phase 7: White flash + redirect (3500ms)
   setTimeout(() => {
     flash.classList.add('burst');
     setTimeout(() => { window.location.href = 'index.html'; }, 420);
@@ -393,7 +440,7 @@ function animateProgress(el, from, to, duration) {
   const start = performance.now();
   function tick(now) {
     const t = Math.min((now - start) / duration, 1);
-    const ease = t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+    const ease = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
     el.style.width = (from + (to - from) * ease) + '%';
     if (t < 1) requestAnimationFrame(tick);
   }
@@ -401,8 +448,8 @@ function animateProgress(el, from, to, duration) {
 }
 
 /* ── Canvas starfield ── */
-function initGalaxyCanvas(speed) {
-  const canvas = document.getElementById('galaxy-canvas');
+function initGalaxyCanvas() {
+  const canvas = $('galaxy-canvas');
   const ctx = canvas.getContext('2d');
 
   function resize() {
@@ -413,11 +460,9 @@ function initGalaxyCanvas(speed) {
   window.addEventListener('resize', resize);
 
   const NUM_STARS = 420;
-  const cx = () => canvas.width / 2;
-  const cy = () => canvas.height / 2;
 
   // Star colors: mostly white/blue-white, hints of purple
-  const starColors = ['#FFFFFF','#EEEEFF','#DDDDFF','#CCCCFF','#EEE8FF','#F8F0FF','#C8AAFF','#E0D0FF'];
+  const starColors = ['#FFFFFF', '#EEEEFF', '#DDDDFF', '#CCCCFF', '#EEE8FF', '#F8F0FF', '#C8AAFF', '#E0D0FF'];
 
   const stars = Array.from({ length: NUM_STARS }, () => ({
     x: (Math.random() - 0.5) * canvas.width  * 2.5,
@@ -431,10 +476,7 @@ function initGalaxyCanvas(speed) {
 
   let warpSpeed = 3;
   let targetSpeed = 3;
-
   function setSpeed(fast) { targetSpeed = fast ? 28 : 3; }
-
-  // Expose warp setter globally
   window._galaxySetWarp = setSpeed;
 
   let lastT = 0;
@@ -449,7 +491,7 @@ function initGalaxyCanvas(speed) {
     ctx.clearRect(0, 0, W, H);
 
     // Deep space background gradient
-    const bg = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, Math.max(W,H) * 0.7);
+    const bg = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, Math.max(W, H) * 0.7);
     bg.addColorStop(0,   'rgba(18, 0, 40, 0.55)');
     bg.addColorStop(0.5, 'rgba(6, 0, 20, 0.75)');
     bg.addColorStop(1,   'rgba(0, 0, 6, 0.90)');
@@ -471,16 +513,15 @@ function initGalaxyCanvas(speed) {
         s.color = starColors[Math.floor(Math.random() * starColors.length)];
       }
 
-      const sx  = (s.x / s.z)  * W/2 + W/2;
-      const sy  = (s.y / s.z)  * H/2 + H/2;
-      const spx = (s.x / s.pz) * W/2 + W/2;
-      const spy = (s.y / s.pz) * H/2 + H/2;
+      const sx  = (s.x / s.z)  * W / 2 + W / 2;
+      const sy  = (s.y / s.z)  * H / 2 + H / 2;
+      const spx = (s.x / s.pz) * W / 2 + W / 2;
+      const spy = (s.y / s.pz) * H / 2 + H / 2;
       const size = (1 - s.z / W) * s.size * 2.8;
 
       // At high warp: draw streaks
       if (warpSpeed > 8 && (Math.abs(spx - sx) > 1 || Math.abs(spy - sy) > 1)) {
         const alpha = Math.min((warpSpeed / 30) * 0.85, 0.85);
-        ctx.strokeStyle = s.color.replace(')', `, ${alpha})`).replace('rgb', 'rgba').replace('#', 'rgba(').replace(')', ')');
         ctx.strokeStyle = hexToRgba(s.color, alpha);
         ctx.lineWidth = Math.max(size * 0.6, 0.4);
         ctx.beginPath();
@@ -510,7 +551,7 @@ function initGalaxyCanvas(speed) {
     // Central lens flare (subtle)
     const flareAlpha = Math.max(0, Math.min(0.06, (warpSpeed - 2) / 60));
     if (flareAlpha > 0) {
-      const flare = ctx.createRadialGradient(W/2, H/2, 0, W/2, H/2, 280);
+      const flare = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, 280);
       flare.addColorStop(0,   `rgba(0,140,255, ${flareAlpha})`);
       flare.addColorStop(0.5, `rgba(100, 0, 180, ${flareAlpha * 0.4})`);
       flare.addColorStop(1,   'rgba(0,0,0,0)');
@@ -530,9 +571,9 @@ function setWarpSpeed(fast) {
 
 function hexToRgba(hex, alpha) {
   if (!hex.startsWith('#')) return hex;
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
   return `rgba(${r},${g},${b},${alpha})`;
 }
 </script>

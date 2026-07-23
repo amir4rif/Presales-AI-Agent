@@ -35,6 +35,15 @@
     .rejection-banner.revise { background: #452412; border-left: 3px solid #FB923C; color: #FB923C; }
     .rejection-banner.closed { background: var(--red-50); border-left: 3px solid var(--red-700); color: var(--red-700); }
     .rejection-banner.approved { background: var(--brand-50); border-left: 3px solid var(--brand-400); color: var(--brand-500); }
+
+    /* Small utilities (kept here so styles.css is untouched) */
+    .list-subtitle  { font-size: 12.5px; color: var(--gray-500); margin: -10px 0 18px; }
+    .editor-actions { display: flex; gap: 10px; }
+    .editor-meta    { display: flex; align-items: center; gap: 0; margin-bottom: 20px; }
+    .editor-meta-deal   { font-size: 13px; color: var(--gray-500); margin-right: 16px; }
+    .editor-meta-badge  { background: var(--gray-100); color: var(--gray-500); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
+    .editor-meta-updated{ font-size: 11px; color: var(--gray-400); margin-left: 12px; }
+    .api-key-status { display: none; margin-top: 10px; padding: 8px 12px; border-radius: 8px; font-size: 12px; }
   </style>
 </head>
 <body>
@@ -94,7 +103,7 @@
           New Proposal
         </button>
       </div>
-      <div style="font-size:12.5px;color:var(--gray-500);margin:-10px 0 18px">Your submitted proposals and their approval status.</div>
+      <div class="list-subtitle">Your submitted proposals and their approval status.</div>
 
       <div class="proposals-list-wrap">
         <table class="proposals-table">
@@ -118,7 +127,7 @@
 
       <div class="page-header">
         <div class="page-title">Proposal Generator</div>
-        <div style="display:flex;gap:10px">
+        <div class="editor-actions">
           <button class="btn-secondary">Preview</button>
           <button class="btn-secondary" id="submit-approval-btn" onclick="submitForApproval()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
@@ -132,10 +141,10 @@
       </div>
 
       <!-- Proposal meta -->
-      <div style="display:flex;align-items:center;gap:0;margin-bottom:20px">
-        <span style="font-size:13px;color:var(--gray-500);margin-right:16px" id="editor-deal-name">—</span>
-        <span id="proposal-status-badge" style="background:var(--gray-100);color:var(--gray-500);font-size:11px;padding:2px 8px;border-radius:20px">Draft</span>
-        <span style="font-size:11px;color:var(--gray-400);margin-left:12px" id="editor-last-updated"></span>
+      <div class="editor-meta">
+        <span class="editor-meta-deal" id="editor-deal-name">—</span>
+        <span id="proposal-status-badge" class="editor-meta-badge">Draft</span>
+        <span class="editor-meta-updated" id="editor-last-updated"></span>
       </div>
 
       <!-- V9: Rejection / approval banner -->
@@ -208,7 +217,7 @@
                 <div class="ai-suggestion-text" id="ai-suggestion-text"></div>
                 <div class="ai-suggestion-actions">
                   <button class="use-btn" onclick="useSuggestion()">Use This</button>
-                  <button class="discard-btn" onclick="document.getElementById('ai-suggestion-area').style.display='none'">Discard</button>
+                  <button class="discard-btn" onclick="hideAISuggestion()">Discard</button>
                 </div>
               </div>
             </div>
@@ -222,42 +231,91 @@
 </div>
 
 <!-- API KEY MODAL -->
-<div class="modal-overlay" id="api-key-modal" onclick="if(event.target===this)this.classList.remove('open')">
+<div class="modal-overlay" id="api-key-modal" onclick="closeOnBackdrop(event, 'api-key-modal')">
   <div class="modal">
     <div class="modal-title">AI Settings</div>
     <div class="modal-sub">Enter your Anthropic API key to enable AI features.</div>
     <div class="form-group"><label class="form-label">Anthropic API Key</label><input class="form-input" type="password" id="api-key-input" placeholder="sk-ant-api03-..."></div>
-    <div id="api-key-status" style="display:none;margin-top:10px;padding:8px 12px;border-radius:8px;font-size:12px"></div>
+    <div id="api-key-status" class="api-key-status"></div>
     <div class="modal-actions">
-      <button class="btn-secondary" onclick="document.getElementById('api-key-modal').classList.remove('open')">Cancel</button>
+      <button class="btn-secondary" onclick="closeModal('api-key-modal')">Cancel</button>
       <button class="btn-primary" onclick="saveApiKey()">Save &amp; Test Key</button>
     </div>
   </div>
 </div>
 
 <script>
+// ── DOM + MODAL HELPERS ──────────────────────────────────
+const $ = (id) => document.getElementById(id);
+const openModal  = (id) => $(id).classList.add('open');
+const closeModal = (id) => $(id).classList.remove('open');
+function closeOnBackdrop(event, id) {
+  if (event.target === $(id)) closeModal(id);
+}
+
 // ── STORAGE ──────────────────────────────────────────────
 const PROPOSAL_STORAGE_KEY = 'ramssolProposals';
 let apiKey = localStorage.getItem('ramssolApiKey') || '';
 
 function getStoredProposals() {
   try { return JSON.parse(localStorage.getItem(PROPOSAL_STORAGE_KEY) || '[]'); }
-  catch(e) { return []; }
+  catch (e) { return []; }
 }
-function saveStoredProposals(list) { localStorage.setItem(PROPOSAL_STORAGE_KEY, JSON.stringify(list)); }
+function saveStoredProposals(list) {
+  localStorage.setItem(PROPOSAL_STORAGE_KEY, JSON.stringify(list));
+}
 
+// ── STATUS HELPERS ───────────────────────────────────────
 // V9: helper for reject types
-function isRejected(status) { return status === 'Reject & Revise' || status === 'Reject & Close'; }
-
-function pillClass(status) {
-  if (status === 'Approved') return 'pill-approved';
-  if (status === 'Reject & Revise') return 'pill-revise';
-  if (status === 'Reject & Close') return 'pill-closed';
-  if (status === 'Pending Approval') return 'pill-pending';
-  return 'pill-draft';
+function isRejected(status) {
+  return status === 'Reject & Revise' || status === 'Reject & Close';
 }
 
-function fmtRM(v) { if (!v && v !== 0) return '—'; return v >= 1000000 ? 'RM ' + (v/1000000).toFixed(2) + 'M' : 'RM ' + Number(v).toLocaleString(); }
+const PILL_CLASS = {
+  'Approved':         'pill-approved',
+  'Reject & Revise':  'pill-revise',
+  'Reject & Close':   'pill-closed',
+  'Pending Approval': 'pill-pending'
+};
+function pillClass(status) {
+  return PILL_CLASS[status] || 'pill-draft';
+}
+
+// Badge colours shown next to the deal name in the editor
+const STATUS_BADGE = {
+  'Draft':            { bg: 'var(--gray-100)', color: 'var(--gray-500)' },
+  'Pending Approval': { bg: 'var(--amber-50)', color: 'var(--amber-600)' },
+  'Approved':         { bg: 'var(--brand-50)', color: 'var(--brand-400)' },
+  'Reject & Revise':  { bg: '#452412',         color: '#FB923C' },
+  'Reject & Close':   { bg: 'var(--red-50)',   color: 'var(--red-700)' }
+};
+
+// Submit-button state per status. Anything not listed uses the default.
+const SUBMIT_STATE = {
+  'Reject & Revise':  { disabled: false, label: 'Resubmit for Approval' },
+  'Reject & Close':   { disabled: true,  label: 'Closed — Cannot Resubmit' },
+  'Pending Approval': { disabled: true,  label: 'Awaiting Approval' },
+  'Approved':         { disabled: true,  label: 'Already Approved' }
+};
+const SUBMIT_STATE_DEFAULT = { disabled: false, label: 'Submit for Approval' };
+
+const SECTION_LABELS = {
+  executive:      'Executive Summary',
+  challenges:     'Challenges',
+  solution:       'Our Solution',
+  benefits:       'Benefits',
+  implementation: 'Implementation',
+  commercials:    'Commercials',
+  casestudies:    'Case Studies',
+  nextsteps:      'Next Steps'
+};
+
+function fmtRM(v) {
+  if (!v && v !== 0) return '—';
+  return v >= 1000000
+    ? 'RM ' + (v / 1000000).toFixed(2) + 'M'
+    : 'RM ' + Number(v).toLocaleString();
+}
 
 // ── DEFAULT SECTION CONTENT (for new proposals) ──────────
 const DEFAULT_SECTIONS = {
@@ -276,12 +334,14 @@ let editingId = null;       // proposal id being edited
 let editingSections = {};   // working copy of sections for editor
 let currentSection = 'executive';
 
+const dealTitle = (p) => p.deal + (p.version > 1 ? ' (v' + p.version + ')' : '');
+
 // ═══════════════════════════════════════════════════════════
 // MY PROPOSALS LIST VIEW
 // ═══════════════════════════════════════════════════════════
 function renderList() {
   const list = getStoredProposals();
-  const tbody = document.getElementById('proposals-tbody');
+  const tbody = $('proposals-tbody');
 
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">No proposals yet. Click <strong>New Proposal</strong> to get started.</div></td></tr>`;
@@ -289,16 +349,18 @@ function renderList() {
   }
 
   tbody.innerHTML = list.map(p => {
-    const reasonTag = p.rejectionReason && isRejected(p.status) ? `<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px">Reason: ${p.rejectionReason}</div>` : '';
-    let actions = `<button class="row-btn" onclick="openEditor('${p.id}')">View</button>`;
-    if (p.status === 'Reject & Revise') {
-      actions = `<button class="row-btn resubmit" onclick="openEditor('${p.id}')">Edit &amp; Resubmit</button>`;
-    }
+    const reasonTag = (p.rejectionReason && isRejected(p.status))
+      ? `<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px">Reason: ${p.rejectionReason}</div>`
+      : '';
+    const actions = (p.status === 'Reject & Revise')
+      ? `<button class="row-btn resubmit" onclick="openEditor('${p.id}')">Edit &amp; Resubmit</button>`
+      : `<button class="row-btn" onclick="openEditor('${p.id}')">View</button>`;
+
     return `
     <tr>
       <td>
         <div class="prop-deal">${p.deal}</div>
-        <div class="prop-company">${p.company}${p.version > 1 ? ' · v'+p.version : ''}</div>
+        <div class="prop-company">${p.company}${p.version > 1 ? ' · v' + p.version : ''}</div>
       </td>
       <td style="font-family:var(--mono);font-size:12px">${p.submittedDate || '—'}</td>
       <td style="font-family:var(--mono);font-weight:500">${fmtRM(p.value)}</td>
@@ -311,11 +373,11 @@ function renderList() {
 function showListView() {
   // persist editor changes before leaving
   if (editingId) {
-    editingSections[currentSection] = document.getElementById('proposal-textarea').value;
+    editingSections[currentSection] = $('proposal-textarea').value;
     persistSectionsToStorage();
   }
-  document.getElementById('list-view').style.display = 'block';
-  document.getElementById('editor-view').style.display = 'none';
+  $('list-view').style.display = 'block';
+  $('editor-view').style.display = 'none';
   editingId = null;
   renderList();
 }
@@ -333,124 +395,97 @@ function openEditor(id) {
   currentSection = 'executive';
 
   // Update header
-  document.getElementById('editor-deal-name').textContent = p.deal + (p.version > 1 ? ' (v' + p.version + ')' : '');
-  document.getElementById('editor-last-updated').textContent = p.submittedDate ? 'Submitted: ' + p.submittedDate : '';
+  $('editor-deal-name').textContent = dealTitle(p);
+  $('editor-last-updated').textContent = p.submittedDate ? 'Submitted: ' + p.submittedDate : '';
 
   // Load first section
-  document.getElementById('proposal-textarea').value = editingSections.executive || '';
-  document.getElementById('section-label').textContent = 'Executive Summary';
-  document.querySelectorAll('.proposal-step').forEach((s,i) => s.classList.toggle('active', i === 0));
+  $('proposal-textarea').value = editingSections.executive || '';
+  $('section-label').textContent = SECTION_LABELS.executive;
+  document.querySelectorAll('.proposal-step').forEach((s, i) => s.classList.toggle('active', i === 0));
   updateWordCount();
 
   // Reflect status, banner, and submit button
   reflectStatus(p);
 
   // Toggle views
-  document.getElementById('list-view').style.display = 'none';
-  document.getElementById('editor-view').style.display = 'block';
+  $('list-view').style.display = 'none';
+  $('editor-view').style.display = 'block';
 }
 
 function openNewProposal() {
   // For demo, open the default Tzu Chi proposal in editor
   const list = getStoredProposals();
-  const existing = list.find(p => p.id === 'demo-tzuchi-vms');
-  if (existing) {
+  if (list.find(p => p.id === 'demo-tzuchi-vms')) {
     openEditor('demo-tzuchi-vms');
-  } else {
-    // Create a new draft entry
-    const entry = {
-      id: 'demo-tzuchi-vms',
-      company: 'Tzu Chi Foundation',
-      deal: 'Tzu Chi – Volunteer Management System',
-      value: 326000,
-      submittedBy: 'Amir Arif',
-      submittedDate: '',
-      status: 'Draft',
-      reviewNote: '',
-      rejectionReason: '',
-      version: 1,
-      sections: { ...DEFAULT_SECTIONS }
-    };
-    list.push(entry);
-    saveStoredProposals(list);
-    openEditor('demo-tzuchi-vms');
+    return;
   }
+
+  // Create a new draft entry
+  list.push({
+    id: 'demo-tzuchi-vms',
+    company: 'Tzu Chi Foundation',
+    deal: 'Tzu Chi – Volunteer Management System',
+    value: 326000,
+    submittedBy: 'Amir Arif',
+    submittedDate: '',
+    status: 'Draft',
+    reviewNote: '',
+    rejectionReason: '',
+    version: 1,
+    sections: { ...DEFAULT_SECTIONS }
+  });
+  saveStoredProposals(list);
+  openEditor('demo-tzuchi-vms');
+}
+
+// V9: Builds the reject-banner text (shared by revise + close).
+function buildRejectionText(prefix, p) {
+  let text = prefix;
+  if (p.rejectionReason) text += ' Reason: ' + p.rejectionReason + '.';
+  if (p.reviewNote)      text += '\nAdmin note: ' + p.reviewNote;
+  if (p.reviewedDate)    text += ' — ' + p.reviewedDate;
+  return text;
 }
 
 // V9: reflectStatus handles both reject types + rejection reason
-function reflectStatus(proposal) {
-  const status = proposal.status;
-  const badge = document.getElementById('proposal-status-badge');
-  const banner = document.getElementById('review-note-banner');
-  const submitBtn = document.getElementById('submit-approval-btn');
-  const submitLabel = document.getElementById('submit-btn-label');
+function reflectStatus(p) {
+  const status = p.status;
 
-  // Badge styles
-  const styles = {
-    'Draft':             { bg:'var(--gray-100)',  color:'var(--gray-500)' },
-    'Pending Approval':  { bg:'var(--amber-50)',  color:'var(--amber-600)' },
-    'Approved':          { bg:'var(--brand-50)',  color:'var(--brand-400)' },
-    'Reject & Revise':   { bg:'#452412',         color:'#FB923C' },
-    'Reject & Close':    { bg:'var(--red-50)',    color:'var(--red-700)' }
-  }[status] || { bg:'var(--gray-100)', color:'var(--gray-500)' };
-
+  // Badge
+  const badge = $('proposal-status-badge');
+  const badgeStyle = STATUS_BADGE[status] || STATUS_BADGE['Draft'];
   badge.textContent = status;
-  badge.style.background = styles.bg;
-  badge.style.color = styles.color;
+  badge.style.background = badgeStyle.bg;
+  badge.style.color = badgeStyle.color;
 
   // V9: Banner for rejection reason + review note
+  const banner = $('review-note-banner');
   banner.style.display = 'none';
   banner.className = 'rejection-banner';
 
   if (status === 'Reject & Revise') {
     banner.style.display = 'block';
     banner.classList.add('revise');
-    let text = '↩ Sent back for revision.';
-    if (proposal.rejectionReason) text += ' Reason: ' + proposal.rejectionReason + '.';
-    if (proposal.reviewNote) text += '\nAdmin note: ' + proposal.reviewNote;
-    if (proposal.reviewedDate) text += ' — ' + proposal.reviewedDate;
-    banner.textContent = text;
+    banner.textContent = buildRejectionText('↩ Sent back for revision.', p);
   } else if (status === 'Reject & Close') {
     banner.style.display = 'block';
     banner.classList.add('closed');
-    let text = '✕ Case closed — this proposal cannot be resubmitted.';
-    if (proposal.rejectionReason) text += ' Reason: ' + proposal.rejectionReason + '.';
-    if (proposal.reviewNote) text += '\nAdmin note: ' + proposal.reviewNote;
-    if (proposal.reviewedDate) text += ' — ' + proposal.reviewedDate;
-    banner.textContent = text;
-  } else if (status === 'Approved' && proposal.reviewNote) {
+    banner.textContent = buildRejectionText('✕ Case closed — this proposal cannot be resubmitted.', p);
+  } else if (status === 'Approved' && p.reviewNote) {
     banner.style.display = 'block';
     banner.classList.add('approved');
-    banner.textContent = '✅ Approved.' + (proposal.reviewNote ? ' Admin note: ' + proposal.reviewNote : '') + (proposal.reviewedDate ? ' — ' + proposal.reviewedDate : '');
+    banner.textContent = '✅ Approved.'
+      + (p.reviewNote ? ' Admin note: ' + p.reviewNote : '')
+      + (p.reviewedDate ? ' — ' + p.reviewedDate : '');
   }
 
   // V9: Submit button state
-  if (status === 'Reject & Revise') {
-    submitBtn.disabled = false;
-    submitBtn.style.opacity = '1';
-    submitBtn.style.cursor = 'pointer';
-    submitLabel.textContent = 'Resubmit for Approval';
-  } else if (status === 'Reject & Close') {
-    submitBtn.disabled = true;
-    submitBtn.style.opacity = '0.4';
-    submitBtn.style.cursor = 'not-allowed';
-    submitLabel.textContent = 'Closed — Cannot Resubmit';
-  } else if (status === 'Pending Approval') {
-    submitBtn.disabled = true;
-    submitBtn.style.opacity = '0.4';
-    submitBtn.style.cursor = 'not-allowed';
-    submitLabel.textContent = 'Awaiting Approval';
-  } else if (status === 'Approved') {
-    submitBtn.disabled = true;
-    submitBtn.style.opacity = '0.4';
-    submitBtn.style.cursor = 'not-allowed';
-    submitLabel.textContent = 'Already Approved';
-  } else {
-    submitBtn.disabled = false;
-    submitBtn.style.opacity = '1';
-    submitBtn.style.cursor = 'pointer';
-    submitLabel.textContent = 'Submit for Approval';
-  }
+  const submitBtn = $('submit-approval-btn');
+  const { disabled, label } = SUBMIT_STATE[status] || SUBMIT_STATE_DEFAULT;
+  submitBtn.disabled = disabled;
+  submitBtn.style.opacity = disabled ? '0.4' : '1';
+  submitBtn.style.cursor = disabled ? 'not-allowed' : 'pointer';
+  $('submit-btn-label').textContent = label;
 }
 
 function persistSectionsToStorage() {
@@ -464,108 +499,161 @@ function persistSectionsToStorage() {
 
 // ── SECTION NAV ──────────────────────────────────────────
 function loadProposalSection(sec, btn) {
-  editingSections[currentSection] = document.getElementById('proposal-textarea').value;
+  editingSections[currentSection] = $('proposal-textarea').value;
   currentSection = sec;
 
   document.querySelectorAll('.proposal-step').forEach(s => s.classList.remove('active'));
   if (btn) btn.classList.add('active');
-  const labels = { executive:'Executive Summary', challenges:'Challenges', solution:'Our Solution', benefits:'Benefits', implementation:'Implementation', commercials:'Commercials', casestudies:'Case Studies', nextsteps:'Next Steps' };
-  document.getElementById('section-label').textContent = labels[sec] || sec;
-  document.getElementById('proposal-textarea').value = editingSections[sec] || '';
-  document.getElementById('ai-suggestion-area').style.display = 'none';
+
+  $('section-label').textContent = SECTION_LABELS[sec] || sec;
+  $('proposal-textarea').value = editingSections[sec] || '';
+  hideAISuggestion();
   updateWordCount();
 }
 
 function updateWordCount() {
-  const text = document.getElementById('proposal-textarea').value;
-  document.getElementById('word-count').textContent = text.trim() ? text.trim().split(/\s+/).length : 0;
+  const text = $('proposal-textarea').value.trim();
+  $('word-count').textContent = text ? text.split(/\s+/).length : 0;
+}
+
+function hideAISuggestion() {
+  $('ai-suggestion-area').style.display = 'none';
 }
 
 function useSuggestion() {
-  document.getElementById('proposal-textarea').value = document.getElementById('ai-suggestion-text').textContent;
-  document.getElementById('ai-suggestion-area').style.display = 'none';
+  $('proposal-textarea').value = $('ai-suggestion-text').textContent;
+  hideAISuggestion();
   updateWordCount();
 }
 
 function exportProposal() {
-  const content = document.getElementById('proposal-textarea').value;
-  const section = document.getElementById('section-label').textContent;
+  const content = $('proposal-textarea').value;
+  const section = $('section-label').textContent;
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([content], { type:'text/plain' }));
-  a.download = 'proposal_' + section.toLowerCase().replace(/ /g,'_') + '.txt';
+  a.href = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+  a.download = 'proposal_' + section.toLowerCase().replace(/ /g, '_') + '.txt';
   a.click();
 }
 
 // ── SUBMIT / RESUBMIT ────────────────────────────────────
 function submitForApproval() {
   if (!editingId) return;
-  editingSections[currentSection] = document.getElementById('proposal-textarea').value;
+  editingSections[currentSection] = $('proposal-textarea').value;
 
   const list = getStoredProposals();
   const idx = list.findIndex(p => p.id === editingId);
   if (idx === -1) return;
 
-  const wasRevise = list[idx].status === 'Reject & Revise';
+  const p = list[idx];
+  const wasRevise = p.status === 'Reject & Revise';
 
   // V9: Increment version on resubmit
-  if (wasRevise) {
-    list[idx].version = (list[idx].version || 1) + 1;
-  }
+  if (wasRevise) p.version = (p.version || 1) + 1;
 
-  list[idx].status = 'Pending Approval';
-  list[idx].submittedDate = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
-  list[idx].reviewNote = '';
-  list[idx].rejectionReason = '';
-  list[idx].sections = { ...editingSections };
+  p.status = 'Pending Approval';
+  p.submittedDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  p.reviewNote = '';
+  p.rejectionReason = '';
+  p.sections = { ...editingSections };
 
   saveStoredProposals(list);
-  reflectStatus(list[idx]);
-  document.getElementById('editor-deal-name').textContent = list[idx].deal + (list[idx].version > 1 ? ' (v' + list[idx].version + ')' : '');
+  reflectStatus(p);
+  $('editor-deal-name').textContent = dealTitle(p);
 
-  showToast(wasRevise ? '📤 Resubmitted (v' + list[idx].version + ') for approval' : '📤 Sent to Admin for approval');
+  showToast(wasRevise ? '📤 Resubmitted (v' + p.version + ') for approval' : '📤 Sent to Admin for approval');
 }
 
-// ── AI ────────────────────────────────────────────────────
-function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
+// ── AI SETTINGS ──────────────────────────────────────────
+function getApiKey() {
+  return apiKey || localStorage.getItem('ramssolApiKey') || '';
+}
 
-function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
+function showApiKeyModal() {
+  $('api-key-input').value = getApiKey();
+  openModal('api-key-modal');
+}
+
+function setApiKeyStatus(bg, color, text) {
+  const s = $('api-key-status');
+  s.style.display = 'block';
+  s.style.background = bg;
+  s.style.color = color;
+  s.textContent = text;
+}
 
 async function saveApiKey() {
-  const k = document.getElementById('api-key-input').value.trim();
-  if (!k) { alert('Please enter an API key.'); return; }
-  const s = document.getElementById('api-key-status');
-  s.style.display='block'; s.style.background='var(--brand-50)'; s.style.color='var(--brand-600)'; s.textContent='⏳ Testing key...';
+  const key = $('api-key-input').value.trim();
+  if (!key) { alert('Please enter an API key.'); return; }
+
+  setApiKeyStatus('var(--brand-50)', 'var(--brand-600)', '⏳ Testing key...');
+
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:'Say: OK'}]})});
-    const d = await r.json();
-    if (d.error) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+d.error.message; return; }
-    apiKey=k; localStorage.setItem('ramssolApiKey',k); s.style.background='var(--brand-50)'; s.style.color='var(--brand-500)'; s.textContent='✅ Key verified!';
-    setTimeout(()=>{document.getElementById('api-key-modal').classList.remove('open');s.style.display='none';},1500);
-  } catch(e) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+e.message; }
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-haiku-4-5-20251001',
+        max_tokens: 10,
+        messages: [{ role: 'user', content: 'Say: OK' }]
+      })
+    });
+    const data = await res.json();
+
+    if (data.error) {
+      setApiKeyStatus('var(--red-50)', 'var(--red-700)', '❌ ' + data.error.message);
+      return;
+    }
+
+    apiKey = key;
+    localStorage.setItem('ramssolApiKey', key);
+    setApiKeyStatus('var(--brand-50)', 'var(--brand-500)', '✅ Key verified!');
+    setTimeout(() => {
+      closeModal('api-key-modal');
+      $('api-key-status').style.display = 'none';
+    }, 1500);
+  } catch (e) {
+    setApiKeyStatus('var(--red-50)', 'var(--red-700)', '❌ ' + e.message);
+  }
 }
 
-async function callClaude(messages, system, maxTokens=800) {
-  const key = getApiKey(); if (!key) return '⚠️ Please set your Anthropic API key in AI Settings.';
+async function callClaude(messages, system, maxTokens = 800) {
+  const key = getApiKey();
+  if (!key) return '⚠️ Please set your Anthropic API key in AI Settings.';
   try {
-    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:maxTokens,system,messages})});
-    const d = await r.json(); if (d.error) return '⚠️ '+d.error.message;
-    return d.content.map(c=>c.text||'').join('');
-  } catch(e) { return '⚠️ '+e.message; }
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: maxTokens, system, messages })
+    });
+    const data = await res.json();
+    if (data.error) return '⚠️ ' + data.error.message;
+    return data.content.map(c => c.text || '').join('');
+  } catch (e) {
+    return '⚠️ ' + e.message;
+  }
 }
 
 async function generateAIContent() {
-  const section = document.getElementById('section-label').textContent;
-  const area = document.getElementById('ai-suggestion-area');
-  const text = document.getElementById('ai-suggestion-text');
+  const section = $('section-label').textContent;
+  const area = $('ai-suggestion-area');
+  const text = $('ai-suggestion-text');
   area.style.display = 'block';
   text.innerHTML = '<div class="loading-spinner"><span></span><span></span><span></span></div> Generating...';
 
-  // Get deal name from the editor
-  const dealName = document.getElementById('editor-deal-name').textContent || 'the client';
+  const dealName = $('editor-deal-name').textContent || 'the client';
   const system = 'You are a professional proposal writer for Ramssol Group, a Malaysian technology solutions company. Write compelling, specific proposal content. Be concise and professional.';
   const msg = `Write the "${section}" section of a proposal for: ${dealName}. Keep it under 150 words, professional and persuasive.`;
-  const reply = await callClaude([{ role:'user', content:msg }], system, 400);
-  text.textContent = reply;
+  text.textContent = await callClaude([{ role: 'user', content: msg }], system, 400);
 }
 
 // ── TOAST ─────────────────────────────────────────────────
