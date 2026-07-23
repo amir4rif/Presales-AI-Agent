@@ -6,6 +6,36 @@
   <title>Proposals — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
+  <style>
+    /* V9: My Proposals list view */
+    .proposals-list-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
+    .proposals-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .proposals-table th { font-size: 11px; font-weight: 500; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.04em; padding: 12px 16px; border-bottom: 1px solid var(--gray-100); text-align: left; background: var(--gray-50); }
+    .proposals-table td { padding: 12px 16px; border-bottom: 1px solid var(--gray-100); vertical-align: middle; color: var(--gray-900); }
+    .proposals-table tr:last-child td { border-bottom: none; }
+    .proposals-table tr:hover td { background: var(--gray-50); }
+    .prop-deal { font-weight: 500; color: var(--gray-900); }
+    .prop-company { font-size: 11.5px; color: var(--gray-500); margin-top: 1px; }
+    .status-pill { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
+    .pill-pending  { background: var(--amber-50); color: var(--amber-600); border: 1px solid var(--amber-600); }
+    .pill-approved { background: var(--brand-50); color: var(--brand-400); border: 1px solid var(--brand-400); }
+    .pill-revise   { background: #452412; color: #FB923C; border: 1px solid #FB923C; }
+    .pill-closed   { background: var(--red-50); color: var(--red-700); border: 1px solid var(--red-700); }
+    .pill-draft    { background: var(--gray-100); color: var(--gray-500); border: 1px solid var(--gray-200); }
+    .row-btn { font-size: 11.5px; font-weight: 500; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: var(--font); border: 1px solid var(--gray-200); background: none; color: var(--gray-700); transition: all .15s; }
+    .row-btn:hover { border-color: var(--brand-400); color: var(--brand-400); background: var(--brand-50); }
+    .row-btn.resubmit { border-color: #FB923C; color: #FB923C; }
+    .row-btn.resubmit:hover { background: #FB923C; color: white; }
+    .empty-state { text-align: center; padding: 48px 24px; color: var(--gray-400); font-size: 13px; }
+    .back-btn { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--gray-500); background: none; border: none; cursor: pointer; font-family: var(--font); padding: 0; margin-bottom: 12px; transition: color .15s; }
+    .back-btn:hover { color: var(--brand-400); }
+
+    /* V9: Rejection banner */
+    .rejection-banner { font-size: 12.5px; border: 1px solid var(--gray-100); border-radius: 8px; padding: 10px 14px; margin: -8px 0 20px; color: var(--gray-700); line-height: 1.5; }
+    .rejection-banner.revise { background: #452412; border-left: 3px solid #FB923C; color: #FB923C; }
+    .rejection-banner.closed { background: var(--red-50); border-left: 3px solid var(--red-700); color: var(--red-700); }
+    .rejection-banner.approved { background: var(--brand-50); border-left: 3px solid var(--brand-400); color: var(--brand-500); }
+  </style>
 </head>
 <body>
 
@@ -52,106 +82,142 @@
   </div>
 
   <div class="content">
-    <div class="page-header">
-      <div class="page-title">Proposal Generator</div>
-      <div style="display:flex;gap:10px">
-        <button class="btn-secondary">Preview</button>
-        <button class="btn-secondary" id="submit-approval-btn" onclick="submitForApproval()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
-          Submit for Approval
+
+    <!-- ═══════════════════════════════════════════════════
+         V9: MY PROPOSALS LIST VIEW (landing page)
+         ═══════════════════════════════════════════════════ -->
+    <div id="list-view">
+      <div class="page-header">
+        <div class="page-title">My Proposals</div>
+        <button class="btn-primary" onclick="openNewProposal()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          New Proposal
         </button>
-        <button class="btn-primary" onclick="exportProposal()">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          Export
-        </button>
+      </div>
+      <div style="font-size:12.5px;color:var(--gray-500);margin:-10px 0 18px">Your submitted proposals and their approval status.</div>
+
+      <div class="proposals-list-wrap">
+        <table class="proposals-table">
+          <thead>
+            <tr><th>Proposal</th><th>Date Submitted</th><th>Value (RM)</th><th>Status</th><th>Actions</th></tr>
+          </thead>
+          <tbody id="proposals-tbody"></tbody>
+        </table>
       </div>
     </div>
 
-    <!-- Proposal meta -->
-    <div style="display:flex;align-items:center;gap:0;margin-bottom:20px">
-      <span style="font-size:13px;color:var(--gray-500);margin-right:16px">Tzu Chi – Volunteer Management System</span>
-      <span id="proposal-status-badge" style="background:var(--gray-100);color:var(--gray-500);font-size:11px;padding:2px 8px;border-radius:20px">Draft</span>
-      <span style="font-size:11px;color:var(--gray-400);margin-left:12px">Last updated: 14 May 2026, 11:15 AM</span>
-    </div>
-    <div id="review-note-banner" style="display:none;font-size:12.5px;background:var(--gray-50);border:1px solid var(--gray-100);border-left:3px solid var(--brand-400);border-radius:8px;padding:10px 14px;margin:-8px 0 20px;color:var(--gray-700)"></div>
+    <!-- ═══════════════════════════════════════════════════
+         EDITOR VIEW (hidden until a proposal is selected)
+         ═══════════════════════════════════════════════════ -->
+    <div id="editor-view" style="display:none">
 
-    <!-- Progress steps -->
-    <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:20px">
-      <div style="width:22px;height:22px;border-radius:50%;background:var(--brand-400);display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
-      <span style="font-weight:500;color:var(--brand-500)">Outline</span>
-      <div style="width:40px;height:1px;background:var(--gray-200)"></div>
-      <div style="width:22px;height:22px;border-radius:50%;background:var(--brand-700);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600">2</div>
-      <span style="font-weight:500;color:var(--gray-900)">Content</span>
-      <div style="width:40px;height:1px;background:var(--gray-200)"></div>
-      <div style="width:22px;height:22px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:11px">3</div>
-      <span style="color:var(--gray-500)">Review</span>
-      <div style="width:40px;height:1px;background:var(--gray-200)"></div>
-      <div style="width:22px;height:22px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:11px">4</div>
-      <span style="color:var(--gray-500)">Finalize</span>
-    </div>
+      <button class="back-btn" onclick="showListView()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to My Proposals
+      </button>
 
-    <div class="proposal-grid">
-      <!-- LEFT: Section Nav -->
-      <div>
-        <div class="proposal-nav">
-          <div class="proposal-nav-header">Proposal Sections</div>
-          <button class="proposal-step active" onclick="loadProposalSection('executive', this)">
-            <span class="step-num done-num"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
-            Executive Summary
+      <div class="page-header">
+        <div class="page-title">Proposal Generator</div>
+        <div style="display:flex;gap:10px">
+          <button class="btn-secondary">Preview</button>
+          <button class="btn-secondary" id="submit-approval-btn" onclick="submitForApproval()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+            <span id="submit-btn-label">Submit for Approval</span>
           </button>
-          <button class="proposal-step" onclick="loadProposalSection('challenges', this)"><span class="step-num">2</span> Challenges</button>
-          <button class="proposal-step" onclick="loadProposalSection('solution', this)"><span class="step-num">3</span> Our Solution</button>
-          <button class="proposal-step" onclick="loadProposalSection('benefits', this)"><span class="step-num">4</span> Benefits</button>
-          <button class="proposal-step" onclick="loadProposalSection('implementation', this)"><span class="step-num">5</span> Implementation</button>
-          <button class="proposal-step" onclick="loadProposalSection('commercials', this)"><span class="step-num">6</span> Commercials</button>
-          <button class="proposal-step" onclick="loadProposalSection('casestudies', this)"><span class="step-num">7</span> Case Studies</button>
-          <button class="proposal-step" onclick="loadProposalSection('nextsteps', this)"><span class="step-num">8</span> Next Steps</button>
-        </div>
-        <div style="margin-top:14px;background:var(--brand-50);border:1px solid var(--brand-100);border-radius:10px;padding:14px 16px">
-          <div style="font-size:12px;font-weight:500;color:var(--brand-500);margin-bottom:8px;display:flex;align-items:center;gap:6px">
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-            AI Suggestions <span style="font-size:10px;background:var(--brand-400);color:white;padding:1px 6px;border-radius:10px">NEW</span>
-          </div>
-          <div style="font-size:12px;color:var(--gray-600);line-height:1.5;margin-bottom:10px">AI has generated content suggestions based on your inputs.</div>
-          <button class="btn-primary" style="width:100%;justify-content:center;font-size:12px;padding:8px" onclick="generateAIContent()">✨ View Suggestions</button>
+          <button class="btn-primary" onclick="exportProposal()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </button>
         </div>
       </div>
 
-      <!-- RIGHT: Editor -->
-      <div>
-        <div class="proposal-editor">
-          <div class="editor-toolbar">
-            <span style="font-size:13px;font-weight:500;color:var(--gray-900);margin-right:8px" id="section-label">Executive Summary</span>
-            <button class="tool-btn" style="font-weight:600">B</button>
-            <button class="tool-btn" style="font-style:italic">I</button>
-            <button class="tool-btn" style="text-decoration:underline">U</button>
-            <button class="tool-btn">H2</button>
-            <button class="tool-btn">≡</button>
-            <button class="tool-btn">🔗</button>
-            <div style="flex:1"></div>
-            <button class="btn-secondary" style="font-size:12px;padding:5px 12px" onclick="generateAIContent()">✨ Generate with AI</button>
-          </div>
-          <div class="editor-body">
-            <textarea class="editor-textarea" id="proposal-textarea" rows="14"
-              oninput="updateWordCount()">Tzu Chi Foundation requires a comprehensive volunteer management solution to streamline recruitment, deployment, communication, and reporting across its global operations.
+      <!-- Proposal meta -->
+      <div style="display:flex;align-items:center;gap:0;margin-bottom:20px">
+        <span style="font-size:13px;color:var(--gray-500);margin-right:16px" id="editor-deal-name">—</span>
+        <span id="proposal-status-badge" style="background:var(--gray-100);color:var(--gray-500);font-size:11px;padding:2px 8px;border-radius:20px">Draft</span>
+        <span style="font-size:11px;color:var(--gray-400);margin-left:12px" id="editor-last-updated"></span>
+      </div>
 
-Our proposed solution will help Tzu Chi improve volunteer coordination, increase operational efficiency, and enhance impact measurement while supporting multiple languages and regions.</textarea>
-            <div id="ai-suggestion-area" style="display:none" class="ai-suggestion-box">
-              <div class="ai-suggestion-label">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-                AI Suggestion
-              </div>
-              <div class="ai-suggestion-text" id="ai-suggestion-text"></div>
-              <div class="ai-suggestion-actions">
-                <button class="use-btn" onclick="useSuggestion()">Use This</button>
-                <button class="discard-btn" onclick="document.getElementById('ai-suggestion-area').style.display='none'">Discard</button>
+      <!-- V9: Rejection / approval banner -->
+      <div id="review-note-banner" class="rejection-banner" style="display:none"></div>
+
+      <!-- Progress steps -->
+      <div style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:20px">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--brand-400);display:flex;align-items:center;justify-content:center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <span style="font-weight:500;color:var(--brand-500)">Outline</span>
+        <div style="width:40px;height:1px;background:var(--gray-200)"></div>
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--brand-700);display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:600">2</div>
+        <span style="font-weight:500;color:var(--gray-900)">Content</span>
+        <div style="width:40px;height:1px;background:var(--gray-200)"></div>
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:11px">3</div>
+        <span style="color:var(--gray-500)">Review</span>
+        <div style="width:40px;height:1px;background:var(--gray-200)"></div>
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--gray-100);display:flex;align-items:center;justify-content:center;color:var(--gray-500);font-size:11px">4</div>
+        <span style="color:var(--gray-500)">Finalize</span>
+      </div>
+
+      <div class="proposal-grid">
+        <!-- LEFT: Section Nav -->
+        <div>
+          <div class="proposal-nav">
+            <div class="proposal-nav-header">Proposal Sections</div>
+            <button class="proposal-step active" onclick="loadProposalSection('executive', this)">
+              <span class="step-num done-num"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg></span>
+              Executive Summary
+            </button>
+            <button class="proposal-step" onclick="loadProposalSection('challenges', this)"><span class="step-num">2</span> Challenges</button>
+            <button class="proposal-step" onclick="loadProposalSection('solution', this)"><span class="step-num">3</span> Our Solution</button>
+            <button class="proposal-step" onclick="loadProposalSection('benefits', this)"><span class="step-num">4</span> Benefits</button>
+            <button class="proposal-step" onclick="loadProposalSection('implementation', this)"><span class="step-num">5</span> Implementation</button>
+            <button class="proposal-step" onclick="loadProposalSection('commercials', this)"><span class="step-num">6</span> Commercials</button>
+            <button class="proposal-step" onclick="loadProposalSection('casestudies', this)"><span class="step-num">7</span> Case Studies</button>
+            <button class="proposal-step" onclick="loadProposalSection('nextsteps', this)"><span class="step-num">8</span> Next Steps</button>
+          </div>
+          <div style="margin-top:14px;background:var(--brand-50);border:1px solid var(--brand-100);border-radius:10px;padding:14px 16px">
+            <div style="font-size:12px;font-weight:500;color:var(--brand-500);margin-bottom:8px;display:flex;align-items:center;gap:6px">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+              AI Suggestions <span style="font-size:10px;background:var(--brand-400);color:white;padding:1px 6px;border-radius:10px">NEW</span>
+            </div>
+            <div style="font-size:12px;color:var(--gray-600);line-height:1.5;margin-bottom:10px">AI has generated content suggestions based on your inputs.</div>
+            <button class="btn-primary" style="width:100%;justify-content:center;font-size:12px;padding:8px" onclick="generateAIContent()">✨ View Suggestions</button>
+          </div>
+        </div>
+
+        <!-- RIGHT: Editor -->
+        <div>
+          <div class="proposal-editor">
+            <div class="editor-toolbar">
+              <span style="font-size:13px;font-weight:500;color:var(--gray-900);margin-right:8px" id="section-label">Executive Summary</span>
+              <button class="tool-btn" style="font-weight:600">B</button>
+              <button class="tool-btn" style="font-style:italic">I</button>
+              <button class="tool-btn" style="text-decoration:underline">U</button>
+              <button class="tool-btn">H2</button>
+              <button class="tool-btn">≡</button>
+              <button class="tool-btn">🔗</button>
+              <div style="flex:1"></div>
+              <button class="btn-secondary" style="font-size:12px;padding:5px 12px" onclick="generateAIContent()">✨ Generate with AI</button>
+            </div>
+            <div class="editor-body">
+              <textarea class="editor-textarea" id="proposal-textarea" rows="14"
+                oninput="updateWordCount()"></textarea>
+              <div id="ai-suggestion-area" style="display:none" class="ai-suggestion-box">
+                <div class="ai-suggestion-label">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                  AI Suggestion
+                </div>
+                <div class="ai-suggestion-text" id="ai-suggestion-text"></div>
+                <div class="ai-suggestion-actions">
+                  <button class="use-btn" onclick="useSuggestion()">Use This</button>
+                  <button class="discard-btn" onclick="document.getElementById('ai-suggestion-area').style.display='none'">Discard</button>
+                </div>
               </div>
             </div>
+            <div class="word-count">Words: <span id="word-count">0</span> · Saved ✓</div>
           </div>
-          <div class="word-count">Words: <span id="word-count">0</span> · Saved ✓</div>
         </div>
       </div>
     </div>
+
   </div>
 </div>
 
@@ -170,10 +236,31 @@ Our proposed solution will help Tzu Chi improve volunteer coordination, increase
 </div>
 
 <script>
-// ── DATA ─────────────────────────────────────────────────
+// ── STORAGE ──────────────────────────────────────────────
+const PROPOSAL_STORAGE_KEY = 'ramssolProposals';
 let apiKey = localStorage.getItem('ramssolApiKey') || '';
 
-const SECTION_CONTENT = {
+function getStoredProposals() {
+  try { return JSON.parse(localStorage.getItem(PROPOSAL_STORAGE_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+function saveStoredProposals(list) { localStorage.setItem(PROPOSAL_STORAGE_KEY, JSON.stringify(list)); }
+
+// V9: helper for reject types
+function isRejected(status) { return status === 'Reject & Revise' || status === 'Reject & Close'; }
+
+function pillClass(status) {
+  if (status === 'Approved') return 'pill-approved';
+  if (status === 'Reject & Revise') return 'pill-revise';
+  if (status === 'Reject & Close') return 'pill-closed';
+  if (status === 'Pending Approval') return 'pill-pending';
+  return 'pill-draft';
+}
+
+function fmtRM(v) { if (!v && v !== 0) return '—'; return v >= 1000000 ? 'RM ' + (v/1000000).toFixed(2) + 'M' : 'RM ' + Number(v).toLocaleString(); }
+
+// ── DEFAULT SECTION CONTENT (for new proposals) ──────────
+const DEFAULT_SECTIONS = {
   executive: 'Tzu Chi Foundation requires a comprehensive volunteer management solution to streamline recruitment, deployment, communication, and reporting across its global operations.\n\nOur proposed solution will help Tzu Chi improve volunteer coordination, increase operational efficiency, and enhance impact measurement while supporting multiple languages and regions.',
   challenges: 'Tzu Chi faces several operational challenges:\n\n1. Managing 10,000+ volunteers across 60+ countries with diverse languages\n2. Manual volunteer coordination leading to delays in disaster response\n3. Limited visibility into volunteer availability and skills inventory\n4. Fragmented donor tracking and fund utilization reporting',
   solution: 'Ramssol proposes a cloud-based Volunteer Management System (VMS) that provides:\n\n• Centralized volunteer registry with multilingual support (20+ languages)\n• AI-powered matching of volunteers to deployment needs\n• Real-time coordination and communication platform\n• Integrated donor management with fund tracking dashboards',
@@ -184,19 +271,207 @@ const SECTION_CONTENT = {
   nextsteps: '1. Schedule a technical demo (30 mins) with your IT team\n2. Conduct a 2-week proof-of-concept pilot\n3. Finalize commercial terms and SLA\n4. Sign MOU and kick off implementation'
 };
 
-// ── FUNCTIONS ─────────────────────────────────────────────
+// ── STATE ────────────────────────────────────────────────
+let editingId = null;       // proposal id being edited
+let editingSections = {};   // working copy of sections for editor
 let currentSection = 'executive';
 
+// ═══════════════════════════════════════════════════════════
+// MY PROPOSALS LIST VIEW
+// ═══════════════════════════════════════════════════════════
+function renderList() {
+  const list = getStoredProposals();
+  const tbody = document.getElementById('proposals-tbody');
+
+  if (!list.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">No proposals yet. Click <strong>New Proposal</strong> to get started.</div></td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = list.map(p => {
+    const reasonTag = p.rejectionReason && isRejected(p.status) ? `<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px">Reason: ${p.rejectionReason}</div>` : '';
+    let actions = `<button class="row-btn" onclick="openEditor('${p.id}')">View</button>`;
+    if (p.status === 'Reject & Revise') {
+      actions = `<button class="row-btn resubmit" onclick="openEditor('${p.id}')">Edit &amp; Resubmit</button>`;
+    }
+    return `
+    <tr>
+      <td>
+        <div class="prop-deal">${p.deal}</div>
+        <div class="prop-company">${p.company}${p.version > 1 ? ' · v'+p.version : ''}</div>
+      </td>
+      <td style="font-family:var(--mono);font-size:12px">${p.submittedDate || '—'}</td>
+      <td style="font-family:var(--mono);font-weight:500">${fmtRM(p.value)}</td>
+      <td><span class="status-pill ${pillClass(p.status)}">${p.status}</span>${reasonTag}</td>
+      <td>${actions}</td>
+    </tr>`;
+  }).join('');
+}
+
+function showListView() {
+  // persist editor changes before leaving
+  if (editingId) {
+    editingSections[currentSection] = document.getElementById('proposal-textarea').value;
+    persistSectionsToStorage();
+  }
+  document.getElementById('list-view').style.display = 'block';
+  document.getElementById('editor-view').style.display = 'none';
+  editingId = null;
+  renderList();
+}
+
+// ═══════════════════════════════════════════════════════════
+// EDITOR VIEW
+// ═══════════════════════════════════════════════════════════
+function openEditor(id) {
+  const list = getStoredProposals();
+  const p = list.find(x => x.id === id);
+  if (!p) return;
+
+  editingId = id;
+  editingSections = Object.assign({}, DEFAULT_SECTIONS, p.sections || {});
+  currentSection = 'executive';
+
+  // Update header
+  document.getElementById('editor-deal-name').textContent = p.deal + (p.version > 1 ? ' (v' + p.version + ')' : '');
+  document.getElementById('editor-last-updated').textContent = p.submittedDate ? 'Submitted: ' + p.submittedDate : '';
+
+  // Load first section
+  document.getElementById('proposal-textarea').value = editingSections.executive || '';
+  document.getElementById('section-label').textContent = 'Executive Summary';
+  document.querySelectorAll('.proposal-step').forEach((s,i) => s.classList.toggle('active', i === 0));
+  updateWordCount();
+
+  // Reflect status, banner, and submit button
+  reflectStatus(p);
+
+  // Toggle views
+  document.getElementById('list-view').style.display = 'none';
+  document.getElementById('editor-view').style.display = 'block';
+}
+
+function openNewProposal() {
+  // For demo, open the default Tzu Chi proposal in editor
+  const list = getStoredProposals();
+  const existing = list.find(p => p.id === 'demo-tzuchi-vms');
+  if (existing) {
+    openEditor('demo-tzuchi-vms');
+  } else {
+    // Create a new draft entry
+    const entry = {
+      id: 'demo-tzuchi-vms',
+      company: 'Tzu Chi Foundation',
+      deal: 'Tzu Chi – Volunteer Management System',
+      value: 326000,
+      submittedBy: 'Amir Arif',
+      submittedDate: '',
+      status: 'Draft',
+      reviewNote: '',
+      rejectionReason: '',
+      version: 1,
+      sections: { ...DEFAULT_SECTIONS }
+    };
+    list.push(entry);
+    saveStoredProposals(list);
+    openEditor('demo-tzuchi-vms');
+  }
+}
+
+// V9: reflectStatus handles both reject types + rejection reason
+function reflectStatus(proposal) {
+  const status = proposal.status;
+  const badge = document.getElementById('proposal-status-badge');
+  const banner = document.getElementById('review-note-banner');
+  const submitBtn = document.getElementById('submit-approval-btn');
+  const submitLabel = document.getElementById('submit-btn-label');
+
+  // Badge styles
+  const styles = {
+    'Draft':             { bg:'var(--gray-100)',  color:'var(--gray-500)' },
+    'Pending Approval':  { bg:'var(--amber-50)',  color:'var(--amber-600)' },
+    'Approved':          { bg:'var(--brand-50)',  color:'var(--brand-400)' },
+    'Reject & Revise':   { bg:'#452412',         color:'#FB923C' },
+    'Reject & Close':    { bg:'var(--red-50)',    color:'var(--red-700)' }
+  }[status] || { bg:'var(--gray-100)', color:'var(--gray-500)' };
+
+  badge.textContent = status;
+  badge.style.background = styles.bg;
+  badge.style.color = styles.color;
+
+  // V9: Banner for rejection reason + review note
+  banner.style.display = 'none';
+  banner.className = 'rejection-banner';
+
+  if (status === 'Reject & Revise') {
+    banner.style.display = 'block';
+    banner.classList.add('revise');
+    let text = '↩ Sent back for revision.';
+    if (proposal.rejectionReason) text += ' Reason: ' + proposal.rejectionReason + '.';
+    if (proposal.reviewNote) text += '\nAdmin note: ' + proposal.reviewNote;
+    if (proposal.reviewedDate) text += ' — ' + proposal.reviewedDate;
+    banner.textContent = text;
+  } else if (status === 'Reject & Close') {
+    banner.style.display = 'block';
+    banner.classList.add('closed');
+    let text = '✕ Case closed — this proposal cannot be resubmitted.';
+    if (proposal.rejectionReason) text += ' Reason: ' + proposal.rejectionReason + '.';
+    if (proposal.reviewNote) text += '\nAdmin note: ' + proposal.reviewNote;
+    if (proposal.reviewedDate) text += ' — ' + proposal.reviewedDate;
+    banner.textContent = text;
+  } else if (status === 'Approved' && proposal.reviewNote) {
+    banner.style.display = 'block';
+    banner.classList.add('approved');
+    banner.textContent = '✅ Approved.' + (proposal.reviewNote ? ' Admin note: ' + proposal.reviewNote : '') + (proposal.reviewedDate ? ' — ' + proposal.reviewedDate : '');
+  }
+
+  // V9: Submit button state
+  if (status === 'Reject & Revise') {
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '1';
+    submitBtn.style.cursor = 'pointer';
+    submitLabel.textContent = 'Resubmit for Approval';
+  } else if (status === 'Reject & Close') {
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.4';
+    submitBtn.style.cursor = 'not-allowed';
+    submitLabel.textContent = 'Closed — Cannot Resubmit';
+  } else if (status === 'Pending Approval') {
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.4';
+    submitBtn.style.cursor = 'not-allowed';
+    submitLabel.textContent = 'Awaiting Approval';
+  } else if (status === 'Approved') {
+    submitBtn.disabled = true;
+    submitBtn.style.opacity = '0.4';
+    submitBtn.style.cursor = 'not-allowed';
+    submitLabel.textContent = 'Already Approved';
+  } else {
+    submitBtn.disabled = false;
+    submitBtn.style.opacity = '1';
+    submitBtn.style.cursor = 'pointer';
+    submitLabel.textContent = 'Submit for Approval';
+  }
+}
+
+function persistSectionsToStorage() {
+  if (!editingId) return;
+  const list = getStoredProposals();
+  const idx = list.findIndex(p => p.id === editingId);
+  if (idx === -1) return;
+  list[idx].sections = { ...editingSections };
+  saveStoredProposals(list);
+}
+
+// ── SECTION NAV ──────────────────────────────────────────
 function loadProposalSection(sec, btn) {
-  // persist any edits made in the section we're leaving
-  SECTION_CONTENT[currentSection] = document.getElementById('proposal-textarea').value;
+  editingSections[currentSection] = document.getElementById('proposal-textarea').value;
   currentSection = sec;
 
   document.querySelectorAll('.proposal-step').forEach(s => s.classList.remove('active'));
   if (btn) btn.classList.add('active');
   const labels = { executive:'Executive Summary', challenges:'Challenges', solution:'Our Solution', benefits:'Benefits', implementation:'Implementation', commercials:'Commercials', casestudies:'Case Studies', nextsteps:'Next Steps' };
   document.getElementById('section-label').textContent = labels[sec] || sec;
-  document.getElementById('proposal-textarea').value = SECTION_CONTENT[sec] || '';
+  document.getElementById('proposal-textarea').value = editingSections[sec] || '';
   document.getElementById('ai-suggestion-area').style.display = 'none';
   updateWordCount();
 }
@@ -219,6 +494,35 @@ function exportProposal() {
   a.href = URL.createObjectURL(new Blob([content], { type:'text/plain' }));
   a.download = 'proposal_' + section.toLowerCase().replace(/ /g,'_') + '.txt';
   a.click();
+}
+
+// ── SUBMIT / RESUBMIT ────────────────────────────────────
+function submitForApproval() {
+  if (!editingId) return;
+  editingSections[currentSection] = document.getElementById('proposal-textarea').value;
+
+  const list = getStoredProposals();
+  const idx = list.findIndex(p => p.id === editingId);
+  if (idx === -1) return;
+
+  const wasRevise = list[idx].status === 'Reject & Revise';
+
+  // V9: Increment version on resubmit
+  if (wasRevise) {
+    list[idx].version = (list[idx].version || 1) + 1;
+  }
+
+  list[idx].status = 'Pending Approval';
+  list[idx].submittedDate = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  list[idx].reviewNote = '';
+  list[idx].rejectionReason = '';
+  list[idx].sections = { ...editingSections };
+
+  saveStoredProposals(list);
+  reflectStatus(list[idx]);
+  document.getElementById('editor-deal-name').textContent = list[idx].deal + (list[idx].version > 1 ? ' (v' + list[idx].version + ')' : '');
+
+  showToast(wasRevise ? '📤 Resubmitted (v' + list[idx].version + ') for approval' : '📤 Sent to Admin for approval');
 }
 
 // ── AI ────────────────────────────────────────────────────
@@ -255,72 +559,13 @@ async function generateAIContent() {
   const text = document.getElementById('ai-suggestion-text');
   area.style.display = 'block';
   text.innerHTML = '<div class="loading-spinner"><span></span><span></span><span></span></div> Generating...';
+
+  // Get deal name from the editor
+  const dealName = document.getElementById('editor-deal-name').textContent || 'the client';
   const system = 'You are a professional proposal writer for Ramssol Group, a Malaysian technology solutions company. Write compelling, specific proposal content. Be concise and professional.';
-  const msg = `Write the "${section}" section of a proposal for: Tzu Chi Foundation (NGO, humanitarian, 10,000+ volunteers, 60+ countries). Keep it under 150 words, professional and persuasive.`;
+  const msg = `Write the "${section}" section of a proposal for: ${dealName}. Keep it under 150 words, professional and persuasive.`;
   const reply = await callClaude([{ role:'user', content:msg }], system, 400);
   text.textContent = reply;
-}
-
-// ── ADMIN APPROVAL WORKFLOW ───────────────────────────────
-const PROPOSAL_ID = 'demo-tzuchi-vms'; // fixed id ties this editor to the Approvals page
-const PROPOSAL_STORAGE_KEY = 'ramssolProposals';
-
-function getStoredProposals() {
-  try { return JSON.parse(localStorage.getItem(PROPOSAL_STORAGE_KEY) || '[]'); }
-  catch(e) { return []; }
-}
-function saveStoredProposals(list) { localStorage.setItem(PROPOSAL_STORAGE_KEY, JSON.stringify(list)); }
-
-function submitForApproval() {
-  // capture whatever is currently in the editor before submitting
-  SECTION_CONTENT[currentSection] = document.getElementById('proposal-textarea').value;
-
-  const list = getStoredProposals();
-  const idx = list.findIndex(p => p.id === PROPOSAL_ID);
-  const entry = {
-    id: PROPOSAL_ID,
-    company: 'Tzu Chi Foundation',
-    deal: 'Tzu Chi – Volunteer Management System',
-    value: 326000,
-    submittedBy: 'Amir Arif',
-    submittedDate: new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}),
-    status: 'Pending Approval',
-    reviewNote: '',
-    sections: { ...SECTION_CONTENT }
-  };
-  if (idx > -1) list[idx] = entry; else list.push(entry);
-  saveStoredProposals(list);
-
-  reflectStatus('Pending Approval', '');
-  showToast('📤 Sent to Admin for approval');
-}
-
-function reflectStatus(status, note, reviewedDate) {
-  const badge = document.getElementById('proposal-status-badge');
-  const banner = document.getElementById('review-note-banner');
-  const styles = {
-    'Draft':            { bg:'var(--gray-100)',  color:'var(--gray-500)' },
-    'Pending Approval':  { bg:'var(--amber-50)',  color:'var(--amber-600)' },
-    'Approved':          { bg:'var(--brand-50)',  color:'var(--brand-400)' },
-    'Rejected':          { bg:'var(--red-50)',    color:'var(--red-700)' }
-  }[status] || { bg:'var(--gray-100)', color:'var(--gray-500)' };
-  badge.textContent = status;
-  badge.style.background = styles.bg;
-  badge.style.color = styles.color;
-
-  if (note && (status === 'Approved' || status === 'Rejected')) {
-    banner.style.display = 'block';
-    banner.textContent = (status === 'Approved' ? '✅ Admin note: ' : '✕ Admin note: ') + note + (reviewedDate ? ' — ' + reviewedDate : '');
-    banner.style.borderLeftColor = status === 'Approved' ? 'var(--brand-400)' : 'var(--red-700)';
-  } else {
-    banner.style.display = 'none';
-  }
-}
-
-function syncStatusFromAdmin() {
-  const list = getStoredProposals();
-  const mine = list.find(p => p.id === PROPOSAL_ID);
-  if (mine) reflectStatus(mine.status, mine.reviewNote, mine.reviewedDate);
 }
 
 // ── TOAST ─────────────────────────────────────────────────
@@ -333,8 +578,7 @@ function showToast(msg, isWarning) {
 }
 
 // ── INIT ─────────────────────────────────────────────────
-updateWordCount();
-syncStatusFromAdmin();
+renderList();
 </script>
 </body>
 </html>

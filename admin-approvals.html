@@ -23,7 +23,8 @@
     .status-pill { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
     .pill-pending  { background: var(--amber-50); color: var(--amber-600); border: 1px solid var(--amber-600); }
     .pill-approved { background: var(--brand-50); color: var(--brand-400); border: 1px solid var(--brand-400); }
-    .pill-rejected { background: var(--red-50); color: var(--red-700); border: 1px solid var(--red-700); }
+    .pill-revise   { background: #452412; color: #FB923C; border: 1px solid #FB923C; }
+    .pill-closed   { background: var(--red-50); color: var(--red-700); border: 1px solid var(--red-700); }
     .row-actions { display: flex; gap: 8px; }
     .row-btn { font-size: 11.5px; font-weight: 500; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: var(--font); border: 1px solid var(--gray-200); background: none; color: var(--gray-700); transition: all .15s; }
     .row-btn:hover { border-color: var(--brand-400); color: var(--brand-400); background: var(--brand-50); }
@@ -31,6 +32,8 @@
     .row-btn.approve:hover { background: var(--brand-400); color: white; }
     .row-btn.reject { border-color: var(--red-700); color: var(--red-700); }
     .row-btn.reject:hover { background: var(--red-700); color: white; }
+    .row-btn.revise-btn { border-color: #FB923C; color: #FB923C; }
+    .row-btn.revise-btn:hover { background: #FB923C; color: white; }
     .empty-state { text-align: center; padding: 48px 24px; color: var(--gray-400); font-size: 13px; }
 
     /* Review modal */
@@ -45,6 +48,17 @@
     .review-note-box textarea { width:100%; border:1px solid var(--gray-200); border-radius:7px; padding:8px 10px; font-size:12.5px; font-family:var(--font); color:var(--gray-900); outline:none; resize:vertical; min-height:56px; background:#03060F; }
     .review-note-box textarea:focus { border-color: var(--brand-400); }
     .past-note { font-size: 12px; color: var(--gray-500); background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 8px; padding: 10px 12px; line-height: 1.5; }
+
+    /* V9: Rejection reason dropdown */
+    .rejection-reason-wrap { margin-bottom: 10px; }
+    .rejection-reason-wrap label { font-size: 11px; font-weight: 500; color: var(--gray-700); margin-bottom: 4px; display: block; }
+    .rejection-reason-wrap select { width:100%; border:1px solid var(--gray-200); border-radius:7px; padding:8px 10px; font-size:12.5px; font-family:var(--font); color:var(--gray-900); outline:none; background:#03060F; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; padding-right: 30px; }
+    .rejection-reason-wrap select:focus { border-color: var(--brand-400); }
+    .rejection-reason-wrap .req { color: var(--red-700); font-size: 10px; }
+    .reason-error { font-size: 11px; color: var(--red-700); margin-top: 4px; display: none; }
+
+    /* V9: Reject action buttons group */
+    .reject-actions { display: flex; gap: 8px; }
   </style>
 </head>
 <body>
@@ -129,19 +143,40 @@
 
     <div id="rm-past-note-wrap" style="display:none">
       <div class="review-section">
-        <div class="rs-title">Review Note</div>
+        <div class="rs-title">Review Decision</div>
         <div class="past-note" id="rm-past-note">—</div>
       </div>
     </div>
 
+    <!-- V9: Rejection Reason Dropdown (visible only for pending proposals) -->
+    <div id="rm-reason-wrap" class="rejection-reason-wrap">
+      <label>Rejection Reason <span class="req">(required on reject)</span></label>
+      <select id="rm-reason-select">
+        <option value="">— Select a reason —</option>
+        <option value="Pricing too high">Pricing too high</option>
+        <option value="Scope mismatch">Scope mismatch</option>
+        <option value="Wrong product fit">Wrong product fit</option>
+        <option value="Missing information">Missing information</option>
+        <option value="Compliance issue">Compliance issue</option>
+        <option value="Formatting/quality">Formatting/quality</option>
+        <option value="Out of scope">Out of scope</option>
+        <option value="Other">Other</option>
+      </select>
+      <div class="reason-error" id="rm-reason-error">Please select a rejection reason.</div>
+    </div>
+
     <div id="rm-note-wrap" class="review-note-box">
-      <label class="fl" style="margin-bottom:6px">Note to sales team (optional, recommended for rejections)</label>
+      <label class="fl" style="margin-bottom:6px">Note to sales team (optional)</label>
       <textarea id="rm-note-input" placeholder="e.g. Pricing looks strong, approved as-is. — or — Please revise commercials before resubmitting."></textarea>
     </div>
 
+    <!-- V9: Split reject into Reject & Revise / Reject & Close -->
     <div class="modal-actions" id="rm-actions" style="margin-top:4px">
       <button class="btn-secondary" onclick="closeReviewModal()">Close</button>
-      <button class="row-btn reject" style="padding:9px 16px;font-size:13px" onclick="actOnProposal('Rejected')">✕ Reject</button>
+      <div class="reject-actions">
+        <button class="row-btn revise-btn" style="padding:9px 14px;font-size:13px" onclick="actOnProposal('Reject & Revise')" title="Fixable — goes back to sales rep for revision">↩ Reject &amp; Revise</button>
+        <button class="row-btn reject" style="padding:9px 14px;font-size:13px" onclick="actOnProposal('Reject & Close')" title="Unfixable — case ends, counted as loss">✕ Reject &amp; Close</button>
+      </div>
       <button class="btn-primary" onclick="actOnProposal('Approved')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Approve
@@ -174,11 +209,12 @@ function getProposals() {
 }
 function saveProposals(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
 
+// V9: Added rejectionReason + version fields; split old 'Rejected' into two types + added 5th demo
 const DEFAULT_PROPOSALS = [
   {
     id: 'demo-tzuchi-vms', company: 'Tzu Chi Foundation', deal: 'Tzu Chi – Volunteer Management System',
     value: 326000, submittedBy: 'Amir Arif', submittedDate: '14 May 2026', status: 'Pending Approval',
-    reviewNote: '',
+    reviewNote: '', rejectionReason: '', version: 1,
     sections: {
       executive: 'Tzu Chi Foundation requires a comprehensive volunteer management solution to streamline recruitment, deployment, communication, and reporting across its global operations.',
       solution: 'Ramssol proposes a cloud-based Volunteer Management System (VMS) with centralised registry, AI-powered matching, real-time coordination, and integrated donor management.',
@@ -188,7 +224,7 @@ const DEFAULT_PROPOSALS = [
   {
     id: 'demo-abc-bank', company: 'ABC Bank', deal: 'ABC Bank – Core Upgrade Proposal',
     value: 3100000, submittedBy: 'Ahmad Razak', submittedDate: '10 May 2026', status: 'Pending Approval',
-    reviewNote: '',
+    reviewNote: '', rejectionReason: '', version: 1,
     sections: {
       executive: 'ABC Bank requires a modernised core banking platform to support growing transaction volumes and stricter compliance requirements.',
       solution: 'Ramssol proposes a phased core-system upgrade with parallel-run migration, AI-driven fraud monitoring, and 24x7 managed support.',
@@ -199,6 +235,7 @@ const DEFAULT_PROPOSALS = [
     id: 'demo-edu-portal', company: 'Education Portal Sdn Bhd', deal: 'Education Portal – LMS Rollout',
     value: 1800000, submittedBy: 'Siti Rahimah', submittedDate: '2 May 2026', status: 'Approved',
     reviewedDate: '5 May 2026', reviewNote: 'Approved — pricing aligned with allocated budget, proceed to contract.',
+    rejectionReason: '', version: 1,
     sections: {
       executive: 'Education Portal needs a unified learning management platform serving 40,000+ students across 3 campuses.',
       solution: 'Ramssol RAMS EduTech LMS with mobile-first delivery, integrated assessments, and parent/guardian portals.',
@@ -207,12 +244,24 @@ const DEFAULT_PROPOSALS = [
   },
   {
     id: 'demo-telco-sec', company: 'Telco Malaysia', deal: 'Telco – Security Solution Proposal',
-    value: 2600000, submittedBy: 'Faizal Hassan', submittedDate: '28 Apr 2026', status: 'Rejected',
-    reviewedDate: '30 Apr 2026', reviewNote: 'Rejected — POC failed during evaluation. Please re-scope the architecture and resubmit with updated commercials.',
+    value: 2600000, submittedBy: 'Faizal Hassan', submittedDate: '28 Apr 2026', status: 'Reject & Revise',
+    reviewedDate: '30 Apr 2026', reviewNote: 'POC failed during evaluation. Please re-scope the architecture and resubmit with updated commercials.',
+    rejectionReason: 'Scope mismatch', version: 1,
     sections: {
       executive: 'Telco Malaysia is seeking an upgraded network security solution following recent audit findings.',
       solution: 'Proposed SOC-as-a-service with managed detection and response, tied to existing SIEM tooling.',
       commercials: 'Managed Security Service: RM 2.1M/year · Onboarding: RM 500,000 — Total Year 1: RM 2.6M'
+    }
+  },
+  {
+    id: 'demo-logistics-co', company: 'FastTrack Logistics', deal: 'FastTrack – Fleet IoT Proposal',
+    value: 950000, submittedBy: 'Ahmad Razak', submittedDate: '20 Apr 2026', status: 'Reject & Close',
+    reviewedDate: '22 Apr 2026', reviewNote: 'Product does not cover cold-chain monitoring which is a hard requirement. Out of scope for our current portfolio.',
+    rejectionReason: 'Out of scope', version: 1,
+    sections: {
+      executive: 'FastTrack Logistics needs IoT-based fleet tracking with cold-chain temperature monitoring for pharmaceutical deliveries.',
+      solution: 'Ramssol Fleet Management Platform with GPS tracking, driver behaviour analytics, and route optimisation.',
+      commercials: 'Platform License: RM 650,000/year · Hardware: RM 300,000 — Total Year 1: RM 950,000'
     }
   }
 ];
@@ -229,7 +278,17 @@ let reviewingId = null;
 
 // ── HELPERS ──────────────────────────────────────────────
 function fmtRM(v) { if (!v && v !== 0) return '—'; return v >= 1000000 ? 'RM ' + (v/1000000).toFixed(2) + 'M' : 'RM ' + Number(v).toLocaleString(); }
-function pillClass(status) { return status === 'Approved' ? 'pill-approved' : status === 'Rejected' ? 'pill-rejected' : 'pill-pending'; }
+
+// V9: helper to check either reject type
+function isRejected(status) { return status === 'Reject & Revise' || status === 'Reject & Close'; }
+
+// V9: two reject pill styles instead of one
+function pillClass(status) {
+  if (status === 'Approved') return 'pill-approved';
+  if (status === 'Reject & Revise') return 'pill-revise';
+  if (status === 'Reject & Close') return 'pill-closed';
+  return 'pill-pending';
+}
 
 // ── RENDER ───────────────────────────────────────────────
 function renderAll() {
@@ -237,20 +296,25 @@ function renderAll() {
 
   const pending  = list.filter(p => p.status === 'Pending Approval');
   const approved = list.filter(p => p.status === 'Approved');
-  const rejected = list.filter(p => p.status === 'Rejected');
+  const revise   = list.filter(p => p.status === 'Reject & Revise');
+  const closed   = list.filter(p => p.status === 'Reject & Close');
   const pendingValue = pending.reduce((s,p) => s + (p.value||0), 0);
 
+  // V9: KPI cards now show Reject & Revise and Reject & Close separately
   document.getElementById('kpi-row').innerHTML = [
     { label:'Pending Approval', value: pending.length, sub:'Awaiting your review', color: pending.length ? 'kpi-warn' : '' },
     { label:'Value Pending',    value: fmtRM(pendingValue), sub:'Across pending proposals', color:'' },
     { label:'Approved',         value: approved.length, sub:'All time', color:'kpi-up' },
-    { label:'Rejected',         value: rejected.length, sub:'All time', color: rejected.length ? 'kpi-danger' : '' }
+    { label:'Reject & Revise',  value: revise.length, sub:'Sent back to sales', color: revise.length ? 'kpi-warn' : '' },
+    { label:'Reject & Close',   value: closed.length, sub:'Case ended as loss', color: closed.length ? 'kpi-danger' : '' },
   ].map(k => `<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value ${k.color}">${k.value}</div><div class="kpi-sub">${k.sub}</div></div>`).join('');
 
+  // V9: tabs for both reject types
   const tabs = [
     { key:'Pending Approval', label:'Pending', count: pending.length },
     { key:'Approved',         label:'Approved', count: approved.length },
-    { key:'Rejected',         label:'Rejected', count: rejected.length },
+    { key:'Reject & Revise',  label:'Reject & Revise', count: revise.length },
+    { key:'Reject & Close',   label:'Reject & Close', count: closed.length },
     { key:'All',              label:'All',      count: list.length }
   ];
   document.getElementById('appr-tabs').innerHTML = tabs.map(t =>
@@ -269,27 +333,29 @@ function renderTable(list) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Nothing here right now.</div></td></tr>`;
     return;
   }
-  tbody.innerHTML = list.map(p => `
+  tbody.innerHTML = list.map(p => {
+    // V9: show rejection reason inline under the status pill
+    const reasonTag = p.rejectionReason && isRejected(p.status) ? `<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px">Reason: ${p.rejectionReason}</div>` : '';
+    return `
     <tr>
       <td>
         <div class="appr-deal">${p.deal}</div>
-        <div class="appr-company">${p.company}</div>
+        <div class="appr-company">${p.company}${p.version > 1 ? ' · v'+p.version : ''}</div>
       </td>
       <td>${p.submittedBy}</td>
       <td style="font-family:var(--mono);font-size:12px">${p.submittedDate}</td>
       <td style="font-family:var(--mono);font-weight:500">${fmtRM(p.value)}</td>
-      <td><span class="status-pill ${pillClass(p.status)}">${p.status}</span></td>
+      <td><span class="status-pill ${pillClass(p.status)}">${p.status}</span>${reasonTag}</td>
       <td>
         <div class="row-actions">
           <button class="row-btn" onclick="openReviewModal('${p.id}')">Review</button>
           ${p.status === 'Pending Approval' ? `
             <button class="row-btn approve" onclick="quickApprove('${p.id}')">Approve</button>
-            <button class="row-btn reject" onclick="openReviewModal('${p.id}')">Reject</button>
           ` : ''}
         </div>
       </td>
-    </tr>
-  `).join('');
+    </tr>`;
+  }).join('');
 }
 
 // ── REVIEW MODAL ─────────────────────────────────────────
@@ -299,7 +365,7 @@ function openReviewModal(id) {
   if (!p) return;
   reviewingId = id;
 
-  document.getElementById('rm-title').textContent = p.deal;
+  document.getElementById('rm-title').textContent = p.deal + (p.version > 1 ? ' (v' + p.version + ')' : '');
   document.getElementById('rm-sub').textContent = 'Review the proposal content, then approve or reject.';
   document.getElementById('rm-company').textContent = p.company;
   document.getElementById('rm-value').textContent = fmtRM(p.value);
@@ -317,16 +383,29 @@ function openReviewModal(id) {
   `).join('') || '<div class="review-section"><div class="rs-body">No proposal content was attached.</div></div>';
   document.getElementById('rm-sections').innerHTML = html;
 
+  // V9: show past decision including rejection reason
   const pastWrap = document.getElementById('rm-past-note-wrap');
-  if (p.status !== 'Pending Approval' && p.reviewNote) {
+  if (p.status !== 'Pending Approval' && (p.reviewNote || p.rejectionReason)) {
     pastWrap.style.display = 'block';
-    document.getElementById('rm-past-note').textContent = p.reviewNote + (p.reviewedDate ? ' (' + p.reviewedDate + ')' : '');
+    let noteText = '';
+    if (p.rejectionReason) noteText += 'Reason: ' + p.rejectionReason + '\n';
+    if (p.reviewNote) noteText += p.reviewNote;
+    if (p.reviewedDate) noteText += ' (' + p.reviewedDate + ')';
+    document.getElementById('rm-past-note').textContent = noteText;
   } else {
     pastWrap.style.display = 'none';
   }
 
+  // Reset rejection reason dropdown and note
+  document.getElementById('rm-reason-select').value = '';
+  document.getElementById('rm-reason-error').style.display = 'none';
   document.getElementById('rm-note-input').value = '';
-  document.getElementById('rm-actions').style.display = p.status === 'Pending Approval' ? 'flex' : 'none';
+
+  // Show/hide action elements based on status
+  const isPending = p.status === 'Pending Approval';
+  document.getElementById('rm-actions').style.display = isPending ? 'flex' : 'none';
+  document.getElementById('rm-reason-wrap').style.display = isPending ? 'block' : 'none';
+  document.getElementById('rm-note-wrap').style.display = isPending ? 'block' : 'none';
 
   document.getElementById('review-modal').classList.add('open');
 }
@@ -336,23 +415,36 @@ function closeReviewModal() {
   reviewingId = null;
 }
 
+// V9: actOnProposal now handles 'Reject & Revise' and 'Reject & Close', requires reason
 function actOnProposal(decision) {
   if (!reviewingId) return;
+
+  const reason = document.getElementById('rm-reason-select').value;
+  const errorEl = document.getElementById('rm-reason-error');
+
+  // V9: Require reason for rejections
+  if (isRejected(decision) && !reason) {
+    errorEl.style.display = 'block';
+    document.getElementById('rm-reason-select').focus();
+    return;
+  }
+  errorEl.style.display = 'none';
+
   const list = getProposals();
   const idx = list.findIndex(x => x.id === reviewingId);
   if (idx === -1) return;
 
   const note = document.getElementById('rm-note-input').value.trim();
-  if (decision === 'Rejected' && !note) {
-    if (!confirm('Reject without leaving a note for the sales team? They\'ll only see the status changed.')) return;
-  }
 
   list[idx].status = decision;
   list[idx].reviewNote = note;
+  list[idx].rejectionReason = isRejected(decision) ? reason : '';
   list[idx].reviewedDate = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
   saveProposals(list);
 
-  showToast(decision === 'Approved' ? `✅ ${list[idx].deal} approved` : `✕ ${list[idx].deal} rejected`, decision === 'Rejected');
+  const icon = decision === 'Approved' ? '✅' : decision === 'Reject & Revise' ? '↩' : '✕';
+  const label = decision === 'Approved' ? 'approved' : decision === 'Reject & Revise' ? 'sent back for revision' : 'closed';
+  showToast(`${icon} ${list[idx].deal} ${label}`, decision !== 'Approved');
   closeReviewModal();
   renderAll();
 }
