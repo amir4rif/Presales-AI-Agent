@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Proposals — Ramssol Pre-Sales Copilot</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <style>
     /* V9: My Proposals list view */
@@ -16,12 +16,35 @@
     .proposals-table tr:hover td { background: var(--gray-50); }
     .prop-deal { font-weight: 500; color: var(--gray-900); }
     .prop-company { font-size: 11.5px; color: var(--gray-500); margin-top: 1px; }
+    /* Status badge colours (Doc §3.8): Draft grey · Pending Review blue · Approved green · Rejected red */
     .status-pill { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
-    .pill-pending  { background: var(--amber-50); color: var(--amber-600); border: 1px solid var(--amber-600); }
-    .pill-approved { background: var(--brand-50); color: var(--brand-400); border: 1px solid var(--brand-400); }
+    .pill-pending  { background: var(--blue-50); color: var(--blue-600); border: 1px solid var(--blue-600); }
+    .pill-approved { background: #073b2c; color: #34D399; border: 1px solid #34D399; }
     .pill-revise   { background: #452412; color: #FB923C; border: 1px solid #FB923C; }
     .pill-closed   { background: var(--red-50); color: var(--red-700); border: 1px solid var(--red-700); }
     .pill-draft    { background: var(--gray-100); color: var(--gray-500); border: 1px solid var(--gray-200); }
+    .pill-superseded { background: var(--gray-50); color: var(--gray-400); border: 1px solid var(--gray-200); }
+
+    /* My Proposals toolbar (search + status filter, Doc §3.8) */
+    .proposals-toolbar { display: flex; gap: 10px; margin-bottom: 14px; }
+    .proposals-search { flex: 1; max-width: 420px; border: 1px solid var(--gray-200); border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: var(--font); color: var(--gray-900); background: var(--bg); outline: none; }
+    .proposals-search:focus { border-color: var(--brand-400); }
+    .proposals-filter { border: 1px solid var(--gray-200); border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: var(--font); color: var(--gray-900); background: var(--bg); outline: none; }
+    .row-btn.danger { border-color: var(--red-700); color: var(--red-700); }
+    .row-btn.danger:hover { background: var(--red-700); color: white; }
+    .row-btn.ghost { border-color: var(--gray-200); color: var(--gray-500); }
+
+    /* Version-history modal */
+    .vh-row { display: grid; grid-template-columns: 60px 1fr 130px; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
+    .vh-row:last-child { border-bottom: none; }
+    .vh-ver { font-family: var(--mono); font-weight: 600; color: var(--brand-300); }
+    .vh-reason { font-size: 11.5px; color: var(--gray-500); margin-top: 3px; }
+    .vh-date { font-size: 11.5px; font-family: var(--mono); color: var(--gray-400); text-align: right; }
+    .opp-pick { display: flex; flex-direction: column; gap: 8px; }
+    .opp-item { text-align: left; border: 1px solid var(--gray-200); background: var(--bg); border-radius: 8px; padding: 11px 14px; cursor: pointer; font-family: var(--font); color: var(--gray-900); transition: all .15s; }
+    .opp-item:hover { border-color: var(--brand-400); background: var(--brand-50); }
+    .opp-item .oi-deal { font-size: 13px; font-weight: 500; }
+    .opp-item .oi-meta { font-size: 11.5px; color: var(--gray-500); margin-top: 2px; }
     .row-btn { font-size: 11.5px; font-weight: 500; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: var(--font); border: 1px solid var(--gray-200); background: none; color: var(--gray-700); transition: all .15s; }
     .row-btn:hover { border-color: var(--brand-400); color: var(--brand-400); background: var(--brand-50); }
     .row-btn.resubmit { border-color: #FB923C; color: #FB923C; }
@@ -64,14 +87,14 @@
     <a class="nav-item" href="admin-approvals.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.6 0 3.1.42 4.4 1.15"/><path d="M21 5l-9 9"/></svg>Approvals</a>
     <div class="nav-section-label">Analytics</div>
     <a class="nav-item" href="pipeline.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Pipeline</a>
-    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reports</a>
+    <a class="nav-item" href="analytics.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Analytics</a>
     <div class="nav-section-label">Settings</div>
     <a class="nav-item" href="settings.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Admin</a>
     <button class="nav-item" onclick="showApiKeyModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AI Settings</button>
   </nav>
   <div class="sidebar-user">
-    <div class="user-avatar">U</div>
-    <div><div class="user-name">User</div><div class="user-role">COO Office</div></div>
+    <div class="user-avatar" id="sb-avatar">AA</div>
+    <div><div class="user-name" id="sb-name">Amir Arif</div><div class="user-role" id="sb-role">Sales Representative · L1</div></div>
   </div>
 </aside>
 
@@ -103,12 +126,23 @@
           New Proposal
         </button>
       </div>
-      <div class="list-subtitle">Your submitted proposals and their approval status.</div>
+      <div class="list-subtitle">Your own proposals only — one row per case, showing the current version. Rejected work is listed first.</div>
+
+      <div class="proposals-toolbar">
+        <input class="proposals-search" id="proposals-search" placeholder="Search account, Case ID, Reviewer, or Opportunity ID…" oninput="renderList()">
+        <select class="proposals-filter" id="proposals-status-filter" onchange="renderList()">
+          <option value="all">All statuses</option>
+          <option value="Draft">Draft</option>
+          <option value="Pending Review">Pending Review</option>
+          <option value="Approved">Approved</option>
+          <option value="Reject & Revise">Rejected (Revise)</option>
+        </select>
+      </div>
 
       <div class="proposals-list-wrap">
         <table class="proposals-table">
           <thead>
-            <tr><th>Proposal</th><th>Date Submitted</th><th>Value (RM)</th><th>Status</th><th>Actions</th></tr>
+            <tr><th>Account</th><th>Version</th><th>Status</th><th>Rejection Reason</th><th>Last Updated</th><th>Actions</th></tr>
           </thead>
           <tbody id="proposals-tbody"></tbody>
         </table>
@@ -244,6 +278,31 @@
   </div>
 </div>
 
+<!-- NEW PROPOSAL — pick an opportunity (Doc §3.8) -->
+<div class="modal-overlay" id="new-proposal-modal" onclick="closeOnBackdrop(event, 'new-proposal-modal')">
+  <div class="modal">
+    <div class="modal-title">New Proposal</div>
+    <div class="modal-sub">Pick an opportunity — the AI drafts a first version, saved as a Draft you submit manually.</div>
+    <div class="opp-pick" id="opp-pick-list"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('new-proposal-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- VERSION HISTORY (Doc §3.8 / §4.9) -->
+<div class="modal-overlay" id="history-modal" onclick="closeOnBackdrop(event, 'history-modal')">
+  <div class="modal">
+    <div class="modal-title" id="history-title">Version History</div>
+    <div class="modal-sub" id="history-sub">All versions of this case are kept for the audit trail.</div>
+    <div id="history-list"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('history-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+<script src="app-data.js"></script>
 <script>
 // ── DOM + MODAL HELPERS ──────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -253,17 +312,15 @@ function closeOnBackdrop(event, id) {
   if (event.target === $(id)) closeModal(id);
 }
 
-// ── STORAGE ──────────────────────────────────────────────
-const PROPOSAL_STORAGE_KEY = 'ramssolProposals';
+// ── STORAGE (shared Proposal Store — app-data.js) ────────
 let apiKey = localStorage.getItem('ramssolApiKey') || '';
 
-function getStoredProposals() {
-  try { return JSON.parse(localStorage.getItem(PROPOSAL_STORAGE_KEY) || '[]'); }
-  catch (e) { return []; }
-}
-function saveStoredProposals(list) {
-  localStorage.setItem(PROPOSAL_STORAGE_KEY, JSON.stringify(list));
-}
+function getStoredProposals() { return RAMS.ensureProposalStore(); }
+function saveStoredProposals(list) { RAMS.saveProposals(list); }
+
+const CURRENT_USER = RAMS.currentUser();
+const genId   = (prefix) => prefix + '-' + Date.now().toString().slice(-7);
+const todayUK = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
 // ── STATUS HELPERS ───────────────────────────────────────
 // V9: helper for reject types
@@ -275,7 +332,8 @@ const PILL_CLASS = {
   'Approved':         'pill-approved',
   'Reject & Revise':  'pill-revise',
   'Reject & Close':   'pill-closed',
-  'Pending Approval': 'pill-pending'
+  'Pending Review':   'pill-pending',
+  'Superseded':       'pill-superseded'
 };
 function pillClass(status) {
   return PILL_CLASS[status] || 'pill-draft';
@@ -284,18 +342,20 @@ function pillClass(status) {
 // Badge colours shown next to the deal name in the editor
 const STATUS_BADGE = {
   'Draft':            { bg: 'var(--gray-100)', color: 'var(--gray-500)' },
-  'Pending Approval': { bg: 'var(--amber-50)', color: 'var(--amber-600)' },
-  'Approved':         { bg: 'var(--brand-50)', color: 'var(--brand-400)' },
+  'Pending Review':   { bg: 'var(--blue-50)',  color: 'var(--blue-600)' },
+  'Approved':         { bg: '#073b2c',         color: '#34D399' },
   'Reject & Revise':  { bg: '#452412',         color: '#FB923C' },
-  'Reject & Close':   { bg: 'var(--red-50)',   color: 'var(--red-700)' }
+  'Reject & Close':   { bg: 'var(--red-50)',   color: 'var(--red-700)' },
+  'Superseded':       { bg: 'var(--gray-50)',  color: 'var(--gray-400)' }
 };
 
 // Submit-button state per status. Anything not listed uses the default.
 const SUBMIT_STATE = {
   'Reject & Revise':  { disabled: false, label: 'Resubmit for Approval' },
   'Reject & Close':   { disabled: true,  label: 'Closed — Cannot Resubmit' },
-  'Pending Approval': { disabled: true,  label: 'Awaiting Approval' },
-  'Approved':         { disabled: true,  label: 'Already Approved' }
+  'Pending Review':   { disabled: true,  label: 'Awaiting Review' },
+  'Approved':         { disabled: true,  label: 'Already Approved' },
+  'Superseded':       { disabled: true,  label: 'Superseded Version' }
 };
 const SUBMIT_STATE_DEFAULT = { disabled: false, label: 'Submit for Approval' };
 
@@ -337,37 +397,114 @@ let currentSection = 'executive';
 const dealTitle = (p) => p.deal + (p.version > 1 ? ' (v' + p.version + ')' : '');
 
 // ═══════════════════════════════════════════════════════════
-// MY PROPOSALS LIST VIEW
+// MY PROPOSALS LIST VIEW (Doc §3.8)
 // ═══════════════════════════════════════════════════════════
+// Sort order for the "Rejected first" rule.
+const STATUS_SORT = { 'Reject & Revise': 0, 'Draft': 1, 'Pending Review': 2, 'Approved': 3 };
+
+// How many versions exist for a case (to offer a History view).
+function caseVersionCount(caseId) {
+  return getStoredProposals().filter(p => p.caseId === caseId).length;
+}
+
 function renderList() {
-  const list = getStoredProposals();
+  const store = getStoredProposals();
   const tbody = $('proposals-tbody');
+  const q = ($('proposals-search').value || '').trim().toLowerCase();
+  const statusFilter = $('proposals-status-filter').value;
+
+  // My Proposals shows OWN proposals only, current version per case:
+  // Superseded and Reject & Close drop out (Doc §3.8).
+  let list = store.filter(p =>
+    (p.owner || p.submittedBy) === CURRENT_USER &&
+    p.status !== 'Superseded' &&
+    p.status !== 'Reject & Close'
+  );
+
+  if (statusFilter !== 'all') list = list.filter(p => p.status === statusFilter);
+
+  // Search: Account name, Case ID, Reviewer, Opportunity ID (Doc §3.8).
+  if (q) list = list.filter(p =>
+    [p.company, p.deal, p.caseId, p.reviewer, p.opportunityId]
+      .some(v => (v || '').toLowerCase().includes(q))
+  );
+
+  // Default sort: Rejected first, then most recently updated.
+  list.sort((a, b) => {
+    const sa = STATUS_SORT[a.status] ?? 9, sb = STATUS_SORT[b.status] ?? 9;
+    if (sa !== sb) return sa - sb;
+    return (b.generatedDate || '').localeCompare(a.generatedDate || '');
+  });
 
   if (!list.length) {
-    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">No proposals yet. Click <strong>New Proposal</strong> to get started.</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">No proposals match. Click <strong>New Proposal</strong> to start one.</div></td></tr>`;
     return;
   }
 
   tbody.innerHTML = list.map(p => {
-    const reasonTag = (p.rejectionReason && isRejected(p.status))
-      ? `<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px">Reason: ${p.rejectionReason}</div>`
-      : '';
-    const actions = (p.status === 'Reject & Revise')
+    const rejected = p.status === 'Reject & Revise';
+    const reasonCell = rejected
+      ? `<div style="color:#FB923C;font-weight:500">${p.rejectionReason || '—'}</div>${p.reviewNote ? `<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px">${p.reviewNote}</div>` : ''}`
+      : '<span style="color:var(--gray-400)">—</span>';
+
+    const historyBtn = caseVersionCount(p.caseId) > 1
+      ? `<button class="row-btn ghost" onclick="openHistory('${p.caseId}')">History</button>` : '';
+    const deleteBtn = p.status === 'Draft'
+      ? `<button class="row-btn danger" onclick="deleteProposal(event,'${p.id}')">Delete</button>` : '';
+    const primaryBtn = rejected
       ? `<button class="row-btn resubmit" onclick="openEditor('${p.id}')">Edit &amp; Resubmit</button>`
-      : `<button class="row-btn" onclick="openEditor('${p.id}')">View</button>`;
+      : `<button class="row-btn" onclick="openEditor('${p.id}')">${p.status === 'Draft' ? 'Edit' : 'View'}</button>`;
 
     return `
     <tr>
       <td>
-        <div class="prop-deal">${p.deal}</div>
-        <div class="prop-company">${p.company}${p.version > 1 ? ' · v' + p.version : ''}</div>
+        <div class="prop-deal">${p.company}</div>
+        <div class="prop-company">${p.deal} · ${p.caseId || '—'}</div>
       </td>
-      <td style="font-family:var(--mono);font-size:12px">${p.submittedDate || '—'}</td>
-      <td style="font-family:var(--mono);font-weight:500">${fmtRM(p.value)}</td>
-      <td><span class="status-pill ${pillClass(p.status)}">${p.status}</span>${reasonTag}</td>
-      <td>${actions}</td>
+      <td style="font-family:var(--mono)">v${p.version || 1}</td>
+      <td><span class="status-pill ${pillClass(p.status)}">${p.status}</span></td>
+      <td style="font-size:12px;max-width:220px">${reasonCell}</td>
+      <td style="font-family:var(--mono);font-size:12px">${p.lastUpdated || p.submittedDate || '—'}</td>
+      <td><div style="display:flex;gap:6px;flex-wrap:wrap">${primaryBtn}${historyBtn}${deleteBtn}</div></td>
     </tr>`;
   }).join('');
+}
+
+// Delete allowed only while Draft (Doc §3.8).
+function deleteProposal(event, id) {
+  if (event) event.stopPropagation();
+  const list = getStoredProposals();
+  const p = list.find(x => x.id === id);
+  if (!p) return;
+  if (p.status !== 'Draft') { showToast('⚠️ Only drafts can be deleted', true); return; }
+  if (!confirm(`Delete draft proposal for "${p.company}"? This cannot be undone.`)) return;
+  saveStoredProposals(list.filter(x => x.id !== id));
+  renderList();
+  showToast('🗑️ Draft deleted');
+}
+
+// ── VERSION HISTORY (Doc §3.8 / §4.9) ────────────────────
+function openHistory(caseId) {
+  const versions = getStoredProposals()
+    .filter(p => p.caseId === caseId)
+    .sort((a, b) => (a.version || 1) - (b.version || 1));
+  if (!versions.length) return;
+
+  $('history-title').textContent = 'Version History — ' + (versions[0].company || caseId);
+  $('history-sub').textContent = caseId + ' · every version is kept for the audit trail.';
+  $('history-list').innerHTML = versions.map(v => {
+    const reason = v.rejectionReason ? `<div class="vh-reason">Reason: ${v.rejectionReason}${v.reviewNote ? ' — ' + v.reviewNote : ''}</div>` : '';
+    const rev = v.reviewer ? `<div class="vh-reason">Reviewer: ${v.reviewer}</div>` : '';
+    return `<div class="vh-row">
+      <div class="vh-ver">v${v.version || 1}</div>
+      <div>
+        <span class="status-pill ${pillClass(v.status)}">${v.status}</span>
+        ${reason}${rev}
+      </div>
+      <div class="vh-date">${v.lastUpdated || v.submittedDate || v.generatedDate || '—'}</div>
+    </div>`;
+  }).join('');
+  openModal('history-modal');
 }
 
 function showListView() {
@@ -394,9 +531,15 @@ function openEditor(id) {
   editingSections = Object.assign({}, DEFAULT_SECTIONS, p.sections || {});
   currentSection = 'executive';
 
-  // Update header
+  // Update header — deal + Case / Opportunity / Reviewer context (Doc §4.9)
   $('editor-deal-name').textContent = dealTitle(p);
-  $('editor-last-updated').textContent = p.submittedDate ? 'Submitted: ' + p.submittedDate : '';
+  const meta = [
+    p.caseId ? 'Case ' + p.caseId : '',
+    p.opportunityId ? 'Opp ' + p.opportunityId : '',
+    p.reviewer ? 'Reviewer: ' + p.reviewer : '',
+    p.submittedDate ? 'Submitted: ' + p.submittedDate : ''
+  ].filter(Boolean).join('  ·  ');
+  $('editor-last-updated').textContent = meta;
 
   // Load first section
   $('proposal-textarea').value = editingSections.executive || '';
@@ -412,30 +555,49 @@ function openEditor(id) {
   $('editor-view').style.display = 'block';
 }
 
+// New Proposal → pick an opportunity; the AI drafts v1 as a Draft (Doc §3.8).
 function openNewProposal() {
-  // For demo, open the default Tzu Chi proposal in editor
-  const list = getStoredProposals();
-  if (list.find(p => p.id === 'demo-tzuchi-vms')) {
-    openEditor('demo-tzuchi-vms');
-    return;
-  }
+  const taken = new Set(getStoredProposals().map(p => p.opportunityId));
+  const open = RAMS.OPPORTUNITIES.filter(o => !taken.has(o.oppId));
+  const pool = open.length ? open : RAMS.OPPORTUNITIES;
+  $('opp-pick-list').innerHTML = pool.map(o => `
+    <button class="opp-item" onclick="createProposalFromOpportunity('${o.oppId}')">
+      <div class="oi-deal">${o.deal}</div>
+      <div class="oi-meta">${o.account} · ${o.industry} · ${fmtRM(o.value)} · ${o.oppId}</div>
+    </button>`).join('');
+  openModal('new-proposal-modal');
+}
 
-  // Create a new draft entry
+function createProposalFromOpportunity(oppId) {
+  const o = RAMS.OPPORTUNITIES.find(x => x.oppId === oppId);
+  if (!o) return;
+  const list = getStoredProposals();
+  const id = genId('PROP');
   list.push({
-    id: 'demo-tzuchi-vms',
-    company: 'Tzu Chi Foundation',
-    deal: 'Tzu Chi – Volunteer Management System',
-    value: 326000,
-    submittedBy: 'Amir Arif',
-    submittedDate: '',
-    status: 'Draft',
-    reviewNote: '',
-    rejectionReason: '',
+    id,
+    caseId: genId('CASE'),
+    opportunityId: o.oppId,
     version: 1,
-    sections: { ...DEFAULT_SECTIONS }
+    company: o.account,
+    deal: o.deal,
+    value: o.value,
+    submittedBy: CURRENT_USER,
+    owner: CURRENT_USER,
+    generatedDate: new Date().toISOString().slice(0, 10),
+    submittedDate: '',
+    status: 'Draft',                 // Draft is the first state after AI generates
+    reviewer: '', reviewedDate: '', reviewNote: '', rejectionReason: '',
+    lastUpdated: todayUK(),
+    sections: {
+      executive: `${o.account} is evaluating a solution for their ${o.industry} operations. This proposal outlines how Ramssol can address their priorities and deliver measurable value.`,
+      solution: `Ramssol proposes a tailored solution for ${o.account}. Use "Generate with AI" on each section to expand the draft.`,
+      commercials: `Indicative investment: ${fmtRM(o.value)} (Year 1). Final commercials to be confirmed after scoping.`
+    }
   });
   saveStoredProposals(list);
-  openEditor('demo-tzuchi-vms');
+  closeModal('new-proposal-modal');
+  showToast('✨ AI drafted a new proposal — review and submit when ready');
+  openEditor(id);
 }
 
 // V9: Builds the reject-banner text (shared by revise + close).
@@ -545,22 +707,57 @@ function submitForApproval() {
   if (idx === -1) return;
 
   const p = list[idx];
-  const wasRevise = p.status === 'Reject & Revise';
+  const today = todayUK();
 
-  // V9: Increment version on resubmit
-  if (wasRevise) p.version = (p.version || 1) + 1;
+  if (p.status === 'Reject & Revise') {
+    // Resubmit: the rejected version becomes Superseded (kept for the audit
+    // trail) and a NEW version of the same case goes back for review (Doc §4.9).
+    p.status = 'Superseded';
+    p.lastUpdated = today;
 
-  p.status = 'Pending Approval';
-  p.submittedDate = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-  p.reviewNote = '';
-  p.rejectionReason = '';
+    const newVersion = {
+      ...p,
+      id: genId('PROP'),
+      version: (p.version || 1) + 1,
+      status: 'Pending Review',
+      generatedDate: new Date().toISOString().slice(0, 10),
+      submittedDate: today,
+      lastUpdated: today,
+      reviewer: '', reviewedDate: '', reviewNote: '', rejectionReason: '',
+      sections: { ...editingSections }
+    };
+    list.push(newVersion);
+    saveStoredProposals(list);
+    editingId = newVersion.id;
+    reflectStatus(newVersion);
+    $('editor-deal-name').textContent = dealTitle(newVersion);
+    updateEditorMeta(newVersion);
+    showToast('📤 Resubmitted (v' + newVersion.version + ') for review');
+    return;
+  }
+
+  // First submit of a Draft: Draft → Pending Review.
+  p.status = 'Pending Review';
+  p.submittedDate = today;
+  p.lastUpdated = today;
   p.sections = { ...editingSections };
 
   saveStoredProposals(list);
   reflectStatus(p);
   $('editor-deal-name').textContent = dealTitle(p);
+  updateEditorMeta(p);
+  showToast('📤 Sent to Admin for review');
+}
 
-  showToast(wasRevise ? '📤 Resubmitted (v' + p.version + ') for approval' : '📤 Sent to Admin for approval');
+// Refresh the editor meta line after a status change.
+function updateEditorMeta(p) {
+  const meta = [
+    p.caseId ? 'Case ' + p.caseId : '',
+    p.opportunityId ? 'Opp ' + p.opportunityId : '',
+    p.reviewer ? 'Reviewer: ' + p.reviewer : '',
+    p.submittedDate ? 'Submitted: ' + p.submittedDate : ''
+  ].filter(Boolean).join('  ·  ');
+  $('editor-last-updated').textContent = meta;
 }
 
 // ── AI SETTINGS ──────────────────────────────────────────

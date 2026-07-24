@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Sign In — Ramssol Pre-Sales Copilot</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <style>
     .demo-hint { margin-top: 14px; padding: 11px 13px; background: var(--brand-50); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 11.5px; color: var(--brand-400); line-height: 1.6; }
@@ -148,14 +148,18 @@
             <span class="input-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2M8 7V5a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2"/></svg></span>
             <select id="reg-role">
               <option value="" disabled selected>Select your role</option>
-              <option value="COO Office">COO Office</option>
-              <option value="Pre-Sales">Pre-Sales</option>
-              <option value="Sales">Sales</option>
-              <option value="Business Development">Business Development</option>
-              <option value="Solutions Architect">Solutions Architect</option>
-              <option value="Account Manager">Account Manager</option>
-              <option value="Operations">Operations</option>
-              <option value="Other">Other</option>
+              <optgroup label="Sales Roles (Design Doc §2)">
+                <option value="Sales Representative">Sales Representative — Level 1 (Data Entry)</option>
+                <option value="Sales Manager">Sales Manager — Level 2 (Reviewer)</option>
+                <option value="Sales Operations">Sales Operations — Level 3 (Administrator)</option>
+              </optgroup>
+              <optgroup label="Other">
+                <option value="Pre-Sales">Pre-Sales</option>
+                <option value="COO Office">COO Office</option>
+                <option value="Business Development">Business Development</option>
+                <option value="Solutions Architect">Solutions Architect</option>
+                <option value="Other">Other</option>
+              </optgroup>
             </select>
           </div>
         </div>
@@ -333,8 +337,11 @@ async function handleRegister() {
 
   setLoading('register', true);
   await delay(1000);
+  // Map the chosen role to its starting access level (Design Doc §2).
+  const ROLE_LEVELS = { 'Sales Representative': 1, 'Sales Manager': 2, 'Sales Operations': 3, 'Pre-Sales': 1, 'COO Office': 3 };
   const newUser = {
     id: 'usr_' + Date.now(), firstName, lastName, email, role, password,
+    level: ROLE_LEVELS[role] || 1,
     initials: (firstName[0] + lastName[0]).toUpperCase(), createdAt: new Date().toISOString()
   };
   accounts.push(newUser);
