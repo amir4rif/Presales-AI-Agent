@@ -996,12 +996,14 @@ button[type="submit"]:hover, #login-btn:hover, #register-btn:hover {
   box-shadow: 0 32px 64px -30px rgba(0,0,0,0.9), 0 0 42px -12px rgba(0,212,180,0.28);
   border-color: transparent;
 }
-.kpi-card, .stat-card, .tier-card {
+.kpi-card, .stat-card {
   border: 1px solid transparent;
   background:
     linear-gradient(180deg, rgba(18,30,52,0.72), rgba(10,18,33,0.66)) padding-box,
     linear-gradient(140deg, rgba(0,212,180,0.42) 0%, rgba(255,255,255,0.04) 72%) border-box;
 }
+/* Tier cards keep their coloured top-accent (teal/gold/red) on a glass panel */
+.tier-card { background: linear-gradient(180deg, rgba(18,30,52,0.72), rgba(10,18,33,0.66)); }
 
 /* Glowing numerics for a high-end data feel */
 .kpi-value, .stat-value, .ll-tile .ll-val, .ai-metric-num { text-shadow: 0 0 22px rgba(0,212,180,0.28); }
@@ -1047,3 +1049,65 @@ button[type="submit"]:hover, #login-btn:hover, #register-btn:hover {
 .integration:nth-child(even) .imark { background: linear-gradient(135deg, var(--gold), #8A6E22); box-shadow: 0 0 10px rgba(201,168,76,0.45); }
 
 @media (max-width: 900px) { .hero { grid-template-columns: 1fr; } .hero-title { font-size: 34px; } }
+
+/* ═══════════════════════════════════════════════════════════
+   TEMPLATE REFINEMENTS — official logo · pill controls ·
+   accent headings · deep bloom background with sparkles
+═══════════════════════════════════════════════════════════ */
+
+/* Official Ramssol Group logo (logoo.png). The PNG has a black
+   background — mix-blend-mode:screen makes black transparent on our
+   dark UI, keeping the mark pixel-exact with zero image editing. */
+.logo-img { display: block; object-fit: contain; mix-blend-mode: screen; filter: drop-shadow(0 6px 16px rgba(0,212,180,0.45)); }
+.logo-icon .logo-img { width: 42px; height: 40px; }
+.logo-icon { width: 42px; height: 40px; background: none; box-shadow: none; border-radius: 0; }
+.logo-icon-box { width: auto; height: auto; }
+.logo-icon-box .logo-img { width: 54px; height: 50px; }
+
+/* Deeper "expensive" ambience — bigger colour blooms (template style, in brand teal/gold) */
+html, body {
+  background:
+    radial-gradient(1300px 800px at -6% -12%,  rgba(0,212,180,0.17), transparent 55%),
+    radial-gradient(1100px 800px at 106% -4%,  rgba(27,42,74,0.75),  transparent 58%),
+    radial-gradient(1000px 900px at 108% 112%, rgba(201,168,76,0.10), transparent 55%),
+    radial-gradient(800px 700px at -4% 114%,   rgba(0,150,130,0.10), transparent 58%),
+    linear-gradient(168deg, #04060C 0%, #060B15 45%, #030509 100%) fixed;
+}
+/* Sparkle stars scattered over the backdrop */
+body::after {
+  content: ''; position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    radial-gradient(2px 2px at 12% 22%, rgba(255,255,255,0.55), transparent 60%),
+    radial-gradient(1.5px 1.5px at 78% 14%, rgba(0,212,180,0.7), transparent 60%),
+    radial-gradient(2px 2px at 62% 66%, rgba(255,255,255,0.30), transparent 60%),
+    radial-gradient(1.5px 1.5px at 30% 82%, rgba(201,168,76,0.55), transparent 60%),
+    radial-gradient(2.5px 2.5px at 90% 46%, rgba(255,255,255,0.35), transparent 60%),
+    radial-gradient(1.5px 1.5px at 45% 8%,  rgba(0,212,180,0.5), transparent 60%);
+}
+
+/* Pill controls — the template's fully-rounded buttons & inputs */
+.btn-primary, .btn-secondary, .qa-btn { border-radius: 999px; }
+.btn-primary { padding: 10px 20px; }
+.btn-secondary { padding: 9px 18px; }
+.search-box { border-radius: 999px; padding: 7px 15px; }
+.subtab-row { border-radius: 999px; padding: 5px; }
+.subtab { border-radius: 999px; padding: 8px 22px; }
+.hero-actions .btn-primary, .hero-actions .btn-secondary { padding: 12px 26px; }
+
+/* Softer, larger card geometry */
+.card, .qa-card, .hero-panel { border-radius: 20px; }
+.kpi-card, .stat-card, .tier-card, .ll-tile { border-radius: 15px; }
+.modal { border-radius: 22px; }
+.deals-table-wrap, .appr-table-wrap, .proposals-list-wrap, .compliance-table, .prospect-card, .prospect-detail-header, .proposal-editor, .proposal-nav, .upload-zone { border-radius: 16px; }
+
+/* Accent-word headings — "Core Capabilities" template treatment */
+.section-head h3 { font-size: 27px; letter-spacing: -0.5px; }
+.section-head h3 .accent, .page-title .accent {
+  background: linear-gradient(100deg, var(--teal) 10%, var(--gold-soft) 95%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.hero-title { font-size: 46px; }
+
+/* Avatar + notification pill polish */
+.user-avatar { border-radius: 12px; }
+.badge-notif { border-radius: 999px; }

@@ -18,7 +18,8 @@
     .fl .req { color: var(--red-700); }
     .fi { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; }
     .fi:focus { border-color:var(--brand-400); }
-    .fs { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; background:white; }
+    .fs { width:100%; border:1px solid var(--gray-200); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; background:var(--gray-50); }
+    .fs option { background:var(--card); color:var(--gray-900); }
     .ft { width:100%; border:1px solid var(--gray-100); border-radius:7px; padding:8px 10px; font-size:12px; font-family:var(--font); color:var(--gray-900); outline:none; resize:vertical; min-height:64px; line-height:1.5; }
     .ft:focus, .fs:focus { border-color:var(--brand-400); }
     .g2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -45,7 +46,7 @@
     .ai-card-lbl { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--gray-400); margin-bottom:4px; }
     .ai-card-val { font-size:12px; color:var(--gray-700); line-height:1.5; }
     .ai-metrics-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-    .ai-metric-box { background:white; border:1px solid var(--gray-100); border-radius:8px; padding:10px 12px; text-align:center; }
+    .ai-metric-box { background:var(--gray-50); border:1px solid var(--gray-200); border-radius:8px; padding:10px 12px; text-align:center; }
     .ai-metric-num { font-size:14px; font-weight:700; color:var(--brand-600); font-family:var(--mono); }
     .ai-metric-lbl { font-size:10px; color:var(--gray-400); margin-top:2px; }
     .buying-wrap { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
@@ -61,9 +62,9 @@
     .ai-act-btn svg { width:14px; height:14px; }
     .btn-rec  { background:var(--brand-700); color:white; border:none; }
     .btn-rec:hover  { background:var(--brand-600); }
-    .btn-prop { background:white; color:var(--brand-700); border:1.5px solid var(--brand-300); }
+    .btn-prop { background:var(--gray-50); color:var(--brand-300); border:1.5px solid var(--brand-400); }
     .btn-prop:hover { background:var(--brand-50); }
-    .ai-output { display:none; background:white; border:1px solid var(--brand-100); border-left:3px solid var(--brand-400); border-radius:8px; padding:14px 16px; margin-top:10px; font-size:12px; color:var(--gray-700); line-height:1.7; white-space:pre-wrap; }
+    .ai-output { display:none; background:var(--gray-50); border:1px solid var(--gray-200); border-left:3px solid var(--brand-400); border-radius:8px; padding:14px 16px; margin-top:10px; font-size:12px; color:var(--gray-700); line-height:1.7; white-space:pre-wrap; }
     .ai-output.visible { display:block; }
     .ai-output-title { font-size:10px; font-weight:700; color:var(--brand-600); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
   </style>
@@ -80,7 +81,7 @@
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">
-      <div class="logo-icon"><svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M24 2.5 45.5 15 24 27.5 2.5 15Z" fill="#16C4A6"/><path d="M2.5 15 24 27.5 24 45.5 2.5 33Z" fill="#12233E"/><path d="M45.5 15 24 27.5 24 45.5 45.5 33Z" fill="#0D1A30"/><text x="13" y="41.5" font-family="DM Sans,Inter,sans-serif" font-size="13" font-weight="800" fill="#ffffff" text-anchor="middle">R</text><text x="35" y="41.5" font-family="DM Sans,Inter,sans-serif" font-size="13" font-weight="800" fill="#ffffff" text-anchor="middle">G</text></svg></div>
+      <div class="logo-icon"><img class="logo-img" src="logoo.png" alt="Ramssol Group"></div>
       <div><div class="logo-name">Ramssol</div><div class="logo-sub">Pre-Sales Copilot</div></div>
     </div>
   </div>
@@ -989,7 +990,7 @@ function openProspect(id) {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>Suggest solutions to pitch</button>
             <button class="ai-quick-btn" onclick="prospectAsk('Generate a full proposal outline for ${p.name} in the ${p.type} sector with pricing')">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>Generate proposal outline</button>
-            <button class="ai-quick-btn" onclick="prospectAsk('Generate a PDF proposal slide deck for ${p.name}')" style="border-color:#1B2A4A;color:#1B2A4A;background:#F0F3FA;font-weight:600">
+            <button class="ai-quick-btn" onclick="prospectAsk('Generate a PDF proposal slide deck for ${p.name}')" style="border-color:var(--gold);color:var(--gold-soft);background:rgba(201,168,76,0.10);font-weight:600">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 18v3"/></svg>
               ⬇ Generate PDF Proposal</button>
             <button class="ai-quick-btn" onclick="prospectAsk('Generate a PDF report for ${p.name}')" style="border-color:var(--brand-400);color:var(--brand-500);background:var(--brand-50);font-weight:600">
