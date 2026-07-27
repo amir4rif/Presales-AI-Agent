@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Prospects — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=6">
   <style>
     /* ── EXPANDED MODAL ─────────────────────────────────── */
     .modal-wide { max-width: 720px; max-height: 88vh; overflow-y: auto; }
@@ -125,10 +125,9 @@
       <div class="page-header">
         <div class="page-title">Prospects</div>
         <div style="display:flex;gap:10px">
-          <button class="btn-secondary">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-            Filters
-          </button>
+          <select class="fs" id="industry-filter" style="width:auto;padding:8px 30px 8px 12px;font-size:13px" onchange="renderProspects()">
+            <option value="all">All Industries</option>
+          </select>
           <button class="btn-primary" onclick="openAddProspectModal()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
             Add Prospect
@@ -431,6 +430,7 @@
   </div>
 </div>
 
+<script src="app-data.js?v=6"></script>
 <script>
 // ── DOM + MODAL HELPERS ──────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -446,21 +446,13 @@ let currentProspect = null;
 let lastAIResearch = null; // stores research results for reuse
 
 // ── DATA ────────────────────────────────────────────────
-let prospects = [
-  {id:1,name:'Tzu Chi Foundation',type:'NGO / Non-profit',country:'Taiwan',website:'www.tzuchi.org.tw',added:'12 Apr 2026',tags:['Humanitarian Aid','Healthcare','Education','Environment'],employees:'10,000+ Volunteers',opportunities:3,totalValue:8.4,painPoints:['Managing global volunteers across multiple regions','Tracking donations and fund utilization transparently','Coordinating disaster relief in real-time','Measuring program impact and reporting to donors','Language and cultural diversity in operations']},
-  {id:2,name:'ABC Bank',type:'Banking & Finance',country:'Malaysia',website:'www.abcbank.com.my',added:'2 Mar 2026',tags:['Digital Banking','Core Systems','AI'],employees:'3,500',opportunities:2,totalValue:6.1,painPoints:['Legacy core banking system causing downtime','Manual loan processing slowing approvals','Regulatory compliance reporting burden']},
-  {id:3,name:'Gov Agency',type:'Government',country:'Malaysia',website:'gov.my',added:'15 Jan 2026',tags:['Cloud Infra','Digital Gov','Data'],employees:'800',opportunities:1,totalValue:2.2,painPoints:['Paper-based processes for citizen services','Data silos across departments','Lack of real-time reporting dashboard']},
-  {id:4,name:'Healthcare Group',type:'Healthcare',country:'Malaysia',website:'healthcare-group.my',added:'20 Feb 2026',tags:['Data Platform','Analytics','AI'],employees:'2,000+',opportunities:2,totalValue:5.1,painPoints:['Fragmented patient data across facilities','No unified analytics platform','Compliance with PDPA and health regulations']},
-  {id:5,name:'Manufacturing Co',type:'Manufacturing',country:'Malaysia',website:'manufco.my',added:'5 Apr 2026',tags:['ERP','Supply Chain','IoT'],employees:'1,200',opportunities:1,totalValue:3.0,painPoints:['No end-to-end supply chain visibility','Manual inventory tracking','Slow order-to-delivery cycle']}
-];
+// Prospect workspace — shared store (app-data.js).
+const saveProspects = () => RAMS.saveProspects(prospects);
+let prospects = RAMS.getProspects();
 
-let allDeals = [
-  {rep:'Ahmad Razak',account:'Tzu Chi Foundation',stage:5,daysInStage:12,daysToClose:28,value:2800000,movement:'Advanced',status:'On Track',notes:'Q3 budget confirmed'},
-  {rep:'Priya Nair',account:'ABC Bank – Core Upgrade',stage:6,daysInStage:25,daysToClose:20,value:3100000,movement:'Advanced',status:'On Track',notes:'Final pricing submitted'},
-  {rep:'Wei Ling Tan',account:'Gov Agency – Cloud Infra',stage:2,daysInStage:5,daysToClose:90,value:2200000,movement:'Held',status:'On Track',notes:'Pending RFP response'},
-  {rep:'Siti Rahimah',account:'Healthcare Group – Data Platform',stage:7,daysInStage:8,daysToClose:10,value:1800000,movement:'Advanced',status:'On Track',notes:'Contract being signed'},
-  {rep:'Faizal Hassan',account:'Manufacturing Co – ERP',stage:2,daysInStage:4,daysToClose:80,value:3000000,movement:'Advanced',status:'On Track',notes:''}
-];
+// Opportunities shown on a prospect come from the same pipeline the
+// Pipeline page uses, so both screens always agree.
+let allDeals = RAMS.getDeals();
 
 // Prospect-form field ids, grouped by control type (used for reset + reads)
 const PROSPECT_TEXT_FIELDS = ['np-name','np-location','np-website','np-contact-name','np-contact-pos',
@@ -852,8 +844,10 @@ function addProspect() {
     aiResearch: lastAIResearch
   });
 
+  saveProspects();
   closeModal('add-prospect-modal');
   renderProspects();
+  showToast('✅ Prospect added' + (lastAIResearch ? ' with AI research attached' : ''));
 
   // Push the same data to Lark Sheets in the background
   pushToLarkBase({
@@ -873,11 +867,23 @@ function addProspect() {
 }
 
 // ── RENDER PROSPECTS GRID ────────────────────────────────
+function refreshIndustryFilter() {
+  const sel = $('industry-filter');
+  if (!sel) return;
+  const cur = sel.value || 'all';
+  const kinds = [...new Set(prospects.map(p => p.type))].sort();
+  sel.innerHTML = '<option value="all">All Industries</option>' + kinds.map(k => `<option${k === cur ? ' selected' : ''}>${k}</option>`).join('');
+  if (cur !== 'all' && !kinds.includes(cur)) sel.value = 'all';
+}
+
 function renderProspects() {
-  $('prospects-grid').innerHTML = prospects.map(p => `
+  refreshIndustryFilter();
+  const kind = $('industry-filter') ? $('industry-filter').value : 'all';
+  const shown = kind === 'all' ? prospects : prospects.filter(p => p.type === kind);
+  $('prospects-grid').innerHTML = shown.map(p => `
     <div class="prospect-card" onclick="openProspect(${p.id})">
       <div class="prospect-header">
-        <div><div class="prospect-name">${p.name}</div><div class="prospect-type">${p.type}</div></div>
+        <div><div class="prospect-name">${p.watched ? '★ ' : ''}${p.name}</div><div class="prospect-type">${p.type}</div></div>
         <span class="prospect-tag">Active</span>
       </div>
       <div class="prospect-meta"><span>🌐 ${p.country}</span><span>👥 ${p.employees}</span></div>
@@ -886,7 +892,7 @@ function renderProspects() {
         <span class="prospect-opp"><strong>${p.opportunities}</strong> opportunities</span>
         <span style="font-size:12px;font-family:var(--mono);font-weight:500;color:var(--brand-500)">RM ${(p.totalValue||0).toFixed(1)}M</span>
       </div>
-    </div>`).join('');
+    </div>`).join('') || '<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--gray-400);font-size:13px">No prospects in this industry yet.</div>';
 }
 
 // ── OPEN PROSPECT DETAIL ─────────────────────────────────
@@ -910,7 +916,7 @@ function openProspect(id) {
             <span class="prospect-tag">${p.type}</span>
           </div>
           <div class="prospect-detail-meta">
-            <span class="meta-item">🌐 <a href="#">${p.website}</a></span>
+            <span class="meta-item">🌐 ${p.website && p.website!=='—' ? `<a href="https://${p.website.replace(/^https?:\/\//,'')}" target="_blank" rel="noopener">${p.website}</a>` : '—'}</span>
             <span class="meta-item">📅 Added ${p.added}</span>
             <span class="meta-item">👥 ${p.employees}</span>
             ${p.contact && p.contact!=='—' ? `<span class="meta-item">👤 ${p.contact}</span>` : ''}
@@ -918,22 +924,22 @@ function openProspect(id) {
           </div>
         </div>
         <div style="display:flex;gap:8px">
-          <button class="btn-secondary">⭐ Watch</button>
+          <button class="btn-secondary" id="watch-btn" onclick="toggleWatch(${p.id})">${p.watched ? '★ Watching' : '⭐ Watch'}</button>
           <button class="btn-primary" onclick="openModal('add-deal-modal')">+ New Deal</button>
         </div>
       </div>
       <div class="detail-tabs">
-        <button class="detail-tab active">Overview</button>
-        <button class="detail-tab">Insights</button>
-        <button class="detail-tab">Solutions</button>
-        <button class="detail-tab">Opportunities</button>
-        <button class="detail-tab">Documents</button>
-        <button class="detail-tab">Notes</button>
+        <button class="detail-tab active" onclick="prospectTab('overview',this)">Overview</button>
+        <button class="detail-tab" onclick="prospectTab('insights',this)">Insights</button>
+        <button class="detail-tab" onclick="prospectTab('solutions',this)">Solutions</button>
+        <button class="detail-tab" onclick="prospectTab('opportunities',this)">Opportunities</button>
+        <button class="detail-tab" onclick="prospectTab('documents',this)">Documents</button>
+        <button class="detail-tab" onclick="prospectTab('notes',this)">Notes</button>
       </div>
     </div>
     <div class="detail-grid">
       <div>
-        <div class="card" style="margin-bottom:16px">
+        <div class="card" id="sec-overview" style="margin-bottom:16px">
           <div class="card-header"><span class="card-title">Company Overview</span></div>
           <p style="font-size:13px;color:var(--gray-700);line-height:1.7;margin-bottom:16px">${p.aiResearch?.companyBackground || p.name + ' is a ' + p.type + ' organization based in ' + p.country + '.'}</p>
           <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
@@ -947,7 +953,7 @@ function openProspect(id) {
             ${p.aiResearch?.buyingPotential ? `<div><div style="font-size:11px;color:var(--gray-400)">Buying Potential</div><div style="font-size:13px"><span style="font-weight:600;color:${p.aiResearch.buyingPotential==='High'?'var(--brand-600)':p.aiResearch.buyingPotential==='Low'?'var(--red-700)':'var(--amber-600)'}">${p.aiResearch.buyingPotential}</span></div></div>` : ''}
           </div>
         </div>
-        <div class="card" style="margin-bottom:16px">
+        <div class="card" id="sec-pain" style="margin-bottom:16px">
           <div class="card-header">
             <span class="card-title">Key Pain Points <span style="font-size:11px;background:var(--amber-50);color:var(--amber-600);padding:2px 7px;border-radius:20px;margin-left:6px">${(p.painPoints||[]).length} identified</span></span>
           </div>
@@ -955,7 +961,7 @@ function openProspect(id) {
             ${(p.painPoints||[]).map((pt,i)=>`<li class="pain-item"><span class="picon">${icons[i%icons.length]}</span><p>${pt}</p></li>`).join('')}
           </ul>
         </div>
-        <div class="card">
+        <div class="card" id="sec-opps">
           <div class="card-header"><span class="card-title">Active Opportunities</span></div>
           <table class="opp-table">
             <thead><tr><th>Opportunity</th><th>Stage</th><th>Owner</th><th>Close Date</th><th>Value (RM)</th><th>Health</th></tr></thead>
@@ -972,6 +978,16 @@ function openProspect(id) {
             </tbody>
           </table>
         </div>
+        <div class="card" id="sec-docs" style="display:none;margin-top:16px;text-align:center;padding:40px 24px">
+          <div style="font-size:30px;margin-bottom:10px">📁</div>
+          <div style="font-size:14px;font-weight:600;color:var(--gray-900)">Document storage arrives with Lark Base</div>
+          <div style="font-size:12.5px;color:var(--gray-500);margin-top:6px;line-height:1.6">Proposals, RFP responses and contracts for ${p.name} will sync here in the final integration phase.</div>
+        </div>
+        <div class="card" id="sec-notes" style="display:none;margin-top:16px">
+          <div class="card-header"><span class="card-title">Notes</span><span style="font-size:11px;color:var(--gray-400)" id="notes-saved"></span></div>
+          <textarea class="ft" id="prospect-notes" rows="9" placeholder="Meeting notes, next steps, stakeholder observations… saved automatically."
+            oninput="saveProspectNotes(${p.id})"></textarea>
+        </div>
       </div>
       <div>
         <div class="ai-panel" style="height:580px">
@@ -979,7 +995,7 @@ function openProspect(id) {
             <div class="ai-copilot-title">AI Copilot <span class="ai-badge">AI</span></div>
           </div>
           <div class="ai-messages" id="prospect-ai-messages">
-            <div class="ai-msg-system">Hi Amir,<br>How can I help you with <strong>${p.name}</strong>?</div>
+            <div class="ai-msg-system">Hi ${RAMS.currentUser().split(' ')[0]},<br>How can I help you with <strong>${p.name}</strong>?</div>
           </div>
           <div class="ai-quick-actions">
             <button class="ai-quick-btn" onclick="prospectAsk('Research ${p.name} and identify their biggest technology needs')">
@@ -1013,6 +1029,57 @@ function closeProspect() {
   $('prospects-list-view').style.display = 'block';
   $('prospect-detail-view').style.display = 'none';
   currentProspect = null;
+  renderProspects(); // reflect watch/notes changes on the grid
+}
+
+// ── DETAIL TABS ──────────────────────────────────────────
+// Which sections each tab shows (Doc §3.3 detail view).
+const TAB_SECTIONS = {
+  overview:      ['sec-overview', 'sec-pain', 'sec-opps'],
+  insights:      ['sec-overview', 'sec-pain'],
+  solutions:     ['sec-overview'],
+  opportunities: ['sec-opps'],
+  documents:     ['sec-docs'],
+  notes:         ['sec-notes']
+};
+
+function prospectTab(tab, btn) {
+  document.querySelectorAll('.detail-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const show = TAB_SECTIONS[tab] || TAB_SECTIONS.overview;
+  ['sec-overview', 'sec-pain', 'sec-opps', 'sec-docs', 'sec-notes'].forEach(id => {
+    const el = $(id);
+    if (el) el.style.display = show.includes(id) ? '' : 'none';
+  });
+  if (tab === 'solutions') {
+    showToast('💡 Ask the AI Copilot → "Suggest solutions to pitch" for tailored recommendations');
+  }
+  if (tab === 'notes' && currentProspect) {
+    $('prospect-notes').value = localStorage.getItem('ramssolNotes_' + currentProspect.id) || '';
+  }
+}
+
+// ── WATCH TOGGLE ─────────────────────────────────────────
+function toggleWatch(id) {
+  const p = prospects.find(x => x.id === id);
+  if (!p) return;
+  p.watched = !p.watched;
+  saveProspects();
+  const b = $('watch-btn');
+  if (b) b.textContent = p.watched ? '★ Watching' : '⭐ Watch';
+  showToast(p.watched ? '★ Added to your watchlist' : 'Removed from watchlist');
+}
+
+// ── PER-PROSPECT NOTES (saved locally until Lark phase) ──
+let notesTimer = null;
+function saveProspectNotes(id) {
+  localStorage.setItem('ramssolNotes_' + id, $('prospect-notes').value);
+  const s = $('notes-saved');
+  if (s) {
+    s.textContent = 'Saved ✓';
+    clearTimeout(notesTimer);
+    notesTimer = setTimeout(() => { s.textContent = ''; }, 1500);
+  }
 }
 
 function addDeal() {
@@ -1029,7 +1096,9 @@ function addDeal() {
     status: 'On Track',
     notes: $('nd-notes').value.trim()
   });
+  RAMS.saveDeals(allDeals);          // keep Pipeline + dashboards in sync
   closeModal('add-deal-modal');
+  showToast('✅ Deal added to the pipeline');
 }
 
 // ── AI UTILITIES ─────────────────────────────────────────
@@ -1715,7 +1784,15 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
 }
 
 // ── INIT ─────────────────────────────────────────────────
+// Keep the Add Deal salesperson list in sync with the shared rep list.
+(function () {
+  const me = RAMS.currentUser();
+  const names = RAMS.REPS.includes(me) ? RAMS.REPS : [me].concat(RAMS.REPS);
+  const sel = $('nd-rep');
+  if (sel) { sel.innerHTML = names.map(r => '<option>' + r + '</option>').join(''); sel.value = me; }
+})();
 renderProspects();
 </script>
+<script src="app-shell.js?v=6"></script>
 </body>
 </html>

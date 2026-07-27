@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Approvals — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=6">
   <style>
     /* ── Tabs ─────────────────────────────────────────── */
     .appr-tabs { display: flex; gap: 4px; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 10px; padding: 4px; margin-bottom: 18px; width: fit-content; }
@@ -608,6 +608,11 @@ function actOnProposal(decision) {
   const icon  = decision === 'Approved' ? '✅' : decision === 'Reject & Revise' ? '↩' : '✕';
   const label = decision === 'Approved' ? 'approved' : decision === 'Reject & Revise' ? 'sent back for revision' : 'closed';
   showToast(`${icon} ${list[idx].deal} ${label}`, decision !== 'Approved');
+  if (window.RSHELL) {
+    const p = list[idx];
+    if (decision === 'Approved') RSHELL.notify('approve', 'Proposal approved', p.company + ' — ready for client pitch');
+    else RSHELL.notify('reject', 'Proposal ' + (decision === 'Reject & Revise' ? 'sent back for revision' : 'rejected & closed'), p.company + ' — Reason: ' + (p.rejectionReason || '—'));
+  }
   closeReviewModal();
   renderAll();
 }
@@ -623,6 +628,7 @@ function quickApprove(id) {
   list[idx].lastUpdated = todayStr();
   saveProposals(list);
   showToast(`✅ ${list[idx].deal} approved`);
+  if (window.RSHELL) RSHELL.notify('approve', 'Proposal approved', list[idx].company + ' — ready for client pitch');
   renderAll();
 }
 
@@ -680,5 +686,6 @@ async function saveApiKey() {
 // ── INIT ─────────────────────────────────────────────────
 renderAll();
 </script>
+<script src="app-shell.js?v=6"></script>
 </body>
 </html>

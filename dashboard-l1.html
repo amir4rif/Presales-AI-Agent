@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Workspace — Ramssol Pre-Sales Copilot</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script>if(!sessionStorage.getItem('ramssolSession'))location.replace('login.html');</script>
+  <link rel="stylesheet" href="styles.css?v=7">
+  <style>
+    /* Rejected work is the rep's alarm state — amber strip */
+    #action-required { --strip-accent: #FB923C; }
+  </style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-mark">
+      <div class="logo-icon"><img class="logo-img" src="logoo.png" alt="Ramssol Group"></div>
+      <div><div class="logo-name">Ramssol</div><div class="logo-sub">Pre-Sales Copilot</div></div>
+    </div>
+  </div>
+  <nav class="sidebar-nav"></nav>
+  <div class="sidebar-user" style="display:flex;justify-content:space-between;align-items:center">
+    <div style="display:flex;align-items:center;gap:10px">
+      <div class="user-avatar">U</div>
+      <div><div class="user-name">User</div><div class="user-role">—</div></div>
+    </div>
+    <button class="logout-btn" onclick="logout()" title="Log out">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+    </button>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <span class="topbar-title">My Workspace</span>
+    <div class="topbar-right">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Search anything...">
+      </div>
+      <div class="badge-notif">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <div class="notif-dot"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- HERO -->
+    <section class="hero">
+      <div>
+        <span class="hero-eyebrow"><span class="pulse-dot"></span>Level 1 · Data Entry</span>
+        <h1 class="hero-title greeting">Welcome back 👋</h1>
+        <p class="hero-sub">Capture prospects, draft AI proposals and keep your own deals moving. Everything here is scoped to the work assigned to you.</p>
+        <div class="hero-actions">
+          <button class="btn-primary" onclick="location.href='prospects.html'">
+            Add a Prospect
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+          </button>
+          <button class="btn-secondary" onclick="location.href='proposals.html'">My Proposals</button>
+        </div>
+      </div>
+      <div class="hero-panel">
+        <div class="hero-panel-head">
+          <span class="hero-panel-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--brand-400)" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+            My Work
+          </span>
+          <span class="hero-live"><span class="pulse-dot"></span>Live</span>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><div class="hs-num" id="s-drafts">—</div><div class="hs-lbl">Drafts in progress</div></div>
+          <div class="hero-stat"><div class="hs-num" id="s-pending">—</div><div class="hs-lbl">Awaiting review</div></div>
+          <div class="hero-stat"><div class="hs-num gold" id="s-revise">—</div><div class="hs-lbl">Needs revision</div></div>
+          <div class="hero-stat"><div class="hs-num" id="s-approved">—</div><div class="hs-lbl">Approved</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ACTION REQUIRED -->
+    <div id="action-required"></div>
+
+    <div class="section-head">
+      <h3>What would you like to <span class="accent">do?</span></h3>
+      <p>Your day-to-day tools, powered by AI.</p>
+    </div>
+
+    <div class="quick-actions">
+      <div class="qa-card" onclick="location.href='prospects.html'">
+        <span class="qa-number">01</span>
+        <div class="qa-title">Research a Prospect</div>
+        <div class="qa-desc">Let the AI Sales Agent profile a company, its pain points and buying potential.</div>
+        <button class="qa-btn">Open Prospects
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+      <div class="qa-card" onclick="location.href='proposals.html'">
+        <span class="qa-number">02</span>
+        <div class="qa-title">Draft a Proposal</div>
+        <div class="qa-desc">Generate a first draft from an opportunity, then submit it for review.</div>
+        <button class="qa-btn">New Proposal
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+      <div class="qa-card" onclick="location.href='compliance.html'">
+        <span class="qa-number">03</span>
+        <div class="qa-title">Complete an RFP</div>
+        <div class="qa-desc">Upload a compliance form and let AI fill it from the knowledge base.</div>
+        <button class="qa-btn">Upload RFP
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+      <div class="qa-card" onclick="location.href='pipeline.html'">
+        <span class="qa-number">04</span>
+        <div class="qa-title">Update My Deals</div>
+        <div class="qa-desc">Keep your assigned opportunities and stages current.</div>
+        <button class="qa-btn">My Pipeline
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="home-grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">My Recent Proposals</span>
+          <a class="card-link" href="proposals.html">View all</a>
+        </div>
+        <div class="row-list" id="my-proposals"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">My Assigned Deals</span>
+          <a class="card-link" href="pipeline.html">Open pipeline</a>
+        </div>
+        <div class="row-list" id="my-deals"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script src="app-data.js?v=7"></script>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  // Company names and reviewer notes are user-entered, so escape before
+  // they go anywhere near innerHTML.
+  const esc = v => String(v == null ? '' : v).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c]));
+  const s   = RAMS.stats();
+  const fmt = RAMS.fmtRM;
+
+  $('s-drafts').textContent   = s.myDrafts;
+  $('s-pending').textContent  = s.myPending;
+  $('s-revise').textContent   = s.myRevise;
+  $('s-approved').textContent = s.myApproved;
+
+  // Rejected work is the rep's highest priority (Doc §3.8 — rejected first)
+  const rejected = s.mine.filter(p => p.status === 'Reject & Revise');
+  if (rejected.length) {
+    $('action-required').innerHTML =
+      '<div class="action-strip"><span class="as-ico">↩</span><div>' +
+      '<div class="as-t">' + rejected.length + ' proposal' + (rejected.length > 1 ? 's need' : ' needs') + ' your revision</div>' +
+      '<div class="as-s">' + rejected.map(p => esc(p.company) + ' — ' + esc(p.rejectionReason || 'see reviewer notes')).join(' · ') + '</div>' +
+      '</div><button class="btn-primary as-btn" onclick="location.href=\'proposals.html\'">Fix now</button></div>';
+  }
+
+  // My proposals (own only, newest first)
+  const BADGE = { 'Approved':'status-completed', 'Pending Review':'status-sent', 'Reject & Revise':'status-review', 'Draft':'status-draft', 'Reject & Close':'status-draft' };
+  const DOT   = { 'Approved':'green', 'Pending Review':'blue', 'Reject & Revise':'amber', 'Draft':'muted', 'Reject & Close':'red' };
+  const mine = s.mine.slice().sort((a, b) => (b.generatedDate || '').localeCompare(a.generatedDate || '')).slice(0, 5);
+  $('my-proposals').innerHTML = mine.map(p => `
+    <div class="activity-item" style="cursor:pointer" onclick="location.href='proposals.html'">
+      <div class="activity-dot ${DOT[p.status] || 'muted'}"></div>
+      <div class="activity-info">
+        <div class="activity-name">${esc(p.company)}</div>
+        <div class="activity-desc">${esc(p.deal)} · v${esc(p.version || 1)}</div>
+      </div>
+      <div class="activity-right">
+        <div class="status-badge ${BADGE[p.status] || 'status-draft'}">${esc(p.status)}</div>
+        <div class="activity-time">${esc(p.lastUpdated || p.submittedDate || '')}</div>
+      </div>
+    </div>`).join('') ||
+    '<div class="empty-hint">No proposals yet.<br>Start one from <strong>My Proposals → New Proposal</strong>.</div>';
+
+  // My assigned deals only (Doc §2 — Level 1 sees its own pipeline)
+  $('my-deals').innerHTML = s.myDeals.slice(0, 5).map(d => {
+    const st = RAMS.STAGES[d.stage - 1] || {};
+    const late = st.sla && d.daysInStage > st.sla;
+    return `
+    <div class="activity-item" style="cursor:pointer" onclick="location.href='pipeline.html'">
+      <div class="activity-dot ${late ? 'amber' : 'blue'}"></div>
+      <div class="activity-info">
+        <div class="activity-name">${esc(d.account)}</div>
+        <div class="activity-desc">${esc(st.name || 'Stage ' + d.stage)} · ${esc(d.daysInStage)}d in stage${late ? ' · past ' + st.sla + 'd SLA' : ''}</div>
+      </div>
+      <div class="activity-right">
+        <div class="activity-time" style="font-weight:600;color:var(--brand-300)">${fmt(d.value)}</div>
+        <div class="activity-time">${esc(d.status)}</div>
+      </div>
+    </div>`;
+  }).join('') ||
+    '<div class="empty-hint">No deals assigned to you yet.<br>As a <strong>Level 1</strong> user you see only your own pipeline — add one from <strong>Pipeline → Add Deal</strong>.</div>';
+})();
+</script>
+<script src="app-shell.js?v=7"></script>
+</body>
+</html>

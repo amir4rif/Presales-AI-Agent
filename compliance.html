@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Compliance (RFP) — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=6">
   <style>
     /* Page-header upload controls */
     .comp-header-actions { display: flex; gap: 10px; align-items: center; }
@@ -116,7 +116,7 @@
             </div>
           </div>
           <div class="ai-messages" id="comp-ai-messages">
-            <div class="ai-msg-system">Hi Amir, I'm your Compliance Copilot. Upload an RFP file and I'll fill it automatically from our knowledge base — or ask me anything about past responses.</div>
+            <div class="ai-msg-system">Hi, I'm your Compliance Copilot. Upload an RFP file and I'll fill it automatically from our knowledge base — or ask me anything about past responses.</div>
             <div class="ai-quick-btn" onclick="compAsk('What categories of requirements do we handle best?')">
               <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
               What categories do we handle best?
@@ -364,5 +364,6 @@ async function compAsk(preset) {
   appendMessage('comp-ai-messages', 'bot', reply);
 }
 </script>
+<script src="app-shell.js?v=6"></script>
 </body>
 </html>

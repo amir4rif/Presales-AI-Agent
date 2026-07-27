@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Proposals — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=6">
   <style>
     /* V9: My Proposals list view */
     .proposals-list-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
@@ -162,7 +162,7 @@
       <div class="page-header">
         <div class="page-title">Proposal Generator</div>
         <div class="editor-actions">
-          <button class="btn-secondary">Preview</button>
+          <button class="btn-secondary" onclick="previewProposal()">Preview</button>
           <button class="btn-secondary" id="submit-approval-btn" onclick="submitForApproval()">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>
             <span id="submit-btn-label">Submit for Approval</span>
@@ -290,6 +290,19 @@
   </div>
 </div>
 
+<!-- FULL-PROPOSAL PREVIEW -->
+<div class="modal-overlay" id="preview-modal" onclick="closeOnBackdrop(event, 'preview-modal')">
+  <div class="modal" style="max-width:640px;width:640px;max-height:86vh;overflow-y:auto">
+    <div class="modal-title" id="preview-title">Proposal Preview</div>
+    <div class="modal-sub">Read-only view of every section as the reviewer will see it.</div>
+    <div id="preview-body"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('preview-modal')">Close</button>
+      <button class="btn-primary" onclick="closeModal('preview-modal');submitForApproval()" id="preview-submit-btn">Looks Good — Submit</button>
+    </div>
+  </div>
+</div>
+
 <!-- VERSION HISTORY (Doc §3.8 / §4.9) -->
 <div class="modal-overlay" id="history-modal" onclick="closeOnBackdrop(event, 'history-modal')">
   <div class="modal">
@@ -302,7 +315,7 @@
   </div>
 </div>
 
-<script src="app-data.js"></script>
+<script src="app-data.js?v=6"></script>
 <script>
 // ── DOM + MODAL HELPERS ──────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -688,6 +701,26 @@ function useSuggestion() {
   updateWordCount();
 }
 
+// Compile every section into a read-only preview (reviewer's view).
+function previewProposal() {
+  if (!editingId) return;
+  editingSections[currentSection] = $('proposal-textarea').value;
+  const p = getStoredProposals().find(x => x.id === editingId);
+  const esc = s => (s || '').replace(/</g, '&lt;');
+  $('preview-title').textContent = p ? dealTitle(p) : 'Proposal Preview';
+  $('preview-body').innerHTML = Object.keys(SECTION_LABELS)
+    .filter(k => (editingSections[k] || '').trim())
+    .map(k => `
+      <div style="margin-bottom:14px">
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--brand-400);margin-bottom:5px">${SECTION_LABELS[k]}</div>
+        <div style="font-size:12.5px;color:var(--gray-700);line-height:1.6;white-space:pre-wrap;background:var(--gray-50);border:1px solid var(--gray-100);border-radius:8px;padding:10px 12px">${esc(editingSections[k])}</div>
+      </div>`).join('') || '<div class="empty-state">No content yet — fill in a section first.</div>';
+  // Only offer submit from preview when the proposal can actually be submitted
+  const st = p ? (SUBMIT_STATE[p.status] || SUBMIT_STATE_DEFAULT) : SUBMIT_STATE_DEFAULT;
+  $('preview-submit-btn').style.display = st.disabled ? 'none' : '';
+  openModal('preview-modal');
+}
+
 function exportProposal() {
   const content = $('proposal-textarea').value;
   const section = $('section-label').textContent;
@@ -733,6 +766,7 @@ function submitForApproval() {
     $('editor-deal-name').textContent = dealTitle(newVersion);
     updateEditorMeta(newVersion);
     showToast('📤 Resubmitted (v' + newVersion.version + ') for review');
+    if (window.RSHELL) RSHELL.notify('pending', 'Proposal resubmitted for review', newVersion.company + ' — v' + newVersion.version + ' (' + newVersion.caseId + ')');
     return;
   }
 
@@ -747,6 +781,7 @@ function submitForApproval() {
   $('editor-deal-name').textContent = dealTitle(p);
   updateEditorMeta(p);
   showToast('📤 Sent to Admin for review');
+  if (window.RSHELL) RSHELL.notify('pending', 'Proposal submitted for review', p.company + ' — ' + fmtRM(p.value) + ' (' + (p.caseId || '') + ')');
 }
 
 // Refresh the editor meta line after a status change.
@@ -865,5 +900,6 @@ function showToast(msg, isWarning) {
 // ── INIT ─────────────────────────────────────────────────
 renderList();
 </script>
+<script src="app-shell.js?v=6"></script>
 </body>
 </html>

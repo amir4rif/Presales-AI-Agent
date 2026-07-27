@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Settings — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=6">
 </head>
 <body>
 
@@ -306,7 +306,7 @@
   </div>
 </div>
 
-<script src="app-data.js"></script>
+<script src="app-data.js?v=6"></script>
 <script>
 // ── DOM + MODAL HELPERS ──────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -408,7 +408,12 @@ function reflectProfileLevel() {
 
 function loadProfile() {
   const raw = localStorage.getItem(PROFILE_KEY);
-  const profile = raw ? JSON.parse(raw) : { name: 'Amir Arif', email: 'amir.arif@ramssol.com', role: 'Sales Representative' };
+  let sess = {}; try { sess = JSON.parse(sessionStorage.getItem('ramssolSession') || '{}'); } catch (e) {}
+  const profile = raw ? JSON.parse(raw) : {
+    name:  RAMS.currentUser(),
+    email: sess.email || 'user@ramssol.com',
+    role:  sess.role  || 'Sales Representative'
+  };
   $('profile-name').value = profile.name;
   $('profile-email').value = profile.email;
   $('profile-role').value = profile.role;
@@ -454,23 +459,9 @@ function changePassword() {
 // ── TEAM MANAGEMENT ──────────────────────────────────────
 const TEAM_KEY = 'ramssolTeam';
 
-// Named users from the Design Doc §1/§2 (Lim LG, Sharon, Brian) plus the demo user.
-function loadTeam() {
-  let team = JSON.parse(localStorage.getItem(TEAM_KEY) || 'null');
-  const seedOk = team && team.length && team.every(m => m.role && ROLE_LEVELS[m.role] !== undefined);
-  if (!seedOk) {
-    team = [
-      { name: 'Brian',      email: 'brian.liew@ramssol.com',   role: 'Sales Operations',     status: 'active',  lastActive: 'Just now' },
-      { name: 'Sharon',     email: 'sharon@ramssol.com',       role: 'Sales Manager',        status: 'active',  lastActive: '2h ago' },
-      { name: 'Lim LG',     email: 'lim.lg@ramssol.com',       role: 'Sales Representative', status: 'active',  lastActive: '1 day ago' },
-      { name: 'Amir Arif',  email: 'amir.arif@ramssol.com',    role: 'Sales Representative', status: 'active',  lastActive: '3h ago' }
-    ];
-    localStorage.setItem(TEAM_KEY, JSON.stringify(team));
-  }
-  renderTeam(team);
-}
-
-function saveTeam(team) { localStorage.setItem(TEAM_KEY, JSON.stringify(team)); }
+// User directory comes from the shared store (Doc §1/§2 named users).
+function loadTeam() { renderTeam(RAMS.getTeam()); }
+function saveTeam(team) { RAMS.saveTeam(team); }
 
 function statusBadge(status) {
   return status === 'active'
@@ -495,7 +486,7 @@ function renderTeam(team) {
 }
 
 function removeMember(index) {
-  const team = JSON.parse(localStorage.getItem(TEAM_KEY) || '[]');
+  const team = RAMS.getTeam();
   team.splice(index, 1);
   saveTeam(team);
   renderTeam(team);
@@ -510,7 +501,7 @@ function sendInvite() {
   const email = $('invite-email').value.trim();
   const role = $('invite-role').value;
   if (!email) { alert('Please enter an email address.'); return; }
-  const team = JSON.parse(localStorage.getItem(TEAM_KEY) || '[]');
+  const team = RAMS.getTeam();
   team.push({ name: email.split('@')[0], email, role, status: 'pending', lastActive: '—' });
   saveTeam(team);
   renderTeam(team);
@@ -613,7 +604,7 @@ function exportData(kind) {
       ...list.map(p => [p.id, p.caseId, p.version, p.opportunityId, p.company, p.value, p.owner || p.submittedBy, p.status, p.reviewer, p.rejectionReason, p.reviewedDate])
     ]);
   } else if (kind === 'team') {
-    const team = JSON.parse(localStorage.getItem(TEAM_KEY) || '[]');
+    const team = RAMS.getTeam();
     downloadCSV('team_access_levels.csv', [
       ['Name', 'Email', 'Role', 'Access Level', 'Level Name', 'Status'],
       ...team.map(m => [m.name, m.email, m.role, levelOf(m.role), LEVEL_NAME[levelOf(m.role)], m.status])
@@ -635,5 +626,6 @@ document.addEventListener('DOMContentLoaded', () => {
   loadLark();
 });
 </script>
+<script src="app-shell.js?v=6"></script>
 </body>
 </html>

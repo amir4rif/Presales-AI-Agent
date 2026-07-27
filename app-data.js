@@ -6,7 +6,7 @@
 ═══════════════════════════════════════════════════════════ */
 window.RAMS = (function () {
 
-  const REPS = ['Ahmad Razak', 'Priya Nair', 'Wei Ling Tan', 'Rajan Pillai', 'Siti Rahimah', 'Faizal Hassan'];
+  const REPS = ['Lim LG', 'Ahmad Razak', 'Priya Nair', 'Wei Ling Tan', 'Rajan Pillai', 'Siti Rahimah', 'Faizal Hassan'];
 
   // Pipeline stages with SLA day thresholds + observed average days-in-stage
   // (used for the Analytics velocity-vs-SLA view, Doc §3.6).
@@ -55,14 +55,50 @@ window.RAMS = (function () {
     { rep: 'Siti Rahimah',  account: 'Education Portal – LMS',        value: 1800000, closeDate: '2026-06-22', source: 'Inbound',  outcome: 'Won',  lossReason: '' },
     { rep: 'Faizal Hassan', account: 'Telco MY – SOC',               value: 2600000, closeDate: '2026-05-28', source: 'Outbound', outcome: 'Lost', lossReason: 'No decision' },
     { rep: 'Ahmad Razak',   account: 'Petronas – HR Module',         value: 4500000, closeDate: '2026-06-30', source: 'Inbound',  outcome: 'Won',  lossReason: '' },
-    { rep: 'Priya Nair',    account: 'Grab MY – Martech',            value: 1300000, closeDate: '2026-06-10', source: 'Outbound', outcome: 'Lost', lossReason: 'Budget cut' }
+    { rep: 'Priya Nair',    account: 'Grab MY – Martech',            value: 1300000, closeDate: '2026-06-10', source: 'Outbound', outcome: 'Lost', lossReason: 'Budget cut' },
+    { rep: 'Lim LG',        account: 'Tzu Chi – Volunteer Portal',   value: 1500000, closeDate: '2026-06-18', source: 'Inbound',  outcome: 'Won',  lossReason: '' },
+    { rep: 'Lim LG',        account: 'Sime Darby – Payroll',         value: 1100000, closeDate: '2026-05-06', source: 'Outbound', outcome: 'Lost', lossReason: 'Pricing too high' }
+  ];
+
+  // Active (open) deals — the live pipeline. Shared by Pipeline + all dashboards.
+  const ACTIVE_DEALS = [
+    { rep: 'Lim LG',        account: 'Tzu Chi Foundation',          stage: 5, daysInStage: 12, daysToClose: 28, value: 2800000, movement: 'Advanced', status: 'On Track', notes: 'Q3 budget confirmed' },
+    { rep: 'Priya Nair',    account: 'Tzu Chi – Disaster Platform',  stage: 6, daysInStage: 18, daysToClose: 15, value: 4200000, movement: 'Held',     status: 'At Risk',  notes: 'Awaiting board approval' },
+    { rep: 'Wei Ling Tan',  account: 'Tzu Chi – Donor System',       stage: 3, daysInStage: 8,  daysToClose: 45, value: 1600000, movement: 'Advanced', status: 'On Track', notes: '' },
+    { rep: 'Ahmad Razak',   account: 'ABC Bank – Core Upgrade',      stage: 6, daysInStage: 25, daysToClose: 20, value: 3100000, movement: 'Advanced', status: 'On Track', notes: 'Final pricing submitted' },
+    { rep: 'Siti Rahimah',  account: 'ABC Bank – AI Integration',    stage: 4, daysInStage: 10, daysToClose: 60, value: 2200000, movement: 'Advanced', status: 'On Track', notes: '' },
+    { rep: 'Lim LG',        account: 'Gov Agency – Cloud Infra',     stage: 2, daysInStage: 5,  daysToClose: 90, value: 2200000, movement: 'Held',     status: 'On Track', notes: 'Pending RFP response' },
+    { rep: 'Rajan Pillai',  account: 'Healthcare – Data Platform',   stage: 5, daysInStage: 22, daysToClose: 18, value: 3100000, movement: 'Regressed',status: 'At Risk',  notes: 'Champion changed' },
+    { rep: 'Lim LG',        account: 'Healthcare – Data Analytics',  stage: 3, daysInStage: 12, daysToClose: 50, value: 2000000, movement: 'Advanced', status: 'On Track', notes: '' },
+    { rep: 'Siti Rahimah',  account: 'Education Portal',             stage: 7, daysInStage: 8,  daysToClose: 10, value: 1800000, movement: 'Advanced', status: 'On Track', notes: 'Contract being signed' },
+    { rep: 'Faizal Hassan', account: 'Logistics Co – WMS',           stage: 5, daysInStage: 9,  daysToClose: 30, value: 1900000, movement: 'Advanced', status: 'On Track', notes: '' },
+    { rep: 'Rajan Pillai',  account: 'NGO – Website Revamp',         stage: 4, daysInStage: 6,  daysToClose: 40, value: 1200000, movement: 'Advanced', status: 'On Track', notes: '' },
+    { rep: 'Faizal Hassan', account: 'Telco – Security Solution',    stage: 6, daysInStage: 30, daysToClose: 12, value: 2600000, movement: 'Held',     status: 'Stalled',  notes: 'POC failed, re-scoping' },
+    { rep: 'Ahmad Razak',   account: 'Manufacturing Co – ERP',       stage: 2, daysInStage: 4,  daysToClose: 80, value: 3000000, movement: 'Advanced', status: 'On Track', notes: '' }
+  ];
+
+  // User directory — the doc's named users (Doc §1/§2).
+  const TEAM_SEED = [
+    { name: 'Brian',     email: 'brian.liew@ramssol.com', role: 'Sales Operations',     status: 'active', lastActive: 'Just now' },
+    { name: 'Sharon',    email: 'sharon@ramssol.com',     role: 'Sales Manager',        status: 'active', lastActive: '2h ago' },
+    { name: 'Lim LG',    email: 'lim.lg@ramssol.com',     role: 'Sales Representative', status: 'active', lastActive: '1 day ago' },
+    { name: 'Ahmad Razak', email: 'ahmad.razak@ramssol.com', role: 'Sales Representative', status: 'active', lastActive: '3h ago' }
+  ];
+
+  // Prospect workspace seed (Doc §3.3).
+  const PROSPECT_SEED = [
+    {id:1,name:'Tzu Chi Foundation',type:'NGO / Non-profit',country:'Taiwan',website:'www.tzuchi.org.tw',added:'12 Apr 2026',tags:['Humanitarian Aid','Healthcare','Education','Environment'],employees:'10,000+ Volunteers',opportunities:3,totalValue:8.4,painPoints:['Managing global volunteers across multiple regions','Tracking donations and fund utilization transparently','Coordinating disaster relief in real-time','Measuring program impact and reporting to donors','Language and cultural diversity in operations']},
+    {id:2,name:'ABC Bank',type:'Banking & Finance',country:'Malaysia',website:'www.abcbank.com.my',added:'2 Mar 2026',tags:['Digital Banking','Core Systems','AI'],employees:'3,500',opportunities:2,totalValue:6.1,painPoints:['Legacy core banking system causing downtime','Manual loan processing slowing approvals','Regulatory compliance reporting burden']},
+    {id:3,name:'Gov Agency',type:'Government',country:'Malaysia',website:'gov.my',added:'15 Jan 2026',tags:['Cloud Infra','Digital Gov','Data'],employees:'800',opportunities:1,totalValue:2.2,painPoints:['Paper-based processes for citizen services','Data silos across departments','Lack of real-time reporting dashboard']},
+    {id:4,name:'Healthcare Group',type:'Healthcare',country:'Malaysia',website:'healthcare-group.my',added:'20 Feb 2026',tags:['Data Platform','Analytics','AI'],employees:'2,000+',opportunities:2,totalValue:5.1,painPoints:['Fragmented patient data across facilities','No unified analytics platform','Compliance with PDPA and health regulations']},
+    {id:5,name:'Manufacturing Co',type:'Manufacturing',country:'Malaysia',website:'manufco.my',added:'5 Apr 2026',tags:['ERP','Supply Chain','IoT'],employees:'1,200',opportunities:1,totalValue:3.0,painPoints:['No end-to-end supply chain visibility','Manual inventory tracking','Slow order-to-delivery cycle']}
   ];
 
   // Proposal Store seed (Doc §4.9). One row = one VERSION; rows share a Case ID.
   const PROPOSAL_SEED = [
     { id: 'PROP-2026-0141', caseId: 'CASE-2026-0089', opportunityId: 'OPP-2026-0089', version: 1,
       company: 'Tzu Chi Foundation', deal: 'Tzu Chi – Volunteer Management System', value: 326000,
-      submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-08', submittedDate: '8 May 2026',
+      submittedBy: 'Lim LG', owner: 'Lim LG', generatedDate: '2026-05-08', submittedDate: '8 May 2026',
       status: 'Superseded', reviewer: 'Sharon Lim', reviewedDate: '10 May 2026',
       rejectionReason: 'Pricing too high', reviewNote: 'Budget is RM 250K, quoted RM 326K. Trim scope and resubmit.',
       lastUpdated: '10 May 2026',
@@ -73,7 +109,7 @@ window.RAMS = (function () {
       } },
     { id: 'PROP-2026-0142', caseId: 'CASE-2026-0089', opportunityId: 'OPP-2026-0089', version: 2,
       company: 'Tzu Chi Foundation', deal: 'Tzu Chi – Volunteer Management System', value: 298000,
-      submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-14', submittedDate: '14 May 2026',
+      submittedBy: 'Lim LG', owner: 'Lim LG', generatedDate: '2026-05-14', submittedDate: '14 May 2026',
       status: 'Pending Review', reviewer: '', reviewedDate: '', rejectionReason: '', reviewNote: '',
       lastUpdated: '14 May 2026',
       sections: {
@@ -93,7 +129,7 @@ window.RAMS = (function () {
       } },
     { id: 'PROP-2026-0125', caseId: 'CASE-2026-0066', opportunityId: 'OPP-2026-0066', version: 1,
       company: 'Petronas', deal: 'Petronas – HR Module', value: 4500000,
-      submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-05', submittedDate: '6 May 2026',
+      submittedBy: 'Lim LG', owner: 'Lim LG', generatedDate: '2026-05-05', submittedDate: '6 May 2026',
       status: 'Approved', reviewer: 'Sharon Lim', reviewedDate: '9 May 2026',
       rejectionReason: '', reviewNote: 'Strong strategic fit and pricing aligned with allocated budget. Approved — proceed to client pitch.',
       lastUpdated: '9 May 2026',
@@ -115,7 +151,7 @@ window.RAMS = (function () {
       } },
     { id: 'PROP-2026-0136', caseId: 'CASE-2026-0079', opportunityId: 'OPP-2026-0079', version: 1,
       company: 'Healthcare Group', deal: 'Healthcare – Data Analytics Platform', value: 2000000,
-      submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-11', submittedDate: '12 May 2026',
+      submittedBy: 'Lim LG', owner: 'Lim LG', generatedDate: '2026-05-11', submittedDate: '12 May 2026',
       status: 'Reject & Revise', reviewer: 'Sharon Lim', reviewedDate: '13 May 2026',
       rejectionReason: 'Missing information', reviewNote: 'Add integration details for the existing HIS and a PDPA compliance section, then resubmit.',
       lastUpdated: '13 May 2026',
@@ -159,7 +195,7 @@ window.RAMS = (function () {
       } },
     { id: 'PROP-2026-0150', caseId: 'CASE-2026-0093', opportunityId: 'OPP-2026-0093', version: 1,
       company: 'Gamuda', deal: 'Gamuda – Cloud Infrastructure', value: 2200000,
-      submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-20', submittedDate: '',
+      submittedBy: 'Lim LG', owner: 'Lim LG', generatedDate: '2026-05-20', submittedDate: '',
       status: 'Draft', reviewer: '', reviewedDate: '', rejectionReason: '', reviewNote: '',
       lastUpdated: '20 May 2026',
       sections: {
@@ -171,8 +207,27 @@ window.RAMS = (function () {
 
   const STORAGE_KEY = 'ramssolProposals';
 
+  /* ── DEMO PERSONA ───────────────────────────────────────────
+     The seed data is authored around named reps, so a freshly registered
+     account ("Brian Liew") owns none of it — the Level 1 dashboard,
+     My Proposals and My Pipeline all rendered empty. Whoever signs in
+     therefore inherits SEED_PERSONA's book of work. The swap is applied on
+     read, so nothing written to localStorage depends on who is signed in.
+     Only Level 1 adopts: Levels 2 and 3 read team-wide data and own nothing,
+     so re-pointing rows at a reviewer would have them reviewing themselves. */
+  const SEED_PERSONA = 'Lim LG';
+  function personalise(list, keys) {
+    const me = currentUser();
+    if (!me || me === SEED_PERSONA || currentLevel() !== 1) return list;
+    return list.map(r => {
+      let copy = null;
+      keys.forEach(k => { if (r[k] === SEED_PERSONA) { copy = copy || { ...r }; copy[k] = me; } });
+      return copy || r;
+    });
+  }
+
   function getProposals() {
-    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
+    try { return personalise(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'), ['submittedBy', 'owner']); }
     catch (e) { return []; }
   }
   function saveProposals(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
@@ -180,7 +235,7 @@ window.RAMS = (function () {
   // Seed the Proposal Store once, then always return the live store.
   function ensureProposalStore() {
     let list = getProposals();
-    if (!list.length) { saveProposals(PROPOSAL_SEED); list = PROPOSAL_SEED.map(p => ({ ...p })); }
+    if (!list.length) { saveProposals(PROPOSAL_SEED); list = getProposals(); }
     return list;
   }
 
@@ -194,8 +249,102 @@ window.RAMS = (function () {
       const p = JSON.parse(localStorage.getItem('ramssolProfile') || 'null');
       if (p && p.name && p.name !== 'User') return p.name;
     } catch (e) {}
-    return 'Amir Arif';
+    return 'Lim LG';
   }
 
-  return { REPS, STAGES, OPPORTUNITIES, CLOSED_DEALS, PROPOSAL_SEED, STORAGE_KEY, getProposals, saveProposals, ensureProposalStore, currentUser };
+  // Access level of the signed-in user (Doc §2).
+  const ROLE_LEVELS = { 'Sales Representative': 1, 'Sales Manager': 2, 'Sales Operations': 3, 'Pre-Sales': 1, 'COO Office': 3 };
+  function currentLevel() {
+    try {
+      const s = JSON.parse(sessionStorage.getItem('ramssolSession') || 'null');
+      if (s) return s.level || ROLE_LEVELS[s.role] || 1;
+    } catch (e) {}
+    return 1;
+  }
+
+  /* ── SHARED ACCESSORS (single source of truth for every page) ── */
+  const read = (k, fallback) => {
+    try { const v = JSON.parse(localStorage.getItem(k) || 'null'); return v || fallback; }
+    catch (e) { return fallback; }
+  };
+  const getDeals       = () => personalise(read('ramssolDeals', ACTIVE_DEALS.map(d => ({ ...d }))), ['rep']);
+  const saveDeals      = (l) => localStorage.setItem('ramssolDeals', JSON.stringify(l));
+  const getClosedDeals = () => personalise(read('ramssolClosedDeals', CLOSED_DEALS.map(d => ({ ...d }))), ['rep']);
+  const saveClosedDeals= (l) => localStorage.setItem('ramssolClosedDeals', JSON.stringify(l));
+  const getProspects   = () => read('ramssolProspects', PROSPECT_SEED.map(p => ({ ...p })));
+  const saveProspects  = (l) => localStorage.setItem('ramssolProspects', JSON.stringify(l));
+  const getTeam        = () => read('ramssolTeam', TEAM_SEED.map(m => ({ ...m })));
+  const saveTeam       = (l) => localStorage.setItem('ramssolTeam', JSON.stringify(l));
+
+  const pct = (n, d) => d ? Math.round((n / d) * 100) : 0;
+
+  /* ── STATS ENGINE ───────────────────────────────────────────
+     One computation shared by all three dashboards, Pipeline and
+     Analytics so every screen reports identical numbers. */
+  function stats(user) {
+    user = user || currentUser();
+    const store  = ensureProposalStore();
+    const cur    = store.filter(p => p.status !== 'Superseded');
+    const mine   = cur.filter(p => (p.owner || p.submittedBy) === user);
+    const deals  = getDeals();
+    const closed = getClosedDeals();
+    const myDeals = deals.filter(d => d.rep === user);
+
+    const won  = closed.filter(d => d.outcome === 'Won');
+    const lost = closed.filter(d => d.outcome === 'Lost');
+    const winRate = pct(won.length, closed.length);
+
+    // Stage 1 — Approval Rate, judged per CASE (Doc §4.3)
+    const cases = {};
+    store.forEach(p => {
+      const c = cases[p.caseId] || (cases[p.caseId] = {});
+      if (p.status === 'Approved') c.approved = true;
+      else if (p.status === 'Reject & Close') c.killed = true;
+      else if (p.status === 'Reject & Revise') c.revise = true;
+    });
+    let approved = 0, revise = 0, killed = 0;
+    Object.values(cases).forEach(c => {
+      if (c.approved) approved++; else if (c.killed) killed++; else if (c.revise) revise++;
+    });
+    const approvalRate = pct(approved, approved + revise);
+
+    const stalled = deals.filter(d => { const s = STAGES[d.stage - 1]; return s && d.daysInStage > s.sla; });
+
+    // Top rejection reason drives the AI learning loop (Doc §4.10)
+    const reasons = {};
+    store.filter(p => p.rejectionReason).forEach(p => reasons[p.rejectionReason] = (reasons[p.rejectionReason] || 0) + 1);
+    const topReason = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0] || null;
+
+    return {
+      user, store, cur, mine, deals, closed, myDeals, prospects: getProspects(),
+      pending:    cur.filter(p => p.status === 'Pending Review').length,
+      myPending:  mine.filter(p => p.status === 'Pending Review').length,
+      myDrafts:   mine.filter(p => p.status === 'Draft').length,
+      myRevise:   mine.filter(p => p.status === 'Reject & Revise').length,
+      myApproved: mine.filter(p => p.status === 'Approved').length,
+      approved, revise, killed, approvalRate, winRate,
+      endToEnd: Math.round(approvalRate / 100 * winRate),
+      won: won.length, lost: lost.length,
+      wonValue:  won.reduce((a, d) => a + d.value, 0),
+      lostValue: lost.reduce((a, d) => a + d.value, 0),
+      pipelineValue:   deals.reduce((a, d) => a + d.value, 0),
+      myPipelineValue: myDeals.reduce((a, d) => a + d.value, 0),
+      weighted: deals.reduce((a, d) => a + d.value * ((STAGES[d.stage - 1] || {}).prob || 0), 0),
+      stalled, topReason, reasons
+    };
+  }
+
+  function fmtRM(v) {
+    if (!v && v !== 0) return '—';
+    return v >= 1e6 ? 'RM ' + (v / 1e6).toFixed(2) + 'M' : 'RM ' + Number(v).toLocaleString();
+  }
+
+  // Rep list follows the same persona swap, so every dropdown and filter
+  // offers the signed-in user rather than the seed name they replaced.
+  const REPS_VIEW = personalise(REPS.map(n => ({ n })), ['n']).map(r => r.n);
+
+  return { REPS: REPS_VIEW, STAGES, OPPORTUNITIES, CLOSED_DEALS, ACTIVE_DEALS, PROSPECT_SEED, PROPOSAL_SEED, STORAGE_KEY,
+           getProposals, saveProposals, ensureProposalStore, currentUser, currentLevel,
+           getDeals, saveDeals, getClosedDeals, saveClosedDeals, getProspects, saveProspects, getTeam, saveTeam, TEAM_SEED,
+           stats, fmtRM, pct };
 })();

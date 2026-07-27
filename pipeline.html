@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Pipeline — Ramssol Pre-Sales Copilot</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=6">
   <style>
     /* Small utilities used on this page (kept here so styles.css is untouched) */
     .toolbar        { display: flex; gap: 10px; }
@@ -69,12 +69,15 @@
     <div class="page-header">
       <div class="page-title">Pipeline Dashboard</div>
       <div class="toolbar">
-        <select class="owner-select" onchange="renderPipeline(this.value)">
+        <select class="owner-select" id="rep-filter" onchange="renderPipeline(this.value)">
           <option value="all">All Owners</option>
           <option>Ahmad Razak</option><option>Priya Nair</option><option>Wei Ling Tan</option>
           <option>Rajan Pillai</option><option>Siti Rahimah</option><option>Faizal Hassan</option>
         </select>
-        <button class="btn-secondary">Filters</button>
+        <select class="owner-select" id="status-filter" onchange="renderPipeline($('rep-filter').value)">
+          <option value="all">All Statuses</option>
+          <option>On Track</option><option>At Risk</option><option>Stalled</option>
+        </select>
         <button class="btn-primary" onclick="openModal('add-deal-modal')">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
           Add Deal
@@ -227,7 +230,7 @@
   </div>
 </div>
 
-<script src="app-data.js"></script>
+<script src="app-data.js?v=6"></script>
 <script>
 // ── DOM + MODAL HELPERS ───────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -241,36 +244,23 @@ function closeOnBackdrop(event, id) {
 let apiKey = localStorage.getItem('ramssolApiKey') || '';
 
 // Closed deals — data source for the Win Rate view (Doc §4.13).
-let closedDeals = RAMS.CLOSED_DEALS.map(d => ({ ...d }));
+// All deal data lives in the shared store (app-data.js).
+let closedDeals = RAMS.getClosedDeals();
+const saveClosedDeals = () => RAMS.saveClosedDeals(closedDeals);
+const saveDeals = () => RAMS.saveDeals(allDeals);
 
-const STAGES = [
-  { id: 1, name: 'Prospecting',           sla: 7,  prob: 0.10 },
-  { id: 2, name: 'Qualifying Leads',      sla: 7,  prob: 0.20 },
-  { id: 3, name: 'Initial Meeting',       sla: 14, prob: 0.30 },
-  { id: 4, name: 'Define Prospect Needs', sla: 14, prob: 0.40 },
-  { id: 5, name: 'Make An Offer',         sla: 14, prob: 0.55 },
-  { id: 6, name: 'Negotiation / Finalize',sla: 21, prob: 0.70 },
-  { id: 7, name: 'Closing The Deal',      sla: 14, prob: 0.90 },
-  { id: 8, name: 'Deliver The Product',   sla: 30, prob: 1.00 }
-];
+// Level 1 sees only its own assigned pipeline; Level 2/3 see team-wide (Doc §2).
+const MY_LEVEL = RAMS.currentLevel();
+const MY_NAME  = RAMS.currentUser();
+const visibleClosed = () => MY_LEVEL === 1 ? closedDeals.filter(d => d.rep === MY_NAME) : closedDeals;
 
-const REPS = ['Ahmad Razak', 'Priya Nair', 'Wei Ling Tan', 'Rajan Pillai', 'Siti Rahimah', 'Faizal Hassan'];
+// Stages come from the shared store, with any custom SLA thresholds
+// saved by an administrator in Settings → Pipeline & SLA applied on top.
+const SAVED_SLA = JSON.parse(localStorage.getItem('ramssolStageSLA') || '{}');
+const STAGES = RAMS.STAGES.map(s => ({ ...s, sla: SAVED_SLA[s.id] || s.sla }));
+const REPS = RAMS.REPS;
 
-let allDeals = [
-  { rep: 'Ahmad Razak',   account: 'Tzu Chi Foundation',          stage: 5, daysInStage: 12, daysToClose: 28, value: 2800000, movement: 'Advanced', status: 'On Track', notes: 'Q3 budget confirmed' },
-  { rep: 'Priya Nair',    account: 'Tzu Chi – Disaster Platform',  stage: 6, daysInStage: 18, daysToClose: 15, value: 4200000, movement: 'Held',     status: 'At Risk',  notes: 'Awaiting board approval' },
-  { rep: 'Wei Ling Tan',  account: 'Tzu Chi – Donor System',       stage: 3, daysInStage: 8,  daysToClose: 45, value: 1600000, movement: 'Advanced', status: 'On Track', notes: '' },
-  { rep: 'Ahmad Razak',   account: 'ABC Bank – Core Upgrade',      stage: 6, daysInStage: 25, daysToClose: 20, value: 3100000, movement: 'Advanced', status: 'On Track', notes: 'Final pricing submitted' },
-  { rep: 'Siti Rahimah',  account: 'ABC Bank – AI Integration',    stage: 4, daysInStage: 10, daysToClose: 60, value: 2200000, movement: 'Advanced', status: 'On Track', notes: '' },
-  { rep: 'Wei Ling Tan',  account: 'Gov Agency – Cloud Infra',     stage: 2, daysInStage: 5,  daysToClose: 90, value: 2200000, movement: 'Held',     status: 'On Track', notes: 'Pending RFP response' },
-  { rep: 'Rajan Pillai',  account: 'Healthcare – Data Platform',   stage: 5, daysInStage: 22, daysToClose: 18, value: 3100000, movement: 'Regressed',status: 'At Risk',  notes: 'Champion changed' },
-  { rep: 'Priya Nair',    account: 'Healthcare – Data Analytics',  stage: 3, daysInStage: 12, daysToClose: 50, value: 2000000, movement: 'Advanced', status: 'On Track', notes: '' },
-  { rep: 'Siti Rahimah',  account: 'Education Portal',             stage: 7, daysInStage: 8,  daysToClose: 10, value: 1800000, movement: 'Advanced', status: 'On Track', notes: 'Contract being signed' },
-  { rep: 'Faizal Hassan', account: 'Logistics Co – WMS',           stage: 5, daysInStage: 9,  daysToClose: 30, value: 1900000, movement: 'Advanced', status: 'On Track', notes: '' },
-  { rep: 'Rajan Pillai',  account: 'NGO – Website Revamp',         stage: 4, daysInStage: 6,  daysToClose: 40, value: 1200000, movement: 'Advanced', status: 'On Track', notes: '' },
-  { rep: 'Faizal Hassan', account: 'Telco – Security Solution',    stage: 6, daysInStage: 30, daysToClose: 12, value: 2600000, movement: 'Held',     status: 'Stalled',  notes: 'POC failed, re-scoping' },
-  { rep: 'Ahmad Razak',   account: 'Manufacturing Co – ERP',       stage: 2, daysInStage: 4,  daysToClose: 80, value: 3000000, movement: 'Advanced', status: 'On Track', notes: '' }
-];
+let allDeals = RAMS.getDeals();   // shared store (app-data.js)
 
 // ── HELPERS ───────────────────────────────────────────────
 const stageOf = (deal) => STAGES[deal.stage - 1];
@@ -284,9 +274,12 @@ function fmtRM(v) {
 
 // ── RENDER ────────────────────────────────────────────────
 function renderPipeline(filterRep) {
-  const deals = (filterRep && filterRep !== 'all')
+  if (MY_LEVEL === 1) filterRep = MY_NAME;   // Level 1 → own pipeline only
+  let deals = (filterRep && filterRep !== 'all')
     ? allDeals.filter(d => d.rep === filterRep)
     : allDeals;
+  const st = $('status-filter') ? $('status-filter').value : 'all';
+  if (st && st !== 'all') deals = deals.filter(d => d.status === st);
 
   renderKpis(deals);
   renderFunnel(deals);
@@ -445,6 +438,7 @@ function addDeal() {
       outcome,
       lossReason: outcome === 'Lost' ? $('nd-loss').value : ''
     });
+    saveClosedDeals();
     closeModal('add-deal-modal');
     renderWinRate();
     switchPipeTab('winrate');
@@ -461,6 +455,7 @@ function addDeal() {
     status:      'On Track',
     notes:       $('nd-notes').value.trim()
   });
+  saveDeals();
 
   closeModal('add-deal-modal');
   renderPipeline();
@@ -484,6 +479,7 @@ function switchPipeTab(tab) {
 }
 
 function renderWinRateHero() {
+  const closedDeals = visibleClosed();          // level-scoped view
   const won = closedDeals.filter(d => d.outcome === 'Won').length;
   const total = closedDeals.length;
   const rate = wpct(won, total);
@@ -506,6 +502,7 @@ function renderWinRateHero() {
 function renderWinRate() {
   renderWinRateHero();
 
+  const closedDeals = visibleClosed();          // level-scoped view
   const won = closedDeals.filter(d => d.outcome === 'Won');
   const lost = closedDeals.filter(d => d.outcome === 'Lost');
   const wonValue = won.reduce((a, d) => a + d.value, 0);
@@ -561,6 +558,7 @@ function renderWinRate() {
 }
 
 function renderClosedHistory(q) {
+  const closedDeals = visibleClosed();          // level-scoped view
   const lower = (q || '').toLowerCase();
   const rows = closedDeals.filter(d => !lower || d.account.toLowerCase().includes(lower) || d.rep.toLowerCase().includes(lower))
     .slice().sort((a, b) => (b.closeDate || '').localeCompare(a.closeDate || ''));
@@ -635,8 +633,27 @@ async function saveApiKey() {
 }
 
 // ── INIT ─────────────────────────────────────────────────
+// Level 1 owns a single, personal pipeline view (Doc §2) — the
+// team owner filter is irrelevant, and new deals default to them.
+// Salesperson options always come from the shared rep list (plus the
+// signed-in user, so a newly registered rep can own deals immediately).
+(function fillRepSelects() {
+  const names = REPS.includes(MY_NAME) ? REPS : [MY_NAME].concat(REPS);
+  const opts = names.map(r => '<option>' + r + '</option>').join('');
+  const ndRep = $('nd-rep'); if (ndRep) ndRep.innerHTML = opts;
+  const rf = $('rep-filter');
+  if (rf) rf.innerHTML = '<option value="all">All Owners</option>' + opts;
+})();
+
+if (MY_LEVEL === 1) {
+  const rf = $('rep-filter'); if (rf) rf.style.display = 'none';
+  const title = document.querySelector('.page-title'); if (title) title.textContent = 'My Pipeline';
+  const ndRep = $('nd-rep');
+  if (ndRep) { ndRep.value = MY_NAME; ndRep.disabled = true; }   // a rep only creates their own deals
+}
 renderPipeline();
 renderWinRateHero();
 </script>
+<script src="app-shell.js?v=6"></script>
 </body>
 </html>
