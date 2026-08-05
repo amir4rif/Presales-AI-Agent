@@ -4,17 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Approvals — Ramssol Pre-Sales Copilot</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=6">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
   <style>
-    /* ── Tabs ─────────────────────────────────────────── */
     .appr-tabs { display: flex; gap: 4px; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 10px; padding: 4px; margin-bottom: 18px; width: fit-content; }
-    .appr-tab { font-size: 12.5px; font-weight: 500; color: var(--gray-500); background: none; border: none; padding: 7px 16px; border-radius: 7px; cursor: pointer; font-family: var(--font); transition: all .15s; display: flex; align-items: center; gap: 6px; }
-    .appr-tab .cnt { font-size: 10.5px; background: var(--gray-100); color: var(--gray-500); padding: 1px 6px; border-radius: 10px; }
+    .appr-tab { font-size: 12.5px; font-weight: 500; color: var(--gray-500); background: none; border: none; padding: 7px 16px; border-radius: 7px; cursor: pointer; font-family: var(--font); transition: all .15s; display:flex; align-items:center; gap:6px; }
+    .appr-tab .cnt { font-size:10.5px; background:var(--gray-100); color:var(--gray-500); padding:1px 6px; border-radius:10px; }
     .appr-tab.active { background: var(--brand-500); color: white; }
     .appr-tab.active .cnt { background: rgba(255,255,255,0.25); color: white; }
 
-    /* ── Table ────────────────────────────────────────── */
     .appr-table-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }
     .appr-table { width: 100%; border-collapse: collapse; font-size: 13px; }
     .appr-table th { font-size: 11px; font-weight: 500; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.04em; padding: 12px 16px; border-bottom: 1px solid var(--gray-100); text-align: left; background: var(--gray-50); }
@@ -22,21 +20,11 @@
     .appr-table tr:last-child td { border-bottom: none; }
     .appr-deal { font-weight: 500; color: var(--gray-900); }
     .appr-company { font-size: 11.5px; color: var(--gray-500); margin-top: 1px; }
-    .td-mono { font-family: var(--mono); font-size: 12px; }
-    .td-value { font-family: var(--mono); font-weight: 500; }
-    .appr-reason { font-size: 10.5px; color: var(--gray-400); margin-top: 2px; }
-
-    /* ── Status pills ─────────────────────────────────── */
-    /* Status badge colours (Doc §3.8): Draft grey · Pending Review blue · Approved green · Rejected red */
     .status-pill { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 20px; white-space: nowrap; }
-    .pill-pending  { background: var(--blue-50); color: var(--blue-600); border: 1px solid var(--blue-600); }
-    .pill-approved { background: #073b2c; color: #34D399; border: 1px solid #34D399; }
+    .pill-pending  { background: var(--amber-50); color: var(--amber-600); border: 1px solid var(--amber-600); }
+    .pill-approved { background: var(--brand-50); color: var(--brand-400); border: 1px solid var(--brand-400); }
     .pill-revise   { background: #452412; color: #FB923C; border: 1px solid #FB923C; }
     .pill-closed   { background: var(--red-50); color: var(--red-700); border: 1px solid var(--red-700); }
-    .pill-draft    { background: var(--gray-50); color: var(--gray-500); border: 1px solid var(--gray-200); }
-    .pill-superseded { background: var(--gray-50); color: var(--gray-400); border: 1px solid var(--gray-200); }
-
-    /* ── Row action buttons ───────────────────────────── */
     .row-actions { display: flex; gap: 8px; }
     .row-btn { font-size: 11.5px; font-weight: 500; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: var(--font); border: 1px solid var(--gray-200); background: none; color: var(--gray-700); transition: all .15s; }
     .row-btn:hover { border-color: var(--brand-400); color: var(--brand-400); background: var(--brand-50); }
@@ -46,12 +34,9 @@
     .row-btn.reject:hover { background: var(--red-700); color: white; }
     .row-btn.revise-btn { border-color: #FB923C; color: #FB923C; }
     .row-btn.revise-btn:hover { background: #FB923C; color: white; }
-    .row-btn.lg { padding: 9px 14px; font-size: 13px; }
-
     .empty-state { text-align: center; padding: 48px 24px; color: var(--gray-400); font-size: 13px; }
-    .page-sub { font-size: 12.5px; color: var(--gray-500); }
 
-    /* ── Review modal ─────────────────────────────────── */
+    /* Review modal */
     .review-modal { max-width: 640px; max-height: 86vh; overflow-y: auto; }
     .review-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 20px; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 10px; padding: 14px 16px; margin-bottom: 6px; }
     .review-meta-item .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--gray-400); margin-bottom: 3px; }
@@ -60,24 +45,51 @@
     .review-section .rs-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--brand-400); margin-bottom: 5px; }
     .review-section .rs-body { font-size: 12.5px; color: var(--gray-700); line-height: 1.6; white-space: pre-wrap; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 8px; padding: 10px 12px; }
     .review-note-box { border: 1px solid var(--gray-100); border-radius: 8px; padding: 10px 12px; }
-    .review-note-box textarea { width: 100%; border: 1px solid var(--gray-200); border-radius: 7px; padding: 8px 10px; font-size: 12.5px; font-family: var(--font); color: var(--gray-900); outline: none; resize: vertical; min-height: 56px; background: #03060F; }
+    .review-note-box textarea { width:100%; border:1px solid var(--gray-200); border-radius:7px; padding:8px 10px; font-size:12.5px; font-family:var(--font); color:var(--gray-900); outline:none; resize:vertical; min-height:56px; background:#03060F; }
     .review-note-box textarea:focus { border-color: var(--brand-400); }
     .past-note { font-size: 12px; color: var(--gray-500); background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 8px; padding: 10px 12px; line-height: 1.5; }
 
-    /* ── Rejection reason dropdown ────────────────────── */
+    /* Rejection reason dropdown */
     .rejection-reason-wrap { margin-bottom: 10px; }
     .rejection-reason-wrap label { font-size: 11px; font-weight: 500; color: var(--gray-700); margin-bottom: 4px; display: block; }
-    .rejection-reason-wrap select { width: 100%; border: 1px solid var(--gray-200); border-radius: 7px; padding: 8px 30px 8px 10px; font-size: 12.5px; font-family: var(--font); color: var(--gray-900); outline: none; background: #03060F url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>") no-repeat right 10px center; background-size: 14px; appearance: none; }
+    .rejection-reason-wrap select { width:100%; border:1px solid var(--gray-200); border-radius:7px; padding:8px 10px; font-size:12.5px; font-family:var(--font); color:var(--gray-900); outline:none; background:#03060F; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; padding-right: 30px; }
     .rejection-reason-wrap select:focus { border-color: var(--brand-400); }
     .rejection-reason-wrap .req { color: var(--red-700); font-size: 10px; }
     .reason-error { font-size: 11px; color: var(--red-700); margin-top: 4px; display: none; }
 
+    /* Reject action buttons group */
     .reject-actions { display: flex; gap: 8px; }
-    #rm-actions { margin-top: 4px; }
 
-    /* ── Toast ────────────────────────────────────────── */
-    .toast { position: fixed; bottom: 24px; right: 24px; background: #085041; color: white; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; z-index: 9999; box-shadow: 0 4px 20px rgba(0,0,0,0.2); transition: opacity .3s; }
-    .toast.warn { background: #BA7517; }
+    /* V10: Kill Rate card clickable */
+    .kpi-card.kpi-clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
+    .kpi-card.kpi-clickable:hover { border-color: var(--red-700); box-shadow: 0 0 0 1px var(--red-700); }
+
+    /* V10: Kill Rate drill-down modal */
+    .killrate-modal { max-width: 560px; }
+    .killrate-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
+    .killrate-table th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--gray-400); padding: 8px 12px; border-bottom: 1px solid var(--gray-100); text-align: left; }
+    .killrate-table td { padding: 10px 12px; border-bottom: 1px solid var(--gray-100); color: var(--gray-700); }
+    .killrate-table tr:last-child td { border-bottom: none; }
+    .killrate-empty { text-align:center; padding:24px; color:var(--gray-400); font-size:12.5px; }
+
+    /* V10: Confirm strip inside review modal */
+    .confirm-strip { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 10px; padding: 14px 16px; margin-top: 4px; }
+    .confirm-strip .cs-msg { font-size: 13px; color: var(--gray-900); font-weight: 500; line-height: 1.5; margin-bottom: 10px; }
+    .confirm-strip .cs-warn { font-size: 11.5px; color: var(--red-700); margin-bottom: 10px; }
+    .confirm-strip .cs-actions { display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* V10: Outcome tracking */
+    .outcome-section { margin-bottom: 12px; }
+    .outcome-section .os-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--brand-400); margin-bottom: 8px; }
+    .outcome-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 10px; padding: 12px 14px; }
+    .outcome-meta-grid .lbl { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--gray-400); margin-bottom: 2px; }
+    .outcome-meta-grid .val { font-size: 12.5px; color: var(--gray-700); font-family: var(--mono); }
+    .outcome-select-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+    .outcome-select-row select { border:1px solid var(--gray-200); border-radius:7px; padding:7px 10px; font-size:12.5px; font-family:var(--font); color:var(--gray-900); outline:none; background:#03060F; appearance:none; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>"); background-repeat: no-repeat; background-position: right 10px center; background-size: 14px; padding-right: 30px; }
+    .outcome-select-row select:focus { border-color: var(--brand-400); }
+    .pill-won  { background: var(--brand-50); color: var(--brand-500); border: 1px solid var(--brand-500); }
+    .pill-lost { background: var(--red-50); color: var(--red-700); border: 1px solid var(--red-700); }
+    .pill-outcome-pending { background: var(--gray-100); color: var(--gray-500); border: 1px solid var(--gray-200); }
   </style>
 </head>
 <body>
@@ -85,7 +97,7 @@
 <aside class="sidebar">
   <div class="sidebar-logo">
     <div class="logo-mark">
-      <div class="logo-icon"><img class="logo-img" src="logoo.png" alt="Ramssol Group"></div>
+      <div class="logo-icon"><svg viewBox="0 0 36 36" fill="none"><rect width="36" height="36" rx="8" fill="#1AA57A" opacity="0.18"/><text x="9" y="27" font-family="Inter,sans-serif" font-size="22" font-weight="700" fill="white">R</text></svg></div>
       <div><div class="logo-name">Ramssol</div><div class="logo-sub">Pre-Sales Copilot</div></div>
     </div>
   </div>
@@ -98,14 +110,14 @@
     <a class="nav-item active" href="admin-approvals.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c1.6 0 3.1.42 4.4 1.15"/><path d="M21 5l-9 9"/></svg>Approvals</a>
     <div class="nav-section-label">Analytics</div>
     <a class="nav-item" href="pipeline.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Pipeline</a>
-    <a class="nav-item" href="analytics.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Analytics</a>
+    <a class="nav-item" href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Reports</a>
     <div class="nav-section-label">Settings</div>
     <a class="nav-item" href="settings.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Admin</a>
     <button class="nav-item" onclick="showApiKeyModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>AI Settings</button>
   </nav>
   <div class="sidebar-user">
-    <div class="user-avatar">SL</div>
-    <div><div class="user-name">Sharon Lim</div><div class="user-role">Sales Manager · L2</div></div>
+    <div class="user-avatar">A</div>
+    <div><div class="user-name">Admin</div><div class="user-role">Approvals Desk</div></div>
   </div>
 </aside>
 
@@ -127,7 +139,7 @@
   <div class="content">
     <div class="page-header">
       <div class="page-title">Proposal Approvals</div>
-      <div class="page-sub">Completed proposals from the sales team land here for admin sign-off.</div>
+      <div style="font-size:12.5px;color:var(--gray-500)">Completed proposals from the sales team land here for admin sign-off.</div>
     </div>
 
     <div class="kpi-row" id="kpi-row"></div>
@@ -160,14 +172,6 @@
 
     <div id="rm-sections"></div>
 
-    <!-- Previous rejection reason (resubmits only) -->
-    <div id="rm-prev-reason-wrap" style="display:none">
-      <div class="review-section">
-        <div class="rs-title">Previous Rejection (this case)</div>
-        <div class="past-note" id="rm-prev-reason">—</div>
-      </div>
-    </div>
-
     <div id="rm-past-note-wrap" style="display:none">
       <div class="review-section">
         <div class="rs-title">Review Decision</div>
@@ -175,7 +179,27 @@
       </div>
     </div>
 
-    <!-- Rejection reason (shown only for pending proposals) -->
+    <!-- V10: Outcome tracking section (visible for Approved proposals) -->
+    <div id="rm-outcome-wrap" style="display:none">
+      <div class="outcome-section">
+        <div class="os-title">Deal Outcome</div>
+        <div class="outcome-meta-grid">
+          <div><div class="lbl">Case ID</div><div class="val" id="rm-case-id">—</div></div>
+          <div><div class="lbl">Opportunity ID</div><div class="val" id="rm-opp-id">—</div></div>
+        </div>
+        <div class="outcome-select-row">
+          <label style="font-size:11px;font-weight:500;color:var(--gray-700)">Outcome:</label>
+          <select id="rm-outcome-select" onchange="saveOutcome()">
+            <option value="Pending">Pending</option>
+            <option value="Won">Won</option>
+            <option value="Lost">Lost</option>
+          </select>
+          <span id="rm-outcome-saved" style="font-size:11px;color:var(--brand-500);opacity:0;transition:opacity .3s">✓ Saved</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Rejection Reason Dropdown (visible only for pending proposals) -->
     <div id="rm-reason-wrap" class="rejection-reason-wrap">
       <label>Rejection Reason <span class="req">(required on reject)</span></label>
       <select id="rm-reason-select">
@@ -190,7 +214,6 @@
         <option value="Other">Other</option>
       </select>
       <div class="reason-error" id="rm-reason-error">Please select a rejection reason.</div>
-      <div class="reason-error" id="rm-close-error">Reject &amp; Close is limited to Compliance issue, Out of scope, or Wrong product fit. Use Reject &amp; Revise for fixable issues.</div>
     </div>
 
     <div id="rm-note-wrap" class="review-note-box">
@@ -198,22 +221,44 @@
       <textarea id="rm-note-input" placeholder="e.g. Pricing looks strong, approved as-is. — or — Please revise commercials before resubmitting."></textarea>
     </div>
 
-    <!-- Approve / Reject & Revise / Reject & Close -->
-    <div class="modal-actions" id="rm-actions">
+    <!-- Action buttons -->
+    <div class="modal-actions" id="rm-actions" style="margin-top:4px">
       <button class="btn-secondary" onclick="closeReviewModal()">Close</button>
       <div class="reject-actions">
-        <button class="row-btn revise-btn lg" onclick="actOnProposal('Reject & Revise')" title="Fixable — goes back to sales rep for revision">↩ Reject &amp; Revise</button>
-        <button class="row-btn reject lg" onclick="actOnProposal('Reject & Close')" title="Unfixable — case ends, counted as loss">✕ Reject &amp; Close</button>
+        <button class="row-btn revise-btn" style="padding:9px 14px;font-size:13px" onclick="requestConfirm('Reject & Revise')" title="Fixable — goes back to sales rep for revision">↩ Reject &amp; Revise</button>
+        <button class="row-btn reject" style="padding:9px 14px;font-size:13px" onclick="requestConfirm('Reject & Close')" title="Unfixable — case ends, counted as loss">✕ Reject &amp; Close</button>
       </div>
-      <button class="btn-primary" onclick="actOnProposal('Approved')">
+      <button class="btn-primary" onclick="requestConfirm('Approved')">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
         Approve
       </button>
     </div>
+
+    <!-- V10: Confirm strip (hidden by default, replaces actions on click) -->
+    <div class="confirm-strip" id="rm-confirm-strip" style="display:none">
+      <div class="cs-msg" id="cs-msg"></div>
+      <div class="cs-warn" id="cs-warn" style="display:none"></div>
+      <div class="cs-actions">
+        <button class="btn-secondary" onclick="cancelConfirm()">Cancel</button>
+        <button class="btn-primary" id="cs-confirm-btn" onclick="executeConfirmed()">Confirm</button>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- API KEY MODAL (kept for nav consistency) -->
+<!-- V10: Kill Rate drill-down modal -->
+<div class="modal-overlay" id="killrate-modal" onclick="if(event.target===this)this.classList.remove('open')">
+  <div class="modal killrate-modal">
+    <div class="modal-title">Kill Rate — Closed Cases</div>
+    <div class="modal-sub" id="kr-sub">Proposals rejected and closed permanently.</div>
+    <div id="kr-body"></div>
+    <div class="modal-actions" style="margin-top:6px">
+      <button class="btn-secondary" onclick="document.getElementById('killrate-modal').classList.remove('open')">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- API KEY MODAL -->
 <div class="modal-overlay" id="api-key-modal" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="modal">
     <div class="modal-title">AI Settings</div>
@@ -228,32 +273,22 @@
 </div>
 
 <script>
-// ── Small DOM helper ─────────────────────────────────────
-const $ = id => document.getElementById(id);
-
 // ── STORAGE ──────────────────────────────────────────────
 const STORAGE_KEY = 'ramssolProposals';
 
 function getProposals() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); }
-  catch (e) { return []; }
+  catch(e) { return []; }
 }
 function saveProposals(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)); }
 
-// ── PROPOSAL STORE (Design Doc §4.9) ─────────────────────
-// Each row is one VERSION of an AI-generated proposal. Rows sharing a
-// Case ID belong to the same deal. Fields mirror the Proposal Store schema:
-// Proposal ID · Case ID · Version · Opportunity ID · Generated Date · Reviewer
-// · Decision (status) · Decision Date · Rejection Reason · Rejection Notes · Status.
+// V10: Added outcome, caseId, opportunityId fields to schema
 const DEFAULT_PROPOSALS = [
-  // CASE-0089 — revised once: v1 Superseded (kept for audit), v2 Pending Review
   {
-    id: 'PROP-2026-0141', caseId: 'CASE-2026-0089', opportunityId: 'OPP-2026-0089', version: 1,
-    company: 'Tzu Chi Foundation', deal: 'Tzu Chi – Volunteer Management System', value: 326000,
-    submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-08', submittedDate: '8 May 2026',
-    status: 'Superseded', reviewer: 'Sharon Lim', reviewedDate: '10 May 2026',
-    rejectionReason: 'Pricing too high', reviewNote: 'Budget is RM 250K, quoted RM 326K. Trim scope and resubmit.',
-    lastUpdated: '10 May 2026',
+    id: 'demo-tzuchi-vms', company: 'Tzu Chi Foundation', deal: 'Tzu Chi – Volunteer Management System',
+    value: 326000, submittedBy: 'Amir Arif', submittedDate: '14 May 2026', status: 'Pending Approval',
+    reviewNote: '', rejectionReason: '', version: 1,
+    outcome: '', caseId: '', opportunityId: '',
     sections: {
       executive: 'Tzu Chi Foundation requires a comprehensive volunteer management solution to streamline recruitment, deployment, communication, and reporting across its global operations.',
       solution: 'Ramssol proposes a cloud-based Volunteer Management System (VMS) with centralised registry, AI-powered matching, real-time coordination, and integrated donor management.',
@@ -261,23 +296,10 @@ const DEFAULT_PROPOSALS = [
     }
   },
   {
-    id: 'PROP-2026-0142', caseId: 'CASE-2026-0089', opportunityId: 'OPP-2026-0089', version: 2,
-    company: 'Tzu Chi Foundation', deal: 'Tzu Chi – Volunteer Management System', value: 298000,
-    submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-14', submittedDate: '14 May 2026',
-    status: 'Pending Review', reviewer: '', reviewedDate: '', rejectionReason: '', reviewNote: '',
-    lastUpdated: '14 May 2026',
-    sections: {
-      executive: 'Tzu Chi Foundation requires a comprehensive volunteer management solution to streamline recruitment, deployment, communication, and reporting across its global operations.',
-      solution: 'Ramssol proposes a cloud-based Volunteer Management System (VMS) with centralised registry, AI-powered matching, real-time coordination, and integrated donor management. Scope trimmed to core modules to meet budget.',
-      commercials: 'System License: RM 165,000/year · Implementation: RM 78,000 · Support: RM 30,000/year — Total Year 1: RM 298,000'
-    }
-  },
-  {
-    id: 'PROP-2026-0130', caseId: 'CASE-2026-0071', opportunityId: 'OPP-2026-0071', version: 1,
-    company: 'ABC Bank', deal: 'ABC Bank – Core Upgrade Proposal', value: 3100000,
-    submittedBy: 'Ahmad Razak', owner: 'Ahmad Razak', generatedDate: '2026-05-09', submittedDate: '10 May 2026',
-    status: 'Pending Review', reviewer: '', reviewedDate: '', rejectionReason: '', reviewNote: '',
-    lastUpdated: '10 May 2026',
+    id: 'demo-abc-bank', company: 'ABC Bank', deal: 'ABC Bank – Core Upgrade Proposal',
+    value: 3100000, submittedBy: 'Ahmad Razak', submittedDate: '10 May 2026', status: 'Pending Approval',
+    reviewNote: '', rejectionReason: '', version: 1,
+    outcome: '', caseId: '', opportunityId: '',
     sections: {
       executive: 'ABC Bank requires a modernised core banking platform to support growing transaction volumes and stricter compliance requirements.',
       solution: 'Ramssol proposes a phased core-system upgrade with parallel-run migration, AI-driven fraud monitoring, and 24x7 managed support.',
@@ -285,25 +307,11 @@ const DEFAULT_PROPOSALS = [
     }
   },
   {
-    id: 'PROP-2026-0125', caseId: 'CASE-2026-0066', opportunityId: 'OPP-2026-0066', version: 1,
-    company: 'Petronas', deal: 'Petronas – HR Module', value: 4500000,
-    submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-05', submittedDate: '6 May 2026',
-    status: 'Approved', reviewer: 'Sharon Lim', reviewedDate: '9 May 2026',
-    rejectionReason: '', reviewNote: 'Strong strategic fit and pricing aligned with allocated budget. Approved — proceed to client pitch.',
-    lastUpdated: '9 May 2026',
-    sections: {
-      executive: 'Petronas is consolidating HR operations across subsidiaries onto a single enterprise HCM platform.',
-      solution: 'Oracle Fusion HCM (RAMS PeopleTech) with multi-country payroll, talent management, and workforce analytics.',
-      commercials: 'License: RM 3.0M/year · Implementation: RM 1.2M · Support: RM 300,000/year — Total Year 1: RM 4.5M'
-    }
-  },
-  {
-    id: 'PROP-2026-0118', caseId: 'CASE-2026-0060', opportunityId: 'OPP-2026-0060', version: 1,
-    company: 'Education Portal Sdn Bhd', deal: 'Education Portal – LMS Rollout', value: 1800000,
-    submittedBy: 'Siti Rahimah', owner: 'Siti Rahimah', generatedDate: '2026-05-01', submittedDate: '2 May 2026',
-    status: 'Approved', reviewer: 'Sharon Lim', reviewedDate: '5 May 2026',
-    rejectionReason: '', reviewNote: 'Approved — pricing aligned with allocated budget, proceed to contract.',
-    lastUpdated: '5 May 2026',
+    id: 'demo-edu-portal', company: 'Education Portal Sdn Bhd', deal: 'Education Portal – LMS Rollout',
+    value: 1800000, submittedBy: 'Siti Rahimah', submittedDate: '2 May 2026', status: 'Approved',
+    reviewedDate: '5 May 2026', reviewNote: 'Approved — pricing aligned with allocated budget, proceed to contract.',
+    rejectionReason: '', version: 1,
+    outcome: 'Won', caseId: 'CASE-2026-003', opportunityId: 'OPP-2026-003',
     sections: {
       executive: 'Education Portal needs a unified learning management platform serving 40,000+ students across 3 campuses.',
       solution: 'Ramssol RAMS EduTech LMS with mobile-first delivery, integrated assessments, and parent/guardian portals.',
@@ -311,25 +319,11 @@ const DEFAULT_PROPOSALS = [
     }
   },
   {
-    id: 'PROP-2026-0136', caseId: 'CASE-2026-0079', opportunityId: 'OPP-2026-0079', version: 1,
-    company: 'Healthcare Group', deal: 'Healthcare – Data Analytics Platform', value: 2000000,
-    submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-11', submittedDate: '12 May 2026',
-    status: 'Reject & Revise', reviewer: 'Sharon Lim', reviewedDate: '13 May 2026',
-    rejectionReason: 'Missing information', reviewNote: 'Add integration details for the existing HIS and a PDPA compliance section, then resubmit.',
-    lastUpdated: '13 May 2026',
-    sections: {
-      executive: 'Healthcare Group needs a unified analytics platform across fragmented patient data systems.',
-      solution: 'Ramssol A.I.Tech data platform with a governed data lake, PDPA-compliant access controls, and clinical dashboards.',
-      commercials: 'Platform License: RM 1.4M/year · Implementation: RM 600,000 — Total Year 1: RM 2.0M'
-    }
-  },
-  {
-    id: 'PROP-2026-0110', caseId: 'CASE-2026-0054', opportunityId: 'OPP-2026-0054', version: 1,
-    company: 'Telco Malaysia', deal: 'Telco – Security Solution Proposal', value: 2600000,
-    submittedBy: 'Faizal Hassan', owner: 'Faizal Hassan', generatedDate: '2026-04-27', submittedDate: '28 Apr 2026',
-    status: 'Reject & Revise', reviewer: 'Sharon Lim', reviewedDate: '30 Apr 2026',
-    rejectionReason: 'Scope mismatch', reviewNote: 'POC failed during evaluation. Please re-scope the architecture and resubmit with updated commercials.',
-    lastUpdated: '30 Apr 2026',
+    id: 'demo-telco-sec', company: 'Telco Malaysia', deal: 'Telco – Security Solution Proposal',
+    value: 2600000, submittedBy: 'Faizal Hassan', submittedDate: '28 Apr 2026', status: 'Reject & Revise',
+    reviewedDate: '30 Apr 2026', reviewNote: 'POC failed during evaluation. Please re-scope the architecture and resubmit with updated commercials.',
+    rejectionReason: 'Scope mismatch', version: 1,
+    outcome: '', caseId: '', opportunityId: '',
     sections: {
       executive: 'Telco Malaysia is seeking an upgraded network security solution following recent audit findings.',
       solution: 'Proposed SOC-as-a-service with managed detection and response, tied to existing SIEM tooling.',
@@ -337,41 +331,15 @@ const DEFAULT_PROPOSALS = [
     }
   },
   {
-    id: 'PROP-2026-0098', caseId: 'CASE-2026-0042', opportunityId: 'OPP-2026-0042', version: 1,
-    company: 'Manufacturing Co', deal: 'Manufacturing Co – ERP', value: 3000000,
-    submittedBy: 'Priya Nair', owner: 'Priya Nair', generatedDate: '2026-04-15', submittedDate: '16 Apr 2026',
-    status: 'Approved', reviewer: 'Sharon Lim', reviewedDate: '18 Apr 2026',
-    rejectionReason: '', reviewNote: 'Approved — solid ROI case, proceed to client pitch.',
-    lastUpdated: '18 Apr 2026',
-    sections: {
-      executive: 'Manufacturing Co needs end-to-end supply chain visibility and automated inventory tracking.',
-      solution: 'Ramssol AutoTech ERP with IoT inventory sensors and order-to-delivery automation.',
-      commercials: 'License: RM 1.8M/year · Implementation: RM 1.2M — Total Year 1: RM 3.0M'
-    }
-  },
-  {
-    id: 'PROP-2026-0104', caseId: 'CASE-2026-0048', opportunityId: 'OPP-2026-0048', version: 1,
-    company: 'FastTrack Logistics', deal: 'FastTrack – Fleet IoT Proposal', value: 950000,
-    submittedBy: 'Ahmad Razak', owner: 'Ahmad Razak', generatedDate: '2026-04-20', submittedDate: '20 Apr 2026',
-    status: 'Reject & Close', reviewer: 'Sharon Lim', reviewedDate: '22 Apr 2026',
-    rejectionReason: 'Out of scope', reviewNote: 'Product does not cover cold-chain monitoring which is a hard requirement. Out of scope for our current portfolio.',
-    lastUpdated: '22 Apr 2026',
+    id: 'demo-logistics-co', company: 'FastTrack Logistics', deal: 'FastTrack – Fleet IoT Proposal',
+    value: 950000, submittedBy: 'Ahmad Razak', submittedDate: '20 Apr 2026', status: 'Reject & Close',
+    reviewedDate: '22 Apr 2026', reviewNote: 'Product does not cover cold-chain monitoring which is a hard requirement. Out of scope for our current portfolio.',
+    rejectionReason: 'Out of scope', version: 1,
+    outcome: '', caseId: '', opportunityId: '',
     sections: {
       executive: 'FastTrack Logistics needs IoT-based fleet tracking with cold-chain temperature monitoring for pharmaceutical deliveries.',
       solution: 'Ramssol Fleet Management Platform with GPS tracking, driver behaviour analytics, and route optimisation.',
       commercials: 'Platform License: RM 650,000/year · Hardware: RM 300,000 — Total Year 1: RM 950,000'
-    }
-  },
-  {
-    id: 'PROP-2026-0150', caseId: 'CASE-2026-0093', opportunityId: 'OPP-2026-0093', version: 1,
-    company: 'Gamuda', deal: 'Gamuda – Cloud Infrastructure', value: 2200000,
-    submittedBy: 'Amir Arif', owner: 'Amir Arif', generatedDate: '2026-05-20', submittedDate: '',
-    status: 'Draft', reviewer: '', reviewedDate: '', rejectionReason: '', reviewNote: '',
-    lastUpdated: '20 May 2026',
-    sections: {
-      executive: 'Gamuda is migrating on-premise workloads to a scalable private cloud.',
-      solution: 'Ramssol A.I.Tech (Tencent Cloud) private cloud with managed migration and 24x7 support.',
-      commercials: 'Cloud Platform: RM 1.6M/year · Migration: RM 600,000 — Total Year 1: RM 2.2M'
     }
   }
 ];
@@ -383,77 +351,72 @@ function ensureSeeded() {
 }
 
 // ── STATE ────────────────────────────────────────────────
-let currentTab = 'Pending Review';
+let currentTab = 'Pending Approval';
 let reviewingId = null;
-
-// The reviewer is the logged-in admin (Doc §4.9 — captured automatically).
-function reviewerName() {
-  try {
-    const prof = JSON.parse(localStorage.getItem('ramssolProfile') || 'null');
-    if (prof && prof.name && prof.name !== 'User') return prof.name;
-  } catch (e) {}
-  return 'Sharon Lim';
-}
-
-// Reject & Close is limited to the agreed unfixable reasons (Doc §4.3 guardrail).
-const CLOSE_ALLOWED_REASONS = ['Compliance issue', 'Out of scope', 'Wrong product fit'];
+let pendingDecision = null; // V10: for confirm step
 
 // ── HELPERS ──────────────────────────────────────────────
-function fmtRM(v) {
-  if (!v && v !== 0) return '—';
-  return v >= 1000000 ? 'RM ' + (v / 1000000).toFixed(2) + 'M' : 'RM ' + Number(v).toLocaleString();
-}
-
-function todayStr() {
-  return new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
+function fmtRM(v) { if (!v && v !== 0) return '—'; return v >= 1000000 ? 'RM ' + (v/1000000).toFixed(2) + 'M' : 'RM ' + Number(v).toLocaleString(); }
 function isRejected(status) { return status === 'Reject & Revise' || status === 'Reject & Close'; }
 
 function pillClass(status) {
   if (status === 'Approved') return 'pill-approved';
   if (status === 'Reject & Revise') return 'pill-revise';
   if (status === 'Reject & Close') return 'pill-closed';
-  if (status === 'Draft') return 'pill-draft';
-  if (status === 'Superseded') return 'pill-superseded';
   return 'pill-pending';
 }
 
-function escapeHtml(s) { return (s || '').replace(/</g, '&lt;'); }
+function outcomePillClass(outcome) {
+  if (outcome === 'Won') return 'pill-won';
+  if (outcome === 'Lost') return 'pill-lost';
+  return 'pill-outcome-pending';
+}
+
+// V10: generate case/opportunity IDs on approval
+function generateCaseId() { return 'CASE-' + new Date().getFullYear() + '-' + String(Math.floor(Math.random()*900)+100); }
+function generateOppId()  { return 'OPP-'  + new Date().getFullYear() + '-' + String(Math.floor(Math.random()*900)+100); }
 
 // ── RENDER ───────────────────────────────────────────────
 function renderAll() {
-  // Superseded versions are audit-only, and Drafts have not been submitted yet.
-  // The approvals list shows the current submitted version of each case
-  // (Doc §3.8: "1 row = 1 case").
-  const list = ensureSeeded().filter(p => p.status !== 'Superseded' && p.status !== 'Draft');
+  const list = ensureSeeded();
 
-  const pending  = list.filter(p => p.status === 'Pending Review');
+  const pending  = list.filter(p => p.status === 'Pending Approval');
   const approved = list.filter(p => p.status === 'Approved');
   const revise   = list.filter(p => p.status === 'Reject & Revise');
   const closed   = list.filter(p => p.status === 'Reject & Close');
-  const pendingValue = pending.reduce((s, p) => s + (p.value || 0), 0);
+  const pendingValue = pending.reduce((s,p) => s + (p.value||0), 0);
 
-  const kpis = [
-    { label: 'Pending Review',  value: pending.length, sub: 'Awaiting your review', color: pending.length ? 'kpi-warn' : '' },
-    { label: 'Value Pending',    value: fmtRM(pendingValue), sub: 'Across pending proposals', color: '' },
-    { label: 'Approved',         value: approved.length, sub: 'All time', color: 'kpi-up' },
-    { label: 'Reject & Revise',  value: revise.length, sub: 'Sent back to sales', color: revise.length ? 'kpi-warn' : '' },
-    { label: 'Reject & Close',   value: closed.length, sub: 'Case ended as loss', color: closed.length ? 'kpi-danger' : '' },
-  ];
-  $('kpi-row').innerHTML = kpis.map(k =>
-    `<div class="kpi-card"><div class="kpi-label">${k.label}</div><div class="kpi-value ${k.color}">${k.value}</div><div class="kpi-sub">${k.sub}</div></div>`
-  ).join('');
+  // V10: Kill Rate = closed / (approved + closed), excludes revise and pending
+  const decided = approved.length + closed.length;
+  const killPct = decided > 0 ? Math.round((closed.length / decided) * 100) : 0;
 
+  // V10: Outcome stats for approved proposals
+  const won  = approved.filter(p => p.outcome === 'Won').length;
+  const lost = approved.filter(p => p.outcome === 'Lost').length;
+  const outcomeSub = approved.length ? `${won} Won · ${lost} Lost · ${approved.length - won - lost} Pending` : 'All time';
+
+  document.getElementById('kpi-row').innerHTML = [
+    { label:'Pending Approval', value: pending.length, sub:'Awaiting your review', color: pending.length ? 'kpi-warn' : '', click: '' },
+    { label:'Value Pending',    value: fmtRM(pendingValue), sub:'Across pending proposals', color:'', click: '' },
+    { label:'Approved',         value: approved.length, sub: outcomeSub, color:'kpi-up', click: '' },
+    { label:'Reject & Revise',  value: revise.length, sub:'Sent back to sales', color: revise.length ? 'kpi-warn' : '', click: '' },
+    { label:'Kill Rate',        value: killPct + '%', sub: closed.length + ' Reject & Close', color: closed.length ? 'kpi-danger' : '', click: 'kpi-clickable' },
+  ].map(k => `<div class="kpi-card ${k.click}" ${k.click ? 'onclick="openKillRateModal()"' : ''}>
+    <div class="kpi-label">${k.label}</div>
+    <div class="kpi-value ${k.color}">${k.value}</div>
+    <div class="kpi-sub">${k.sub}</div>
+  </div>`).join('');
+
+  // Tabs
   const tabs = [
-    { key: 'Pending Review',   label: 'Pending', count: pending.length },
-    { key: 'Approved',         label: 'Approved', count: approved.length },
-    { key: 'Reject & Revise',  label: 'Reject & Revise', count: revise.length },
-    { key: 'Reject & Close',   label: 'Reject & Close', count: closed.length },
-    { key: 'All',              label: 'All', count: list.length }
+    { key:'Pending Approval', label:'Pending', count: pending.length },
+    { key:'Approved',         label:'Approved', count: approved.length },
+    { key:'Reject & Revise',  label:'Reject & Revise', count: revise.length },
+    { key:'Reject & Close',   label:'Reject & Close', count: closed.length },
+    { key:'All',              label:'All',      count: list.length }
   ];
-  $('appr-tabs').innerHTML = tabs.map(t =>
-    `<button class="appr-tab ${currentTab === t.key ? 'active' : ''}" onclick="switchTab('${t.key}')">${t.label} <span class="cnt">${t.count}</span></button>`
+  document.getElementById('appr-tabs').innerHTML = tabs.map(t =>
+    `<button class="appr-tab ${currentTab===t.key?'active':''}" onclick="switchTab('${t.key}')">${t.label} <span class="cnt">${t.count}</span></button>`
   ).join('');
 
   const shown = currentTab === 'All' ? list : list.filter(p => p.status === currentTab);
@@ -463,156 +426,248 @@ function renderAll() {
 function switchTab(key) { currentTab = key; renderAll(); }
 
 function renderTable(list) {
-  const tbody = $('appr-tbody');
+  const tbody = document.getElementById('appr-tbody');
   if (!list.length) {
     tbody.innerHTML = `<tr><td colspan="6"><div class="empty-state">Nothing here right now.</div></td></tr>`;
     return;
   }
   tbody.innerHTML = list.map(p => {
-    const reasonTag = p.rejectionReason && isRejected(p.status)
-      ? `<div class="appr-reason">Reason: ${p.rejectionReason}</div>` : '';
+    // Show rejection reason inline for rejected proposals
+    let statusExtra = '';
+    if (p.rejectionReason && isRejected(p.status)) {
+      statusExtra = `<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px">Reason: ${p.rejectionReason}</div>`;
+    }
+    // V10: Show outcome inline for approved proposals
+    if (p.status === 'Approved' && p.outcome) {
+      statusExtra = `<div style="margin-top:3px"><span class="status-pill ${outcomePillClass(p.outcome)}" style="font-size:10px;padding:1px 7px">${p.outcome}</span></div>`;
+    }
     return `
     <tr>
       <td>
         <div class="appr-deal">${p.deal}</div>
-        <div class="appr-company">${p.company}${p.version > 1 ? ' · v' + p.version : ''}</div>
+        <div class="appr-company">${p.company}${p.version > 1 ? ' · v'+p.version : ''}${p.caseId ? ' · '+p.caseId : ''}</div>
       </td>
       <td>${p.submittedBy}</td>
-      <td class="td-mono">${p.submittedDate}</td>
-      <td class="td-value">${fmtRM(p.value)}</td>
-      <td><span class="status-pill ${pillClass(p.status)}">${p.status}</span>${reasonTag}</td>
+      <td style="font-family:var(--mono);font-size:12px">${p.submittedDate}</td>
+      <td style="font-family:var(--mono);font-weight:500">${fmtRM(p.value)}</td>
+      <td><span class="status-pill ${pillClass(p.status)}">${p.status}</span>${statusExtra}</td>
       <td>
         <div class="row-actions">
           <button class="row-btn" onclick="openReviewModal('${p.id}')">Review</button>
-          ${p.status === 'Pending Review'
-            ? `<button class="row-btn approve" onclick="quickApprove('${p.id}')">Approve</button>` : ''}
+          ${p.status === 'Pending Approval' ? `
+            <button class="row-btn approve" onclick="quickApprove('${p.id}')">Approve</button>
+          ` : ''}
         </div>
       </td>
     </tr>`;
   }).join('');
 }
 
-// ── REVIEW MODAL ─────────────────────────────────────────
-const SECTION_LABELS = {
-  executive: 'Executive Summary', challenges: 'Challenges', solution: 'Our Solution',
-  benefits: 'Benefits', implementation: 'Implementation', commercials: 'Commercials',
-  casestudies: 'Case Studies', nextsteps: 'Next Steps'
-};
-const SECTION_ORDER = ['executive', 'challenges', 'solution', 'benefits', 'implementation', 'commercials', 'casestudies', 'nextsteps'];
+// ═══════════════════════════════════════════════════════════
+// V10 — FEATURE 1: KILL RATE DRILL-DOWN
+// ═══════════════════════════════════════════════════════════
+function openKillRateModal() {
+  const list = getProposals();
+  const closed = list.filter(p => p.status === 'Reject & Close');
+  const decided = list.filter(p => p.status === 'Approved').length + closed.length;
+  const pct = decided > 0 ? Math.round((closed.length / decided) * 100) : 0;
 
+  document.getElementById('kr-sub').textContent = `${closed.length} closed case${closed.length !== 1 ? 's' : ''} · Kill rate: ${pct}% of decided proposals`;
+
+  if (!closed.length) {
+    document.getElementById('kr-body').innerHTML = '<div class="killrate-empty">No closed cases yet.</div>';
+  } else {
+    document.getElementById('kr-body').innerHTML = `
+      <table class="killrate-table">
+        <thead><tr><th>Company</th><th>Deal</th><th>Reason</th><th>Date Closed</th></tr></thead>
+        <tbody>${closed.map(p => `
+          <tr>
+            <td style="font-weight:500">${p.company}</td>
+            <td>${p.deal}</td>
+            <td><span class="status-pill pill-closed" style="font-size:10px;padding:1px 7px">${p.rejectionReason || '—'}</span></td>
+            <td style="font-family:var(--mono);font-size:11.5px">${p.reviewedDate || '—'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>`;
+  }
+  document.getElementById('killrate-modal').classList.add('open');
+}
+
+// ═══════════════════════════════════════════════════════════
+// REVIEW MODAL
+// ═══════════════════════════════════════════════════════════
 function openReviewModal(id) {
-  const p = getProposals().find(x => x.id === id);
+  const list = getProposals();
+  const p = list.find(x => x.id === id);
   if (!p) return;
   reviewingId = id;
+  pendingDecision = null;
 
-  $('rm-title').textContent = p.deal + (p.version > 1 ? ' (v' + p.version + ')' : '');
-  // Context: which version this is + Case / Opportunity IDs (Doc §4.9 review modal)
-  $('rm-sub').innerHTML = `Version ${p.version || 1} · Case <strong>${p.caseId || '—'}</strong> · Opportunity ${p.opportunityId || '—'}`;
-  $('rm-company').textContent = p.company;
-  $('rm-value').textContent = fmtRM(p.value);
-  $('rm-by').textContent = p.submittedBy;
-  $('rm-date').textContent = p.submittedDate;
+  document.getElementById('rm-title').textContent = p.deal + (p.version > 1 ? ' (v' + p.version + ')' : '');
+  document.getElementById('rm-sub').textContent = 'Review the proposal content, then approve or reject.';
+  document.getElementById('rm-company').textContent = p.company;
+  document.getElementById('rm-value').textContent = fmtRM(p.value);
+  document.getElementById('rm-by').textContent = p.submittedBy;
+  document.getElementById('rm-date').textContent = p.submittedDate;
 
   const sections = p.sections || {};
-  const sectionsHtml = SECTION_ORDER.filter(k => sections[k]).map(k => `
+  const labels = { executive:'Executive Summary', challenges:'Challenges', solution:'Our Solution', benefits:'Benefits', implementation:'Implementation', commercials:'Commercials', casestudies:'Case Studies', nextsteps:'Next Steps' };
+  const order = ['executive','challenges','solution','benefits','implementation','commercials','casestudies','nextsteps'];
+  const html = order.filter(k => sections[k]).map(k => `
     <div class="review-section">
-      <div class="rs-title">${SECTION_LABELS[k]}</div>
-      <div class="rs-body">${escapeHtml(sections[k])}</div>
+      <div class="rs-title">${labels[k]}</div>
+      <div class="rs-body">${(sections[k]||'').replace(/</g,'&lt;')}</div>
     </div>
   `).join('') || '<div class="review-section"><div class="rs-body">No proposal content was attached.</div></div>';
-  $('rm-sections').innerHTML = sectionsHtml;
+  document.getElementById('rm-sections').innerHTML = html;
 
-  // If this is a resubmit (v2+), surface the PREVIOUS version's rejection reason
-  // so the reviewer sees what was asked for last time (Doc §4.9).
-  const prevWrap = $('rm-prev-reason-wrap');
-  if (prevWrap) {
-    const prev = getProposals()
-      .filter(x => x.caseId && x.caseId === p.caseId && x.version < (p.version || 1))
-      .sort((a, b) => b.version - a.version)[0];
-    if ((p.version || 1) > 1 && prev && prev.rejectionReason) {
-      prevWrap.style.display = 'block';
-      $('rm-prev-reason').textContent =
-        `v${prev.version}: ${prev.rejectionReason}${prev.reviewNote ? ' — ' + prev.reviewNote : ''}`;
-    } else {
-      prevWrap.style.display = 'none';
-    }
-  }
-
-  // Past decision (for already-reviewed proposals)
-  const pastWrap = $('rm-past-note-wrap');
-  if (p.status !== 'Pending Review' && (p.reviewNote || p.rejectionReason)) {
+  // Past decision note
+  const pastWrap = document.getElementById('rm-past-note-wrap');
+  if (p.status !== 'Pending Approval' && (p.reviewNote || p.rejectionReason)) {
     pastWrap.style.display = 'block';
     let noteText = '';
-    if (p.reviewer) noteText += 'Reviewer: ' + p.reviewer + '\n';
     if (p.rejectionReason) noteText += 'Reason: ' + p.rejectionReason + '\n';
     if (p.reviewNote) noteText += p.reviewNote;
     if (p.reviewedDate) noteText += ' (' + p.reviewedDate + ')';
-    $('rm-past-note').textContent = noteText;
+    document.getElementById('rm-past-note').textContent = noteText;
   } else {
     pastWrap.style.display = 'none';
   }
 
-  // Reset inputs
-  $('rm-reason-select').value = '';
-  $('rm-reason-error').style.display = 'none';
-  $('rm-note-input').value = '';
+  // V10: Outcome section for approved proposals
+  const outcomeWrap = document.getElementById('rm-outcome-wrap');
+  if (p.status === 'Approved') {
+    outcomeWrap.style.display = 'block';
+    document.getElementById('rm-case-id').textContent = p.caseId || '—';
+    document.getElementById('rm-opp-id').textContent = p.opportunityId || '—';
+    document.getElementById('rm-outcome-select').value = p.outcome || 'Pending';
+  } else {
+    outcomeWrap.style.display = 'none';
+  }
 
-  // Action controls apply only to pending proposals
-  const isPending = p.status === 'Pending Review';
-  $('rm-actions').style.display = isPending ? 'flex' : 'none';
-  $('rm-reason-wrap').style.display = isPending ? 'block' : 'none';
-  $('rm-note-wrap').style.display = isPending ? 'block' : 'none';
+  // Reset rejection reason dropdown, note, and confirm strip
+  document.getElementById('rm-reason-select').value = '';
+  document.getElementById('rm-reason-error').style.display = 'none';
+  document.getElementById('rm-note-input').value = '';
+  document.getElementById('rm-confirm-strip').style.display = 'none';
 
-  $('review-modal').classList.add('open');
+  // Show/hide action elements based on status
+  const isPending = p.status === 'Pending Approval';
+  document.getElementById('rm-actions').style.display = isPending ? 'flex' : 'none';
+  document.getElementById('rm-reason-wrap').style.display = isPending ? 'block' : 'none';
+  document.getElementById('rm-note-wrap').style.display = isPending ? 'block' : (p.status === 'Approved' ? 'none' : 'none');
+
+  document.getElementById('review-modal').classList.add('open');
 }
 
 function closeReviewModal() {
-  $('review-modal').classList.remove('open');
+  document.getElementById('review-modal').classList.remove('open');
   reviewingId = null;
+  pendingDecision = null;
 }
 
+// ═══════════════════════════════════════════════════════════
+// V10 — FEATURE 2: CONFIRM STEP BEFORE FINALIZING
+// ═══════════════════════════════════════════════════════════
+function requestConfirm(decision) {
+  if (!reviewingId) return;
+
+  const reason = document.getElementById('rm-reason-select').value;
+  const errorEl = document.getElementById('rm-reason-error');
+
+  // Validate reason for rejections first
+  if (isRejected(decision) && !reason) {
+    errorEl.style.display = 'block';
+    document.getElementById('rm-reason-select').focus();
+    return;
+  }
+  errorEl.style.display = 'none';
+
+  // Get the deal name for the confirm message
+  const list = getProposals();
+  const p = list.find(x => x.id === reviewingId);
+  if (!p) return;
+
+  pendingDecision = decision;
+
+  // Build confirm message
+  const msgEl = document.getElementById('cs-msg');
+  const warnEl = document.getElementById('cs-warn');
+  const confirmBtn = document.getElementById('cs-confirm-btn');
+  warnEl.style.display = 'none';
+
+  if (decision === 'Approved') {
+    msgEl.textContent = `Approve "${p.deal}"?`;
+    confirmBtn.textContent = '✓ Confirm Approval';
+    confirmBtn.className = 'btn-primary';
+  } else if (decision === 'Reject & Revise') {
+    msgEl.textContent = `Send "${p.deal}" back to sales for revision?`;
+    confirmBtn.textContent = '↩ Confirm Reject & Revise';
+    confirmBtn.className = 'btn-primary';
+    confirmBtn.style.background = '#FB923C';
+    confirmBtn.style.borderColor = '#FB923C';
+  } else if (decision === 'Reject & Close') {
+    msgEl.textContent = `Reject and close this case for reason: ${reason}?`;
+    warnEl.textContent = 'This will end the case permanently and count as a loss. It cannot be undone.';
+    warnEl.style.display = 'block';
+    confirmBtn.textContent = '✕ Confirm Reject & Close';
+    confirmBtn.className = 'btn-primary';
+    confirmBtn.style.background = 'var(--red-700)';
+    confirmBtn.style.borderColor = 'var(--red-700)';
+  }
+
+  // Show confirm strip, hide action buttons
+  document.getElementById('rm-actions').style.display = 'none';
+  document.getElementById('rm-confirm-strip').style.display = 'block';
+}
+
+function cancelConfirm() {
+  pendingDecision = null;
+  document.getElementById('rm-confirm-strip').style.display = 'none';
+  document.getElementById('rm-actions').style.display = 'flex';
+  // Reset confirm button styles
+  const confirmBtn = document.getElementById('cs-confirm-btn');
+  confirmBtn.style.background = '';
+  confirmBtn.style.borderColor = '';
+}
+
+function executeConfirmed() {
+  if (!pendingDecision || !reviewingId) return;
+  actOnProposal(pendingDecision);
+  // Reset confirm button styles
+  const confirmBtn = document.getElementById('cs-confirm-btn');
+  confirmBtn.style.background = '';
+  confirmBtn.style.borderColor = '';
+}
+
+// ── COMMIT THE DECISION ──────────────────────────────────
 function actOnProposal(decision) {
   if (!reviewingId) return;
 
-  const reason = $('rm-reason-select').value;
-  const errorEl = $('rm-reason-error');
-  const closeErr = $('rm-close-error');
-  errorEl.style.display = 'none';
-  if (closeErr) closeErr.style.display = 'none';
-
-  // Rejections require a reason
-  if (isRejected(decision) && !reason) {
-    errorEl.style.display = 'block';
-    $('rm-reason-select').focus();
-    return;
-  }
-  // Guardrail: Reject & Close only for the agreed unfixable reasons (Doc §4.3)
-  if (decision === 'Reject & Close' && !CLOSE_ALLOWED_REASONS.includes(reason)) {
-    if (closeErr) closeErr.style.display = 'block';
-    $('rm-reason-select').focus();
-    return;
-  }
-
+  const reason = document.getElementById('rm-reason-select').value;
   const list = getProposals();
   const idx = list.findIndex(x => x.id === reviewingId);
   if (idx === -1) return;
 
+  const note = document.getElementById('rm-note-input').value.trim();
+
   list[idx].status = decision;
-  list[idx].reviewNote = $('rm-note-input').value.trim();
+  list[idx].reviewNote = note;
   list[idx].rejectionReason = isRejected(decision) ? reason : '';
-  list[idx].reviewer = reviewerName();       // captured automatically (Doc §4.9)
-  list[idx].reviewedDate = todayStr();        // decision date
-  list[idx].lastUpdated = todayStr();
+  list[idx].reviewedDate = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+
+  // V10: On approval, generate case/opportunity IDs and set outcome to Pending
+  if (decision === 'Approved') {
+    list[idx].outcome = 'Pending';
+    list[idx].caseId = generateCaseId();
+    list[idx].opportunityId = generateOppId();
+  }
+
   saveProposals(list);
 
-  const icon  = decision === 'Approved' ? '✅' : decision === 'Reject & Revise' ? '↩' : '✕';
+  const icon = decision === 'Approved' ? '✅' : decision === 'Reject & Revise' ? '↩' : '✕';
   const label = decision === 'Approved' ? 'approved' : decision === 'Reject & Revise' ? 'sent back for revision' : 'closed';
   showToast(`${icon} ${list[idx].deal} ${label}`, decision !== 'Approved');
-  if (window.RSHELL) {
-    const p = list[idx];
-    if (decision === 'Approved') RSHELL.notify('approve', 'Proposal approved', p.company + ' — ready for client pitch');
-    else RSHELL.notify('reject', 'Proposal ' + (decision === 'Reject & Revise' ? 'sent back for revision' : 'rejected & closed'), p.company + ' — Reason: ' + (p.rejectionReason || '—'));
-  }
   closeReviewModal();
   renderAll();
 }
@@ -623,69 +678,67 @@ function quickApprove(id) {
   if (idx === -1) return;
   if (!confirm(`Approve "${list[idx].deal}"?`)) return;
   list[idx].status = 'Approved';
-  list[idx].reviewer = reviewerName();
-  list[idx].reviewedDate = todayStr();
-  list[idx].lastUpdated = todayStr();
+  list[idx].reviewedDate = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  // V10: generate IDs and default outcome
+  list[idx].outcome = 'Pending';
+  list[idx].caseId = generateCaseId();
+  list[idx].opportunityId = generateOppId();
   saveProposals(list);
   showToast(`✅ ${list[idx].deal} approved`);
-  if (window.RSHELL) RSHELL.notify('approve', 'Proposal approved', list[idx].company + ' — ready for client pitch');
+  renderAll();
+}
+
+// ═══════════════════════════════════════════════════════════
+// V10 — FEATURE 3: OUTCOME TRACKING
+// ═══════════════════════════════════════════════════════════
+function saveOutcome() {
+  if (!reviewingId) return;
+  const outcome = document.getElementById('rm-outcome-select').value;
+  const list = getProposals();
+  const idx = list.findIndex(x => x.id === reviewingId);
+  if (idx === -1) return;
+
+  list[idx].outcome = outcome;
+  saveProposals(list);
+
+  // Flash "Saved" indicator
+  const saved = document.getElementById('rm-outcome-saved');
+  saved.style.opacity = '1';
+  setTimeout(() => { saved.style.opacity = '0'; }, 1500);
+
+  // Re-render KPIs and table in background
   renderAll();
 }
 
 // ── TOAST ────────────────────────────────────────────────
 function showToast(msg, isWarning) {
   const t = document.createElement('div');
-  t.className = 'toast' + (isWarning ? ' warn' : '');
+  t.style.cssText = `position:fixed;bottom:24px;right:24px;background:${isWarning ? '#BA7517' : '#085041'};color:white;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.2);transition:opacity .3s`;
   t.textContent = msg;
   document.body.appendChild(t);
   setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 3000);
 }
 
-// ── AI SETTINGS (kept consistent with other pages) ───────
-function getApiKey() { return localStorage.getItem('ramssolApiKey') || ''; }
-
-function showApiKeyModal() {
-  $('api-key-input').value = getApiKey();
-  $('api-key-modal').classList.add('open');
-}
-
+// ── AI SETTINGS ──────────────────────────────────────────
+let apiKey = localStorage.getItem('ramssolApiKey') || '';
+function getApiKey() { return apiKey || localStorage.getItem('ramssolApiKey') || ''; }
+function showApiKeyModal() { document.getElementById('api-key-input').value = getApiKey(); document.getElementById('api-key-modal').classList.add('open'); }
 async function saveApiKey() {
-  const key = $('api-key-input').value.trim();
-  if (!key) { alert('Please enter an API key.'); return; }
-
-  const status = $('api-key-status');
-  const setStatus = (bg, color, text) => {
-    status.style.display = 'block';
-    status.style.background = bg;
-    status.style.color = color;
-    status.textContent = text;
-  };
-  setStatus('var(--brand-50)', 'var(--brand-600)', '⏳ Testing key...');
-
+  const k = document.getElementById('api-key-input').value.trim();
+  if (!k) { alert('Please enter an API key.'); return; }
+  const s = document.getElementById('api-key-status');
+  s.style.display='block'; s.style.background='var(--brand-50)'; s.style.color='var(--brand-600)'; s.textContent='⏳ Testing key...';
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      },
-      body: JSON.stringify({ model: 'claude-haiku-4-5-20251001', max_tokens: 10, messages: [{ role: 'user', content: 'Say: OK' }] })
-    });
-    const data = await res.json();
-    if (data.error) { setStatus('var(--red-50)', 'var(--red-700)', '❌ ' + data.error.message); return; }
-    localStorage.setItem('ramssolApiKey', key);
-    setStatus('var(--brand-50)', 'var(--brand-500)', '✅ Key verified!');
-    setTimeout(() => { $('api-key-modal').classList.remove('open'); status.style.display = 'none'; }, 1500);
-  } catch (e) {
-    setStatus('var(--red-50)', 'var(--red-700)', '❌ ' + e.message);
-  }
+    const r = await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':k,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:10,messages:[{role:'user',content:'Say: OK'}]})});
+    const d = await r.json();
+    if (d.error) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+d.error.message; return; }
+    apiKey=k; localStorage.setItem('ramssolApiKey',k); s.style.background='var(--brand-50)'; s.style.color='var(--brand-500)'; s.textContent='✅ Key verified!';
+    setTimeout(()=>{document.getElementById('api-key-modal').classList.remove('open');s.style.display='none';},1500);
+  } catch(e) { s.style.background='var(--red-50)'; s.style.color='var(--red-700)'; s.textContent='❌ '+e.message; }
 }
 
 // ── INIT ─────────────────────────────────────────────────
 renderAll();
 </script>
-<script src="app-shell.js?v=6"></script>
 </body>
 </html>
