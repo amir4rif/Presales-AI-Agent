@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "presales-ai-agent",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "presales-ai-agent", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}
