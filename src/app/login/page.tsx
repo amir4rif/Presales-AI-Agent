@@ -10,8 +10,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import GalaxyTransition from '@/components/GalaxyTransition';
-import { levelForRole, setSession, getSession, type Session } from '@/lib/role';
+import { HOME, levelForRole, setSession, getSession, type Session } from '@/lib/role';
 
 type Account = Session & {
   id: string;
@@ -30,8 +29,6 @@ function getAccounts(): Account[] {
 function saveAccounts(accounts: Account[]) {
   localStorage.setItem('ramssolAccounts', JSON.stringify(accounts));
 }
-const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
 const EyeIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -75,12 +72,10 @@ type Alert = { type: 'error' | 'success'; msg: string } | null;
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<'login' | 'register'>('login');
-  const [warping, setWarping] = useState(false);
   const [noAccounts, setNoAccounts] = useState(false);
 
   const [loginAlert, setLoginAlert] = useState<Alert>(null);
   const [regAlert, setRegAlert] = useState<Alert>(null);
-  const [busy, setBusy] = useState<'login' | 'register' | null>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -98,7 +93,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (getSession()) {
-      router.replace('/');
+      router.replace(HOME);
       return;
     }
     setNoAccounts(getAccounts().length === 0);
@@ -110,27 +105,24 @@ export default function LoginPage() {
     setRegAlert(null);
   }
 
-  const handleLogin = useCallback(async () => {
+  const handleLogin = useCallback(() => {
     if (!email.trim() || !password) {
       setLoginAlert({ type: 'error', msg: '⚠️ Please enter your email and password.' });
       return;
     }
-    setBusy('login');
-    await delay(800);
     // ⚠️ Plain-text comparison — see the file header note.
     const user = getAccounts().find(
       (a) => (a.email || '').toLowerCase() === email.trim().toLowerCase() && a.password === password
     );
-    setBusy(null);
     if (!user) {
       setLoginAlert({ type: 'error', msg: '❌ Incorrect email or password.' });
       return;
     }
     setSession(user);
-    setWarping(true);
-  }, [email, password]);
+    router.replace(HOME);
+  }, [email, password, router]);
 
-  const handleRegister = useCallback(async () => {
+  const handleRegister = useCallback(() => {
     if (!first.trim() || !last.trim()) {
       setRegAlert({ type: 'error', msg: '⚠️ Please enter your full name.' });
       return;
@@ -162,8 +154,6 @@ export default function LoginPage() {
       return;
     }
 
-    setBusy('register');
-    await delay(1000);
     // Map the chosen role to its starting access level (Design Doc §2).
     const newUser: Account = {
       id: `usr_${Date.now()}`,
@@ -179,18 +169,18 @@ export default function LoginPage() {
     accounts.push(newUser);
     saveAccounts(accounts);
     setSession(newUser);
-    router.replace('/');
+    router.replace(HOME);
   }, [first, last, regEmail, role, regPwd, regConfirm, terms, router]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key !== 'Enter' || busy || warping) return;
+      if (e.key !== 'Enter') return;
       if (tab === 'login') handleLogin();
       else handleRegister();
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [tab, busy, warping, handleLogin, handleRegister]);
+  }, [tab, handleLogin, handleRegister]);
 
   // Password strength meter
   let score = 0;
@@ -203,13 +193,11 @@ export default function LoginPage() {
 
   return (
     <>
-      {warping && <GalaxyTransition onDone={() => router.replace('/')} />}
-
       <div className="page-bg">
         <div className="orb orb-1" />
         <div className="orb orb-2" />
 
-        <div className={`card${warping ? ' exiting' : ''}`} id="main-card">
+        <div className="card" id="main-card">
           <div className="card-header">
             <div className="logo-wrap">
               <div className="logo-icon-box">
@@ -300,9 +288,9 @@ export default function LoginPage() {
                 </a>
               </div>
 
-              <button className="btn-primary" disabled={busy === 'login'} onClick={handleLogin}>
-                <span>{busy === 'login' ? 'Signing in...' : 'Sign In'}</span>
-                {busy === 'login' ? <div className="spinner" style={{ display: 'block' }} /> : <Arrow id="login-arrow" />}
+              <button className="btn-primary" onClick={handleLogin}>
+                <span>Sign In</span>
+                <Arrow id="login-arrow" />
               </button>
 
               {noAccounts && (
@@ -478,13 +466,9 @@ export default function LoginPage() {
                 </label>
               </div>
 
-              <button className="btn-primary" disabled={busy === 'register'} onClick={handleRegister}>
-                <span>{busy === 'register' ? 'Creating account...' : 'Create Account'}</span>
-                {busy === 'register' ? (
-                  <div className="spinner" style={{ display: 'block' }} />
-                ) : (
-                  <Arrow id="register-arrow" />
-                )}
+              <button className="btn-primary" onClick={handleRegister}>
+                <span>Create Account</span>
+                <Arrow id="register-arrow" />
               </button>
             </div>
           </div>

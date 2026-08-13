@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "presales-ai-agent",
+      "name": "ramssol-presales",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["--prefix", "presales-ai-agent", "run", "dev"],
+      "runtimeArgs": ["run", "dev"],
       "port": 3000
     }
   ]

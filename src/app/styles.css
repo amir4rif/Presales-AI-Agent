@@ -502,14 +502,6 @@ table.deals-table tr:last-child td { border-bottom: none; }
   border-color: rgba(0, 212, 180, 0.35);
   box-shadow: var(--shadow-xl), 0 0 50px rgba(0, 212, 180, 0.15);
 }
-.page-bg .card.exiting {
-  animation: cardExit 0.5s cubic-bezier(0.55, 0, 1, 0.45) forwards;
-}
-@keyframes cardExit {
-  0%   { opacity: 1; transform: perspective(800px) scale(1) translateY(0); filter: blur(0); }
-  100% { opacity: 0; transform: perspective(800px) scale(0.88) translateY(20px); filter: blur(4px); }
-}
-
 .page-bg .card-header { background: linear-gradient(135deg, var(--brand-800) 0%, var(--brand-900) 100%); padding: 32px 36px 28px; text-align: center; position: relative; display: block; margin-bottom: 0; }
 .page-bg .card-header::after { content: ''; position: absolute; bottom: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 3px; background: var(--brand-400); border-radius: 3px 3px 0 0; }
 .logo-wrap { display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 6px; }
@@ -578,9 +570,6 @@ button[type="submit"]:hover, #login-btn:hover, #register-btn:hover {
 .footer-text { font-size: 12px; color: var(--gray-500); }
 .footer-link { color: var(--brand-400); font-weight: 600; cursor: pointer; }
 .footer-link:hover { text-decoration: underline; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
-
 @media (max-width: 480px) {
   .page-bg .card { border-radius: 16px; }
   .page-bg .card-header { padding: 24px 22px 22px; }
@@ -1273,15 +1262,6 @@ body::after {
 .toast { background: #085041; color: #fff; padding: 12px 20px; border-radius: 10px; font-size: 13px; font-weight: 600; box-shadow: 0 4px 20px rgba(0,0,0,0.4); animation: toast-in .22s ease-out; }
 .toast-warn { background: #BA7517; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
-/* Entry router / shell loading state (was inline in index.html) */
-.router { text-align: center; margin: auto; padding: 80px 20px; }
-.router img { width: 62px; height: 58px; object-fit: contain; mix-blend-mode: screen; filter: drop-shadow(0 6px 18px rgba(0,212,180,0.5)); margin: 0 auto 18px; display: block; }
-.router .rt { font-size: 15px; font-weight: 600; color: var(--text-primary); }
-.router .rs { font-size: 12.5px; color: var(--text-muted); margin-top: 5px; }
-.router .bar { width: 180px; height: 3px; border-radius: 3px; background: rgba(0,212,180,0.15); overflow: hidden; margin: 18px auto 0; }
-.router .bar i { display: block; height: 100%; width: 40%; border-radius: 3px; background: linear-gradient(90deg, var(--brand-600), var(--teal)); animation: slide 1s ease-in-out infinite; }
-@keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(350%); } }
 
 /* Rejected work is the rep's alarm state — amber strip (was a per-page
    <style> override on dashboard-l1.html) */

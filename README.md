@@ -1,5 +1,9 @@
 # Ramssol Pre-Sales Copilot — Next.js
 
+This repository has one application root: `C:\RamsAI`. Run every app
+command from that directory. The former root-level static HTML demo and
+the nested `presales-ai-agent` copy have been removed.
+
 The browser-only HTML demo, restructured so it can take a real company
 API key. The key now lives on the server; the browser calls our own
 endpoint and never sees a credential.
@@ -15,6 +19,10 @@ Browser  ──►  /api/generate  ──►  api.anthropic.com
 npm install
 npm run dev
 ```
+
+Do not use VS Code Live Server or port `5500`; that serves static HTML and
+is not part of this Next.js application. In VS Code, run the
+`Run Ramssol Pre-Sales` launch configuration instead.
 
 Then open <http://localhost:3000>. You will be sent to `/login` — create
 an account to get in (the role you pick sets your access level).
