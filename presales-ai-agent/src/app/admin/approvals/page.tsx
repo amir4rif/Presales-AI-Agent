@@ -1,9 +1,24 @@
 'use client';
-/* Proposal Approvals (Doc §4.3 / §4.9).
+/* Proposal Approvals (Doc §4.3 / §4.9), including the v10 additions:
+   a kill-rate drill-down, a confirm step before any decision is
+   committed, and post-approval outcome tracking.
 
-   This page used to keep its own copy of the proposal seed and read
-   localStorage directly, which is why it could disagree with the
-   dashboards. It now goes through lib/data.ts like everything else. */
+   Three deliberate differences from admin-approvals.html — each one is
+   needed for this page to work against the shared store, which is the
+   gap the doc asked us to close:
+
+   1. Status stays 'Pending Review'. v10 renamed it to 'Pending Approval'
+      in this file only; app-data.js, proposals, the dashboards and
+      analytics all still write 'Pending Review', so v10's queue never
+      sees a proposal a rep actually submitted.
+   2. Case/Opportunity IDs are generated only when missing, never
+      regenerated. v10 mints new ones on every approval, which would
+      detach v2 of a case from v1 and break both Version History and the
+      per-case Stage-1 approval rate.
+   3. The reviewer is still captured on the decision (Doc §4.9). v10
+      dropped it, but the proposals page displays it.
+
+   The Reject & Close reason guardrail is gone, matching v10. */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
@@ -13,6 +28,7 @@ import {
   ensureProposalStore,
   fmtRM,
   saveProposals,
+  type DealOutcome,
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
@@ -41,9 +57,6 @@ const REJECTION_REASONS = [
   'Other',
 ];
 
-/* Reject & Close is limited to the agreed unfixable reasons (Doc §4.3 guardrail). */
-const CLOSE_ALLOWED_REASONS = ['Compliance issue', 'Out of scope', 'Wrong product fit'];
-
 const isRejected = (status: string) =>
   status === 'Reject & Revise' || status === 'Reject & Close';
 
@@ -56,8 +69,18 @@ function pillClass(status: string) {
   return 'pill-pending';
 }
 
+function outcomePillClass(outcome: string) {
+  if (outcome === 'Won') return 'pill-won';
+  if (outcome === 'Lost') return 'pill-lost';
+  return 'pill-outcome-pending';
+}
+
 const todayStr = () =>
   new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+const rnd3 = () => String(Math.floor(Math.random() * 900) + 100);
+const generateCaseId = () => `CASE-${new Date().getFullYear()}-${rnd3()}`;
+const generateOppId = () => `OPP-${new Date().getFullYear()}-${rnd3()}`;
 
 function ApprovalsPage() {
   const toast = useToast();
@@ -67,7 +90,9 @@ function ApprovalsPage() {
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
   const [reasonError, setReasonError] = useState(false);
-  const [closeError, setCloseError] = useState(false);
+  const [pendingDecision, setPendingDecision] = useState<ProposalStatus | null>(null);
+  const [outcomeSaved, setOutcomeSaved] = useState(false);
+  const [killRateOpen, setKillRateOpen] = useState(false);
 
   const reload = useCallback(() => setStore(ensureProposalStore()), []);
   useEffect(() => {
@@ -88,12 +113,23 @@ function ApprovalsPage() {
   const closed = list.filter((p) => p.status === 'Reject & Close');
   const pendingValue = pending.reduce((s, p) => s + (p.value || 0), 0);
 
+  /* v10: Kill Rate = closed / (approved + closed) — excludes revise and pending. */
+  const decided = approved.length + closed.length;
+  const killPct = decided > 0 ? Math.round((closed.length / decided) * 100) : 0;
+
+  /* v10: outcome stats for approved proposals. */
+  const won = approved.filter((p) => p.outcome === 'Won').length;
+  const lost = approved.filter((p) => p.outcome === 'Lost').length;
+  const outcomeSub = approved.length
+    ? `${won} Won · ${lost} Lost · ${approved.length - won - lost} Pending`
+    : 'All time';
+
   const kpis = [
-    { label: 'Pending Review', value: pending.length, sub: 'Awaiting your review', color: pending.length ? 'kpi-warn' : '' },
-    { label: 'Value Pending', value: fmtRM(pendingValue), sub: 'Across pending proposals', color: '' },
-    { label: 'Approved', value: approved.length, sub: 'All time', color: 'kpi-up' },
-    { label: 'Reject & Revise', value: revise.length, sub: 'Sent back to sales', color: revise.length ? 'kpi-warn' : '' },
-    { label: 'Reject & Close', value: closed.length, sub: 'Case ended as loss', color: closed.length ? 'kpi-danger' : '' },
+    { label: 'Pending Review', value: pending.length, sub: 'Awaiting your review', color: pending.length ? 'kpi-warn' : '', clickable: false },
+    { label: 'Value Pending', value: fmtRM(pendingValue), sub: 'Across pending proposals', color: '', clickable: false },
+    { label: 'Approved', value: approved.length, sub: outcomeSub, color: 'kpi-up', clickable: false },
+    { label: 'Reject & Revise', value: revise.length, sub: 'Sent back to sales', color: revise.length ? 'kpi-warn' : '', clickable: false },
+    { label: 'Kill Rate', value: `${killPct}%`, sub: `${closed.length} Reject & Close`, color: closed.length ? 'kpi-danger' : '', clickable: true },
   ];
 
   const tabs = [
@@ -112,46 +148,57 @@ function ApprovalsPage() {
     setReason('');
     setNote('');
     setReasonError(false);
-    setCloseError(false);
+    setPendingDecision(null);
+    setOutcomeSaved(false);
+  }
+
+  function closeReview() {
+    setReviewingId(null);
+    setPendingDecision(null);
   }
 
   function applyDecision(id: string, decision: ProposalStatus, why: string, reviewNote: string) {
     const who = currentUser(); // reviewer captured automatically (Doc §4.9)
     const today = todayStr();
-    const next = store.map((p) =>
-      p.id === id
-        ? {
-            ...p,
-            status: decision,
-            reviewNote,
-            rejectionReason: isRejected(decision) ? why : '',
-            reviewer: who,
-            reviewedDate: today, // decision date
-            lastUpdated: today,
-          }
-        : p
-    );
+    const next = store.map((p) => {
+      if (p.id !== id) return p;
+      const updated: Proposal = {
+        ...p,
+        status: decision,
+        reviewNote,
+        rejectionReason: isRejected(decision) ? why : '',
+        reviewer: who,
+        reviewedDate: today, // decision date
+        lastUpdated: today,
+      };
+      if (decision === 'Approved') {
+        // v10: an approved proposal starts outcome tracking. IDs are filled
+        // in only when absent — an existing Case ID ties versions together.
+        updated.outcome = updated.outcome || 'Pending';
+        updated.caseId = updated.caseId || generateCaseId();
+        updated.opportunityId = updated.opportunityId || generateOppId();
+      }
+      return updated;
+    });
     saveProposals(next);
     setStore(next);
     return next.find((p) => p.id === id)!;
   }
 
-  function actOnProposal(decision: ProposalStatus) {
+  /* v10: nothing commits until the reviewer confirms. */
+  function requestConfirm(decision: ProposalStatus) {
     if (!reviewing) return;
-    setReasonError(false);
-    setCloseError(false);
-
-    // Rejections require a reason
     if (isRejected(decision) && !reason) {
       setReasonError(true);
       return;
     }
-    // Guardrail: Reject & Close only for the agreed unfixable reasons (Doc §4.3)
-    if (decision === 'Reject & Close' && !CLOSE_ALLOWED_REASONS.includes(reason)) {
-      setCloseError(true);
-      return;
-    }
+    setReasonError(false);
+    setPendingDecision(decision);
+  }
 
+  function executeConfirmed() {
+    if (!pendingDecision || !reviewing) return;
+    const decision = pendingDecision;
     const p = applyDecision(reviewing.id, decision, reason, note.trim());
 
     const icon = decision === 'Approved' ? '✅' : decision === 'Reject & Revise' ? '↩' : '✕';
@@ -172,7 +219,7 @@ function ApprovalsPage() {
         `${p.company} — Reason: ${p.rejectionReason || '—'}`
       );
     }
-    setReviewingId(null);
+    closeReview();
   }
 
   function quickApprove(id: string) {
@@ -184,16 +231,15 @@ function ApprovalsPage() {
     notify('approve', 'Proposal approved', `${p.company} — ready for client pitch`);
   }
 
-  /* If this is a resubmit (v2+), surface the PREVIOUS version's rejection
-     reason so the reviewer sees what was asked for last time (Doc §4.9). */
-  const prevRejection = (() => {
-    if (!reviewing || (reviewing.version || 1) <= 1) return null;
-    const prev = store
-      .filter((x) => x.caseId && x.caseId === reviewing.caseId && x.version < (reviewing.version || 1))
-      .sort((a, b) => b.version - a.version)[0];
-    if (!prev?.rejectionReason) return null;
-    return `v${prev.version}: ${prev.rejectionReason}${prev.reviewNote ? ` — ${prev.reviewNote}` : ''}`;
-  })();
+  /* v10 — FEATURE 3: outcome tracking on an approved proposal. */
+  function saveOutcome(outcome: DealOutcome) {
+    if (!reviewing) return;
+    const next = store.map((p) => (p.id === reviewing.id ? { ...p, outcome } : p));
+    saveProposals(next);
+    setStore(next);
+    setOutcomeSaved(true);
+    setTimeout(() => setOutcomeSaved(false), 1500);
+  }
 
   const pastNote = (() => {
     if (!reviewing || reviewing.status === 'Pending Review') return null;
@@ -208,6 +254,28 @@ function ApprovalsPage() {
 
   const isPending = reviewing?.status === 'Pending Review';
 
+  /* Confirm-strip copy, per decision. */
+  const confirmCopy = (() => {
+    if (!pendingDecision || !reviewing) return null;
+    if (pendingDecision === 'Approved') {
+      return { msg: `Approve "${reviewing.deal}"?`, warn: null, cta: '✓ Confirm Approval', bg: '' };
+    }
+    if (pendingDecision === 'Reject & Revise') {
+      return {
+        msg: `Send "${reviewing.deal}" back to sales for revision?`,
+        warn: null,
+        cta: '↩ Confirm Reject & Revise',
+        bg: '#FB923C',
+      };
+    }
+    return {
+      msg: `Reject and close this case for reason: ${reason}?`,
+      warn: 'This will end the case permanently and count as a loss. It cannot be undone.',
+      cta: '✕ Confirm Reject & Close',
+      bg: 'var(--red-700)',
+    };
+  })();
+
   return (
     <>
       <div className="page-header">
@@ -219,7 +287,11 @@ function ApprovalsPage() {
 
       <div className="kpi-row">
         {kpis.map((k) => (
-          <div className="kpi-card" key={k.label}>
+          <div
+            className={`kpi-card${k.clickable ? ' kpi-clickable' : ''}`}
+            key={k.label}
+            onClick={k.clickable ? () => setKillRateOpen(true) : undefined}
+          >
             <div className="kpi-label">{k.label}</div>
             <div className={`kpi-value ${k.color}`}>{k.value}</div>
             <div className="kpi-sub">{k.sub}</div>
@@ -266,6 +338,7 @@ function ApprovalsPage() {
                     <div className="appr-company">
                       {p.company}
                       {p.version > 1 ? ` · v${p.version}` : ''}
+                      {p.caseId ? ` · ${p.caseId}` : ''}
                     </div>
                   </td>
                   <td>{p.submittedBy}</td>
@@ -273,8 +346,21 @@ function ApprovalsPage() {
                   <td className="td-value">{fmtRM(p.value)}</td>
                   <td>
                     <span className={`status-pill ${pillClass(p.status)}`}>{p.status}</span>
-                    {p.rejectionReason && isRejected(p.status) && (
-                      <div className="appr-reason">Reason: {p.rejectionReason}</div>
+                    {/* v10: outcome pill on approved rows, reason on rejected ones */}
+                    {p.status === 'Approved' && p.outcome ? (
+                      <div style={{ marginTop: 3 }}>
+                        <span
+                          className={`status-pill ${outcomePillClass(p.outcome)}`}
+                          style={{ fontSize: 10, padding: '1px 7px' }}
+                        >
+                          {p.outcome}
+                        </span>
+                      </div>
+                    ) : (
+                      p.rejectionReason &&
+                      isRejected(p.status) && (
+                        <div className="appr-reason">Reason: {p.rejectionReason}</div>
+                      )
                     )}
                   </td>
                   <td>
@@ -296,10 +382,53 @@ function ApprovalsPage() {
         </table>
       </div>
 
+      {/* v10 — FEATURE 1: KILL RATE DRILL-DOWN */}
+      <Modal
+        open={killRateOpen}
+        onClose={() => setKillRateOpen(false)}
+        style={{ maxWidth: 560 }}
+        title="Kill Rate — Closed Cases"
+        sub={`${closed.length} closed case${closed.length !== 1 ? 's' : ''} · Kill rate: ${killPct}% of decided proposals`}
+        actions={
+          <button className="btn-secondary" onClick={() => setKillRateOpen(false)}>
+            Close
+          </button>
+        }
+      >
+        {closed.length ? (
+          <table className="killrate-table">
+            <thead>
+              <tr>
+                <th>Company</th>
+                <th>Deal</th>
+                <th>Reason</th>
+                <th>Date Closed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {closed.map((p) => (
+                <tr key={p.id}>
+                  <td style={{ fontWeight: 500 }}>{p.company}</td>
+                  <td>{p.deal}</td>
+                  <td>
+                    <span className="status-pill pill-closed" style={{ fontSize: 10, padding: '1px 7px' }}>
+                      {p.rejectionReason || '—'}
+                    </span>
+                  </td>
+                  <td style={{ fontFamily: 'var(--mono)', fontSize: 11.5 }}>{p.reviewedDate || '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <div className="killrate-empty">No closed cases yet.</div>
+        )}
+      </Modal>
+
       {/* REVIEW MODAL */}
       <Modal
         open={!!reviewing}
-        onClose={() => setReviewingId(null)}
+        onClose={closeReview}
         style={{ maxWidth: 640, maxHeight: '86vh', overflowY: 'auto' }}
         title={
           reviewing ? reviewing.deal + (reviewing.version > 1 ? ` (v${reviewing.version})` : '') : ''
@@ -313,39 +442,40 @@ function ApprovalsPage() {
           ) : null
         }
         actions={
-          isPending ? (
+          /* v10: the action row is replaced by the confirm strip mid-decision. */
+          isPending && !pendingDecision ? (
             <>
-              <button className="btn-secondary" onClick={() => setReviewingId(null)}>
+              <button className="btn-secondary" onClick={closeReview}>
                 Close
               </button>
               <div className="reject-actions">
                 <button
                   className="row-btn revise-btn lg"
                   title="Fixable — goes back to sales rep for revision"
-                  onClick={() => actOnProposal('Reject & Revise')}
+                  onClick={() => requestConfirm('Reject & Revise')}
                 >
                   ↩ Reject &amp; Revise
                 </button>
                 <button
                   className="row-btn reject lg"
                   title="Unfixable — case ends, counted as loss"
-                  onClick={() => actOnProposal('Reject & Close')}
+                  onClick={() => requestConfirm('Reject & Close')}
                 >
                   ✕ Reject &amp; Close
                 </button>
               </div>
-              <button className="btn-primary" onClick={() => actOnProposal('Approved')}>
+              <button className="btn-primary" onClick={() => requestConfirm('Approved')}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
                 Approve
               </button>
             </>
-          ) : (
-            <button className="btn-secondary" onClick={() => setReviewingId(null)}>
+          ) : !isPending ? (
+            <button className="btn-secondary" onClick={closeReview}>
               Close
             </button>
-          )
+          ) : null
         }
       >
         {reviewing && (
@@ -382,18 +512,51 @@ function ApprovalsPage() {
               </div>
             )}
 
-            {prevRejection && (
-              <div className="review-section">
-                <div className="rs-title">Previous Rejection (this case)</div>
-                <div className="past-note">{prevRejection}</div>
-              </div>
-            )}
-
             {pastNote && (
               <div className="review-section">
                 <div className="rs-title">Review Decision</div>
                 <div className="past-note" style={{ whiteSpace: 'pre-wrap' }}>
                   {pastNote}
+                </div>
+              </div>
+            )}
+
+            {/* v10 — FEATURE 3: outcome tracking, approved proposals only */}
+            {reviewing.status === 'Approved' && (
+              <div className="outcome-section">
+                <div className="os-title">Deal Outcome</div>
+                <div className="outcome-meta-grid">
+                  <div>
+                    <div className="lbl">Case ID</div>
+                    <div className="val">{reviewing.caseId || '—'}</div>
+                  </div>
+                  <div>
+                    <div className="lbl">Opportunity ID</div>
+                    <div className="val">{reviewing.opportunityId || '—'}</div>
+                  </div>
+                </div>
+                <div className="outcome-select-row">
+                  <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--gray-700)' }}>
+                    Outcome:
+                  </label>
+                  <select
+                    value={reviewing.outcome || 'Pending'}
+                    onChange={(e) => saveOutcome(e.target.value as DealOutcome)}
+                  >
+                    <option value="Pending">Pending</option>
+                    <option value="Won">Won</option>
+                    <option value="Lost">Lost</option>
+                  </select>
+                  <span
+                    style={{
+                      fontSize: 11,
+                      color: 'var(--brand-500)',
+                      opacity: outcomeSaved ? 1 : 0,
+                      transition: 'opacity .3s',
+                    }}
+                  >
+                    ✓ Saved
+                  </span>
                 </div>
               </div>
             )}
@@ -417,12 +580,6 @@ function ApprovalsPage() {
                       Please select a rejection reason.
                     </div>
                   )}
-                  {closeError && (
-                    <div className="reason-error" style={{ display: 'block' }}>
-                      Reject &amp; Close is limited to Compliance issue, Out of scope, or Wrong
-                      product fit. Use Reject &amp; Revise for fixable issues.
-                    </div>
-                  )}
                 </div>
 
                 <div className="review-note-box">
@@ -436,6 +593,30 @@ function ApprovalsPage() {
                   />
                 </div>
               </>
+            )}
+
+            {/* v10 — FEATURE 2: confirm before finalizing */}
+            {confirmCopy && (
+              <div className="confirm-strip">
+                <div className="cs-msg">{confirmCopy.msg}</div>
+                {confirmCopy.warn && <div className="cs-warn">{confirmCopy.warn}</div>}
+                <div className="cs-actions">
+                  <button className="btn-secondary" onClick={() => setPendingDecision(null)}>
+                    Cancel
+                  </button>
+                  <button
+                    className="btn-primary"
+                    style={
+                      confirmCopy.bg
+                        ? { background: confirmCopy.bg, borderColor: confirmCopy.bg }
+                        : undefined
+                    }
+                    onClick={executeConfirmed}
+                  >
+                    {confirmCopy.cta}
+                  </button>
+                </div>
+              </div>
             )}
           </>
         )}

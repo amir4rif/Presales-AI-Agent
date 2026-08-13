@@ -48,7 +48,10 @@ export type Proposal = {
   status: ProposalStatus; reviewer: string; reviewedDate: string;
   rejectionReason: string; reviewNote: string; lastUpdated: string;
   sections: { executive: string; solution: string; commercials: string };
+  /* Post-approval outcome (v10). Only meaningful once status is Approved. */
+  outcome?: DealOutcome;
 };
+export type DealOutcome = 'Pending' | 'Won' | 'Lost';
 
 export const REPS_SEED = ['Lim LG', 'Ahmad Razak', 'Priya Nair', 'Wei Ling Tan', 'Rajan Pillai', 'Siti Rahimah', 'Faizal Hassan'];
 
