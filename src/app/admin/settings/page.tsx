@@ -490,13 +490,13 @@ function SettingsPage() {
                 <div className="cfg-row">
                   <span className={`cfg-dot ${ai?.configured ? 'cfg-ok' : 'cfg-warn'}`} />
                   <div className="cfg-info">
-                    <div className="cfg-name">{ai?.configured ? 'Connected' : 'Not configured'}</div>
+                    <div className="cfg-name">{ai?.configured ? 'Server configuration ready' : 'Not configured'}</div>
                     <div className="cfg-sub">
                       {loading
                         ? 'Checking…'
                         : ai?.configured
-                          ? `Model: ${ai.model}`
-                          : 'Set ANTHROPIC_API_KEY in .env.local and restart the dev server.'}
+                          ? `Model: ${ai.model} · Effort: ${ai.effort}. Connectivity is tested only when an AI feature is used.`
+                          : `Missing: ${ai?.missing?.join(', ') || 'ANTHROPIC_API_KEY'}.`}
                     </div>
                   </div>
                 </div>
@@ -511,19 +511,28 @@ function SettingsPage() {
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Set <code>LARK_APP_ID</code>, <code>LARK_APP_SECRET</code> and{' '}
                   <code>LARK_APP_TOKEN</code> in <code>.env.local</code> (plus{' '}
-                  <code>LARK_TABLE_ID</code> for the default table). <code>/api/lark</code> mints the
-                  tenant token server-side — the credentials never reach the browser.
+                  <code>LARK_TABLE_ID</code> for the shared data table). Keep <code>DATA_SOURCE=seed</code>{' '}
+                  until go-live. <code>/api/lark</code> mints the tenant token server-side — the
+                  credentials never reach the browser.
                 </div>
                 <div className="cfg-row">
-                  <span className={`cfg-dot ${lark?.configured ? 'cfg-ok' : 'cfg-warn'}`} />
+                  <span className={`cfg-dot ${lark?.dataSource === 'seed' || lark?.ready ? 'cfg-ok' : 'cfg-warn'}`} />
                   <div className="cfg-info">
-                    <div className="cfg-name">{lark?.configured ? 'Connected' : 'Not configured'}</div>
+                    <div className="cfg-name">
+                      {lark?.dataSource === 'seed'
+                        ? 'Prepared — seed mode active'
+                        : lark?.ready
+                          ? 'Server configuration ready'
+                          : 'Lark mode needs configuration'}
+                    </div>
                     <div className="cfg-sub">
                       {loading
                         ? 'Checking…'
-                        : lark?.configured
-                          ? `Default table: ${lark.tableId || 'not set'}`
-                          : 'Waiting on the Lark Base credentials.'}
+                        : lark?.dataSource === 'seed'
+                          ? 'No Lark request will be made. Change DATA_SOURCE to lark only during final implementation.'
+                          : lark?.ready
+                            ? 'Credentials and table ID are present. Connectivity is tested during hydration.'
+                            : `Missing: ${lark?.missing?.join(', ') || 'Lark server values'}.`}
                     </div>
                   </div>
                 </div>

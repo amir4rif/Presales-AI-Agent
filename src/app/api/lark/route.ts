@@ -1,140 +1,133 @@
-/* ═══════════════════════════════════════════════════════════
-   /api/lark — the Lark Base bridge. The token lives here.
-
-   Replaces LARK_BASE_PROXY_URL in prospects.html, which was a
-   PASTE_YOUR_… placeholder pointing at a Google Apps Script, and the
-   Settings page that saved the app token straight into localStorage.
-
-   The browser calls this route; the route mints a tenant access token
-   from LARK_APP_ID / LARK_APP_SECRET and talks to Bitable. No Lark
-   credential is ever sent to the browser.
-
-   lib/data.ts still reads localStorage while NEXT_PUBLIC_DATA_SOURCE
-   is "seed" — flip one table at a time once the credentials land.
-═══════════════════════════════════════════════════════════ */
 import { NextResponse } from 'next/server';
+import { getLarkStatus } from '@/lib/server/config';
+import {
+  createLarkRecords,
+  deleteLarkRecords,
+  LarkApiError,
+  listAllLarkRecords,
+  updateLarkRecords,
+} from '@/lib/server/lark';
 
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
-// open.larksuite.com for Lark, open.feishu.cn for Feishu.
-const BASE = process.env.LARK_BASE_URL || 'https://open.larksuite.com';
-
-type TokenCache = { token: string; expiresAt: number };
-let cached: TokenCache | null = null;
-
-function creds() {
-  return {
-    appId: process.env.LARK_APP_ID,
-    appSecret: process.env.LARK_APP_SECRET,
-    appToken: process.env.LARK_APP_TOKEN,
-    tableId: process.env.LARK_TABLE_ID,
-  };
-}
-
-function isConfigured() {
-  const c = creds();
-  return Boolean(c.appId && c.appSecret && c.appToken);
-}
-
-/** Tenant access token, cached until a minute before it expires. */
-async function tenantToken(): Promise<string> {
-  if (cached && cached.expiresAt > Date.now()) return cached.token;
-
-  const { appId, appSecret } = creds();
-  const res = await fetch(`${BASE}/open-apis/auth/v3/tenant_access_token/internal`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json; charset=utf-8' },
-    body: JSON.stringify({ app_id: appId, app_secret: appSecret }),
-    cache: 'no-store',
+function json(body: unknown, status = 200) {
+  return NextResponse.json(body, {
+    status,
+    headers: { 'Cache-Control': 'no-store' },
   });
-  const data = await res.json();
-  if (data.code !== 0 || !data.tenant_access_token) {
-    throw new Error(`Lark auth failed (code ${data.code}): ${data.msg || 'unknown'}`);
-  }
-  cached = {
-    token: data.tenant_access_token,
-    expiresAt: Date.now() + Math.max((data.expire || 7200) - 60, 60) * 1000,
-  };
-  return cached.token;
+}
+function isObject(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 }
 
-function bad(message: string, status = 400) {
-  return NextResponse.json({ error: message }, { status });
+function serverError(error: unknown, operation: string) {
+  const code = error instanceof LarkApiError ? error.code : undefined;
+  console.error(`[api/lark] ${operation} failed`, {
+    name: error instanceof Error ? error.name : 'UnknownError',
+    code,
+  });
+  return json({ error: `Could not ${operation} Lark Base records.`, code }, 502);
 }
 
-/**
- * GET /api/lark              → { configured, tableId }
- * GET /api/lark?records=1    → the table's records
- */
-export async function GET(req: Request) {
-  const url = new URL(req.url);
-  const { tableId } = creds();
-
-  if (!url.searchParams.get('records')) {
-    return NextResponse.json({ configured: isConfigured(), tableId: tableId || null });
-  }
-
-  if (!isConfigured()) return bad('Lark Base is not configured on the server yet.', 503);
-
-  const table = url.searchParams.get('table') || tableId;
-  if (!table) return bad('No table id given and LARK_TABLE_ID is not set.');
-
+async function bodyOf(request: Request) {
   try {
-    const { appToken } = creds();
-    const token = await tenantToken();
-    const pageSize = url.searchParams.get('page_size') || '100';
-    const res = await fetch(
-      `${BASE}/open-apis/bitable/v1/apps/${appToken}/tables/${table}/records?page_size=${pageSize}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }
-    );
-    const data = await res.json();
-    if (data.code !== 0) return bad(`Lark returned code ${data.code}: ${data.msg || ''}`, 502);
-    return NextResponse.json({ records: data.data?.items || [], hasMore: !!data.data?.has_more });
-  } catch (err) {
-    console.error('[api/lark GET]', err);
-    return bad('Could not read from Lark Base.', 502);
-  }
-}
-
-/**
- * POST /api/lark — append records.
- * Body: { table?: string, records: [{ fields: Record<string, unknown> }] }
- */
-export async function POST(req: Request) {
-  if (!isConfigured()) return bad('Lark Base is not configured on the server yet.', 503);
-
-  let body: { table?: string; records?: { fields: Record<string, unknown> }[] };
-  try {
-    body = await req.json();
+    return await request.json();
   } catch {
-    return bad('Request body must be JSON.');
+    return null;
   }
+}
 
-  const table = body.table || creds().tableId;
-  if (!table) return bad('No table id given and LARK_TABLE_ID is not set.');
-  if (!Array.isArray(body.records) || body.records.length === 0) {
-    return bad('`records` must be a non-empty array of { fields }.');
+/**
+ * GET /api/lark returns configuration readiness without making a Lark call.
+ * GET /api/lark?records=1 is the explicit diagnostic/read operation.
+ */
+export async function GET(request: Request) {
+  const status = getLarkStatus();
+  const wantsRecords = new URL(request.url).searchParams.get('records') === '1';
+  if (!wantsRecords) return json(status);
+  if (!status.ready) return json({ error: 'Lark Base is not configured on the server yet.' }, 503);
+
+  try {
+    const records = await listAllLarkRecords();
+    return json({ records, count: records.length });
+  } catch (error) {
+    return serverError(error, 'read');
+  }
+}
+
+/** POST /api/lark — create up to 500 raw Bitable records. */
+export async function POST(request: Request) {
+  if (!getLarkStatus().ready) {
+    return json({ error: 'Lark Base is not configured on the server yet.' }, 503);
+  }
+  const body = await bodyOf(request);
+  const records = isObject(body) && Array.isArray(body.records) ? body.records : null;
+  if (!records?.length || records.length > 500) {
+    return json({ error: '`records` must contain between 1 and 500 items.' }, 400);
+  }
+  if (!records.every((record) => isObject(record) && isObject(record.fields))) {
+    return json({ error: 'Each record must contain a `fields` object.' }, 400);
   }
 
   try {
-    const { appToken } = creds();
-    const token = await tenantToken();
-    const res = await fetch(
-      `${BASE}/open-apis/bitable/v1/apps/${appToken}/tables/${table}/records/batch_create`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json; charset=utf-8',
-        },
-        body: JSON.stringify({ records: body.records }),
-      }
+    const created = await createLarkRecords(
+      records as { fields: Record<string, unknown> }[]
     );
-    const data = await res.json();
-    if (data.code !== 0) return bad(`Lark returned code ${data.code}: ${data.msg || ''}`, 502);
-    return NextResponse.json({ created: data.data?.records?.length || 0 });
-  } catch (err) {
-    console.error('[api/lark POST]', err);
-    return bad('Could not write to Lark Base.', 502);
+    return json({ created }, 201);
+  } catch (error) {
+    return serverError(error, 'create');
+  }
+}
+
+/** PATCH /api/lark — update up to 500 raw Bitable records. */
+export async function PATCH(request: Request) {
+  if (!getLarkStatus().ready) {
+    return json({ error: 'Lark Base is not configured on the server yet.' }, 503);
+  }
+  const body = await bodyOf(request);
+  const records = isObject(body) && Array.isArray(body.records) ? body.records : null;
+  if (!records?.length || records.length > 500) {
+    return json({ error: '`records` must contain between 1 and 500 items.' }, 400);
+  }
+  if (
+    !records.every(
+      (record) =>
+        isObject(record) && typeof record.record_id === 'string' && isObject(record.fields)
+    )
+  ) {
+    return json({ error: 'Each record needs `record_id` and a `fields` object.' }, 400);
+  }
+
+  try {
+    const updated = await updateLarkRecords(
+      records as { record_id: string; fields: Record<string, unknown> }[]
+    );
+    return json({ updated });
+  } catch (error) {
+    return serverError(error, 'update');
+  }
+}
+
+/** DELETE /api/lark — delete up to 500 raw Bitable record IDs. */
+export async function DELETE(request: Request) {
+  if (!getLarkStatus().ready) {
+    return json({ error: 'Lark Base is not configured on the server yet.' }, 503);
+  }
+  const body = await bodyOf(request);
+  const records = isObject(body) && Array.isArray(body.records) ? body.records : null;
+  if (
+    !records?.length ||
+    records.length > 500 ||
+    !records.every((recordId) => typeof recordId === 'string')
+  ) {
+    return json({ error: '`records` must contain between 1 and 500 record IDs.' }, 400);
+  }
+
+  try {
+    const deleted = await deleteLarkRecords(records as string[]);
+    return json({ deleted });
+  } catch (error) {
+    return serverError(error, 'delete');
   }
 }

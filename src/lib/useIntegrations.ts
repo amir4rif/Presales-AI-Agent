@@ -3,12 +3,22 @@
    asks the routes whether they are configured rather than reading
    localStorage — there is nothing to read there any more. */
 import { useEffect, useState } from 'react';
+import type { AnthropicIntegrationStatus, LarkIntegrationStatus } from './integrations';
 
 export type Integrations = {
-  ai: { configured: boolean; model: string } | null;
-  lark: { configured: boolean; tableId: string | null } | null;
+  ai: AnthropicIntegrationStatus | null;
+  lark: LarkIntegrationStatus | null;
   loading: boolean;
 };
+
+async function status<T>(url: string): Promise<T | null> {
+  try {
+    const response = await fetch(url, { cache: 'no-store' });
+    return response.ok ? ((await response.json()) as T) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function useIntegrations(): Integrations {
   const [ai, setAi] = useState<Integrations['ai']>(null);
@@ -18,8 +28,8 @@ export function useIntegrations(): Integrations {
   useEffect(() => {
     let alive = true;
     Promise.all([
-      fetch('/api/generate').then((r) => r.json()).catch(() => null),
-      fetch('/api/lark').then((r) => r.json()).catch(() => null),
+      status<AnthropicIntegrationStatus>('/api/generate'),
+      status<LarkIntegrationStatus>('/api/lark'),
     ]).then(([a, l]) => {
       if (!alive) return;
       setAi(a);

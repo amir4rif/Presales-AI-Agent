@@ -2,12 +2,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import { stats, type Stats } from './data';
 
-/** Stats read from localStorage, so they can only be computed after mount. */
+/** Stats read from the shared browser cache after AppShell hydrates it. */
 export function useStats() {
   const [value, setValue] = useState<Stats | null>(null);
   const refresh = useCallback(() => setValue(stats()), []);
   useEffect(() => {
     refresh();
+    window.addEventListener('rams:data-changed', refresh);
+    return () => window.removeEventListener('rams:data-changed', refresh);
   }, [refresh]);
   return { stats: value, refresh };
 }

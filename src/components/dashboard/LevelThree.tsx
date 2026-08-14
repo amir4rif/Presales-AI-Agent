@@ -61,13 +61,15 @@ export default function LevelThree({ s }: { s: Stats }) {
           : 'ANTHROPIC_API_KEY not set in .env.local — AI features disabled',
     },
     {
-      ok: !!lark?.configured,
+      ok: lark?.dataSource === 'seed' || !!lark?.ready,
       name: 'Lark Base',
       sub: loading
         ? 'Checking…'
-        : lark?.configured
-          ? 'Token held on the server — ready to switch tables over'
-          : 'LARK_APP_ID / LARK_APP_SECRET / LARK_APP_TOKEN not set in .env.local',
+        : lark?.dataSource === 'seed'
+          ? 'Integration prepared — mock data remains active'
+          : lark?.ready
+            ? 'Server configuration present — Lark data mode active'
+            : `Missing: ${lark?.missing?.join(', ') || 'Lark server values'}`,
     },
     {
       ok: !!sla,

@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { navLinks } from '@/lib/nav';
 import type { Level } from '@/lib/role';
 import { NOTIF_ICONS, getNotifs, saveNotifs, timeAgo, type Notif } from '@/lib/notify';
-import type { Proposal, Prospect } from '@/lib/data';
+import { getProposals, getProspects } from '@/lib/data';
 
 type Hit = { icon: string; name: string; kind: string; href: string };
 
@@ -48,14 +48,8 @@ export default function Topbar({ title, level }: { title: string; level: Level }
       }
     });
 
-    let proposals: Proposal[] = [];
-    let prospects: Prospect[] = [];
-    try {
-      proposals = JSON.parse(localStorage.getItem('ramssolProposals') || '[]');
-    } catch {}
-    try {
-      prospects = JSON.parse(localStorage.getItem('ramssolProspects') || '[]');
-    } catch {}
+    const proposals = getProposals();
+    const prospects = getProspects();
 
     proposals
       .filter((p) => p.status !== 'Superseded')

@@ -5,16 +5,15 @@
    Analytics and the dashboard so the numbers agree across screens.
    (Doc §4.9 / §4.13.)
 
-   The accessors below are the seam the Lark migration goes through:
-   swap what getDeals/getProposals/… read from and no page changes.
-   NEXT_PUBLIC_DATA_SOURCE picks the source; "seed" keeps the demo
-   data around, which is useful whenever Lark is empty.
+   The accessors below are the seam the Lark migration goes through.
+   AppShell hydrates their browser cache through /api/data when the
+   server selects Lark; the same save functions queue server writes.
 ═══════════════════════════════════════════════════════════ */
 import { currentLevel, currentUser } from './role';
+import { isRemoteCollection, isRemoteDataSource, queueDataSync } from './data-sync';
+import { STORAGE_KEY_BY_COLLECTION, type DataCollection } from './integrations';
 
 export { currentLevel, currentUser };
-
-export const DATA_SOURCE = (process.env.NEXT_PUBLIC_DATA_SOURCE || 'seed') as 'seed' | 'lark';
 
 /* ── TYPES ─────────────────────────────────────────────── */
 export type Stage = { id: number; name: string; sla: number; avgDays: number; prob: number };
@@ -265,6 +264,9 @@ export const STORAGE_KEY = 'ramssolProposals';
 const SEED_PERSONA = 'Lim LG';
 
 function personalise<T extends Record<string, unknown>>(list: T[], keys: (keyof T)[]): T[] {
+  // The persona swap exists only to make authored demo rows useful to a newly
+  // registered Level 1 user. Real Lark ownership must never be rewritten.
+  if (isRemoteDataSource()) return list;
   const me = currentUser();
   if (!me || me === SEED_PERSONA || currentLevel() !== 1) return list;
   return list.map((r) => {
@@ -291,9 +293,11 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
-function write(key: string, value: unknown) {
+function write(collection: DataCollection, value: unknown[]) {
   if (!canStore()) return;
-  localStorage.setItem(key, JSON.stringify(value));
+  localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(value));
+  window.dispatchEvent(new Event('rams:data-changed'));
+  queueDataSync(collection, value);
 }
 
 /* ── PROPOSALS ─────────────────────────────────────────── */
@@ -308,13 +312,13 @@ export function getProposals(): Proposal[] {
 }
 
 export function saveProposals(list: Proposal[]) {
-  write(STORAGE_KEY, list);
+  write('proposals', list);
 }
 
 /** Seed the Proposal Store once, then always return the live store. */
 export function ensureProposalStore(): Proposal[] {
   let list = getProposals();
-  if (!list.length) {
+  if (!list.length && !isRemoteCollection('proposals')) {
     saveProposals(PROPOSAL_SEED);
     list = getProposals();
   }
@@ -326,17 +330,17 @@ export function ensureProposalStore(): Proposal[] {
    the source flips to Lark, only their bodies change. */
 export const getDeals = (): Deal[] =>
   personalise(read('ramssolDeals', ACTIVE_DEALS.map((d) => ({ ...d }))) as unknown as Record<string, unknown>[], ['rep']) as unknown as Deal[];
-export const saveDeals = (l: Deal[]) => write('ramssolDeals', l);
+export const saveDeals = (l: Deal[]) => write('deals', l);
 
 export const getClosedDeals = (): ClosedDeal[] =>
   personalise(read('ramssolClosedDeals', CLOSED_DEALS.map((d) => ({ ...d }))) as unknown as Record<string, unknown>[], ['rep']) as unknown as ClosedDeal[];
-export const saveClosedDeals = (l: ClosedDeal[]) => write('ramssolClosedDeals', l);
+export const saveClosedDeals = (l: ClosedDeal[]) => write('closedDeals', l);
 
 export const getProspects = (): Prospect[] => read('ramssolProspects', PROSPECT_SEED.map((p) => ({ ...p })));
-export const saveProspects = (l: Prospect[]) => write('ramssolProspects', l);
+export const saveProspects = (l: Prospect[]) => write('prospects', l);
 
 export const getTeam = (): TeamMember[] => read('ramssolTeam', TEAM_SEED.map((m) => ({ ...m })));
-export const saveTeam = (l: TeamMember[]) => write('ramssolTeam', l);
+export const saveTeam = (l: TeamMember[]) => write('team', l);
 
 export const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 

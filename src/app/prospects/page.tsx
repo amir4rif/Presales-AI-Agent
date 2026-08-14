@@ -1,8 +1,8 @@
 'use client';
 /* Prospects workspace (Doc §3.3) — grid, detail view and Add Deal.
 
-   The Lark push that used to point at a PASTE_YOUR_… Apps Script URL
-   now goes to /api/lark, where the token lives. */
+   saveProspects/saveDeals are the shared data boundary. They stay local in
+   seed mode and queue server-side Lark persistence in Lark mode. */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
@@ -31,22 +31,6 @@ const STAGE_OPTIONS = [
   '7 – Closing The Deal',
   '8 – Deliver The Product',
 ];
-
-/** Fire-and-forget sync to Lark Base via our server route. */
-async function pushToLarkBase(fields: Record<string, unknown>): Promise<'ok' | 'skipped' | 'failed'> {
-  try {
-    const status = await fetch('/api/lark').then((r) => r.json());
-    if (!status?.configured) return 'skipped';
-    const res = await fetch('/api/lark', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ records: [{ fields }] }),
-    });
-    return res.ok ? 'ok' : 'failed';
-  } catch {
-    return 'failed';
-  }
-}
 
 function ProspectsPage() {
   const toast = useToast();
@@ -77,36 +61,13 @@ function ProspectsPage() {
   const shown = industry === 'all' ? prospects : prospects.filter((p) => p.type === industry);
   const open = openId != null ? prospects.find((p) => p.id === openId) || null : null;
 
-  function handleAdd(p: Prospect, form: ProspectForm, research: AIResearch | null) {
+  function handleAdd(p: Prospect, _form: ProspectForm, research: AIResearch | null) {
     const next = [...prospects, p];
     saveProspects(next);
     setProspects(next);
     setAddOpen(false);
     toast(`✅ Prospect added${research ? ' with AI research attached' : ''}`);
 
-    // Push the same data to Lark Base in the background.
-    pushToLarkBase({
-      companyName: form.name,
-      contactName: form.contactName,
-      contactPos: form.contactPos,
-      location: form.location,
-      empSize: form.empSize,
-      currSystem: form.currSystem,
-      currModule: form.currModule,
-      industry: p.type,
-      website: form.website,
-      itBudget: form.itBudget,
-      hrBudget: form.hrBudget,
-      authName: form.authName,
-      authPos: form.authPos,
-      pain: form.pain,
-      timeline: form.timeline,
-      aiResearch: research ? JSON.stringify(research) : '',
-    }).then((result) => {
-      if (result === 'ok') toast('✅ Synced to Lark Base');
-      else if (result === 'failed') toast('⚠️ Saved locally — Lark sync failed', true);
-      // "skipped" is the normal state until the Lark credentials land.
-    });
   }
 
   function addDeal() {
