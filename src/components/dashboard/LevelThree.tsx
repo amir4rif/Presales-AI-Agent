@@ -3,7 +3,7 @@
    and platform configuration. */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { fmtRM, getTeam, pct, type Stats } from '@/lib/data';
+import { fmtRM, getTeam, type Stats } from '@/lib/data';
 import { greeting } from '@/lib/useStats';
 import { useIntegrations } from '@/lib/useIntegrations';
 import { BADGE, Card, DOT, Empty, KpiRow, RepBars, plural, rankReps, Arrow } from './shared';
@@ -21,7 +21,6 @@ export default function LevelThree({ s }: { s: Stats }) {
 
   const team = getTeam();
   const caseCount = new Set(s.store.map((p) => p.caseId)).size;
-  const killRate = pct(s.killed, s.approved + s.revise + s.killed);
 
   const versions: Record<string, number> = {};
   s.store.forEach((p) => {
@@ -142,7 +141,6 @@ export default function LevelThree({ s }: { s: Stats }) {
           { l: 'End-to-End Win Rate', v: `${s.endToEnd}%`, sub: 'Approval × post-approval', c: 'kpi-up' },
           { l: 'Stage 1 · Approval', v: `${s.approvalRate}%`, sub: `${s.approved} of ${s.approved + s.revise} judged`, c: 'kpi-up' },
           { l: 'Stage 2 · Post-Appr.', v: `${s.winRate}%`, sub: `${s.won} won / ${s.won + s.lost} pitched`, c: 'kpi-up' },
-          { l: 'Kill Rate', v: `${killRate}%`, sub: `${s.killed} Reject & Close`, c: s.killed ? 'kpi-danger' : '' },
           { l: 'Total Pipeline', v: fmtRM(s.pipelineValue), sub: `${s.deals.length} open deals` },
           { l: 'Total Won', v: fmtRM(s.wonValue), sub: 'Closed-won, all periods', c: 'kpi-up' },
         ]}

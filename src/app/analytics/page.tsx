@@ -54,14 +54,12 @@ function AnalyticsPage() {
   })();
 
   const endToEnd = Math.round((s1.rate / 100) * (s2.rate / 100) * 100); // combines both stages (Doc §4.5)
-  const killRate = pct(s1.closed, s1.judged + s1.closed);
   const wonValue = closed.filter((d) => d.outcome === 'Won').reduce((a, d) => a + d.value, 0);
 
   const kpis = [
     { label: 'End-to-End Win Rate', value: `${endToEnd}%`, sub: 'Approval × Post-approval', cls: 'gold' },
     { label: 'Stage 1 · Approval Rate', value: `${s1.rate}%`, sub: `${s1.approved} approved / ${s1.judged} judged`, cls: 'kpi-up' },
     { label: 'Stage 2 · Post-Approval Win', value: `${s2.rate}%`, sub: `${s2.won} won / ${s2.total} pitched`, cls: 'kpi-up' },
-    { label: 'Kill Rate', value: `${killRate}%`, sub: `${s1.closed} Reject & Close`, cls: 'kpi-danger' },
     { label: 'Total Won Value', value: fmtRM(wonValue), sub: 'Closed-won, all periods', cls: '' },
   ];
 
