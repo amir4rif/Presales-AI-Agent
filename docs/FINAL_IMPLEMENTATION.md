@@ -1,95 +1,57 @@
-# Final implementation checklist
+# Free-tier implementation hand-off
 
-This checklist is intentionally split into an offline preparation gate and an
-explicit connection gate. Do not switch the data source until the earlier checks
-pass.
+Use this checklist only after the correct Supabase project, Gemini key, and Vercel account are available. Never paste secret values into issues, commits, or chat logs.
 
-## 1. Keep the current system offline
+## 1. Connect the intended Supabase project
 
-- Confirm `.env.local` remains git-ignored.
-- Keep `DATA_SOURCE=seed`.
-- Run `npm run check`, then manually exercise the mock-data pages.
-- Confirm Administration → Integrations says “Prepared — seed mode active.”
+- Confirm the project name is **Ramssol Pre-Sales Copilot**.
+- Confirm the project reference before applying any migration.
+- Apply all files in `supabase/migrations/` in filename order.
+- Generate fresh TypeScript types from that project and compare them with `src/lib/supabase/database.types.ts`.
+- Run Supabase security and performance advisors and resolve every material warning.
+- Verify that `public.proposals` appears in the `supabase_realtime` publication.
 
-Neither the normal Lark status route nor `npm run check:env` contacts Lark.
+## 2. Configure Auth
 
-## 2. Prepare Lark outside the app
+- Add local, Vercel Preview, and Vercel Production URLs to Auth URL Configuration.
+- Decide whether email confirmation stays enabled. New free-tier projects using default SMTP cannot customize the built-in email templates.
+- Create three real users through the application.
+- Use the Supabase SQL Editor once to promote the intended first administrator profile to `role = 'Sales Operations', level = 3`; then assign the reviewer account from Settings.
+- Never derive a role or access level from `raw_user_meta_data`.
 
-1. Create or select a Lark custom app.
-2. Grant it Base/Bitable metadata-read and record read/write permissions.
-3. Publish/install the app for the tenant as required by the tenant policy.
-4. Add the app as a collaborator/data-access principal on the target Base.
-5. Create/select one Base table. Its normal primary text field is sufficient.
-6. Record the App ID, App Secret, Base app token, and table ID.
+## 3. Configure server integrations
 
-The app token is the identifier after `/base/` in a normal Base URL. The table
-ID is the `table` value/identifier for the selected table; do not confuse the two.
+- Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+- Add `GEMINI_API_KEY`; keep `AI_PROVIDER=gemini`.
+- Optionally add `SERPAPI_API_KEY` for sourced prospect research.
+- Keep all secret/provider keys server-only.
+- Run `npm run check:env:strict`; the command is offline and never prints values.
 
-## 3. Enter server-only values
+## 4. Verify authorization and concurrency
 
-Populate these in `.env.local` without quotes unless the value itself requires
-them:
+- Anonymous requests to `/api/data?all=1` return `401` in Supabase mode.
+- Level 1 can read only owned proposals, deals, closed deals, prospects, and their own profile.
+- Level 2 and Level 3 can read team data.
+- Level 1 cannot approve, Reject & Close, or alter reviewer-controlled fields with a direct API call.
+- A proposal cannot be deleted, including through a direct API call.
+- Two users editing different rows do not overwrite each other.
+- A submitted proposal appears for the reviewer without a page refresh.
 
-```dotenv
-DATA_SOURCE=seed
+## 5. Click through the product workflow
 
-ANTHROPIC_API_KEY=...
-ANTHROPIC_MODEL=claude-opus-5
-ANTHROPIC_EFFORT=medium
+1. Level 1 creates a proposal; confirm Postgres assigns its Case ID.
+2. Level 1 submits it for review.
+3. Level 2 rejects it with a reason.
+4. Level 1 creates a new version; confirm the old version becomes Superseded and remains queryable.
+5. Level 2 approves the new version.
+6. Confirm Dashboard, Analytics, Proposals, and Approvals agree.
+7. Exercise Gemini and confirm a forced/rate-limited `429` displays a useful message.
+8. If SerpApi is configured, confirm research shows source links and its key never reaches the browser.
 
-LARK_APP_ID=...
-LARK_APP_SECRET=...
-LARK_APP_TOKEN=...
-LARK_TABLE_ID=...
-```
+## 6. Deploy to Vercel
 
-Leave `LARK_PRIMARY_FIELD` blank to auto-discover the default primary field.
-Set it only if the tenant blocks field-metadata discovery or the wrong field is
-selected.
-
-Restart the Next.js server after any `.env.local` change.
-
-## 4. Run the offline gate
-
-```bash
-npm run check:env:strict
-npm run typecheck
-npm run build
-```
-
-The environment checker reports variable names only, never values, and makes no
-network request.
-
-## 5. Explicitly test connections
-
-With the app still in `seed` mode:
-
-1. Open `GET /api/generate`; it should report `configured: true`.
-2. Trigger one low-risk AI feature and confirm a response.
-3. Open `GET /api/lark`; it should report `ready: true`.
-4. Explicitly open `GET /api/lark?records=1`; this is the first Lark network
-   diagnostic and should return a record count.
-
-Status “configured/ready” means required values are present. It deliberately
-does not claim network connectivity until an explicit operation succeeds.
-
-## 6. Activate Lark last
-
-1. Stop the dev server.
-2. Change `DATA_SOURCE=lark`.
-3. Restart the server and sign in.
-4. AppShell will hydrate proposals, deals, closed deals, prospects, and team data
-   before rendering any page.
-5. If the Lark table is empty, the app correctly starts with empty collections;
-   it does not inject mock records.
-6. Create one disposable test record in each workflow and verify its Lark row.
-7. Remove the disposable records through the UI.
-
-If hydration fails, the app displays a blocking retry screen. Switch back to
-`DATA_SOURCE=seed` to return to demo mode without attempting a Lark write.
-
-## 7. Before public deployment
-
-Do not expose these routes publicly until real authentication, server-side role
-authorization, rate limiting, and audit logging are in place. Browser-storage
-accounts and client-only role guards are demo behavior, not production security.
+- Set Node.js 22 or later.
+- Configure Preview and Production environment variables.
+- Add deployed domains to Supabase Auth redirect URLs before testing sign-in.
+- Run `npm run lint`, `npm run typecheck`, and `npm run build` against the exact deployment commit.
+- Repeat the three-user workflow on the deployed URL.

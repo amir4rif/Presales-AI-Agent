@@ -3,7 +3,7 @@
    and platform configuration. */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { fmtRM, getTeam, pct, type Stats } from '@/lib/data';
+import { fmtRM, getTeam, type Stats } from '@/lib/data';
 import { greeting } from '@/lib/useStats';
 import { useIntegrations } from '@/lib/useIntegrations';
 import { BADGE, Card, DOT, Empty, KpiRow, RepBars, plural, rankReps, Arrow } from './shared';
@@ -11,17 +11,16 @@ import { BADGE, Card, DOT, Empty, KpiRow, RepBars, plural, rankReps, Arrow } fro
 const ADMIN_TOOLS = [
   { n: '01', title: 'User Management', desc: 'Invite members, assign roles and set access levels.', cta: 'Manage Team' },
   { n: '02', title: 'Pipeline & SLA',  desc: 'Define stage thresholds that drive stalled-deal alerts.', cta: 'Configure' },
-  { n: '03', title: 'Integrations',    desc: 'AI and Lark Base connection settings.', cta: 'Connect' },
+  { n: '03', title: 'Integrations',    desc: 'Gemini and Supabase connection readiness.', cta: 'Connect' },
   { n: '04', title: 'Data Export',     desc: 'Export the Proposal Store, team access levels and SLAs.', cta: 'Export' },
 ];
 
 export default function LevelThree({ s }: { s: Stats }) {
   const router = useRouter();
-  const { ai, lark, loading } = useIntegrations();
+  const { ai, supabase, loading } = useIntegrations();
 
   const team = getTeam();
   const caseCount = new Set(s.store.map((p) => p.caseId)).size;
-  const killRate = pct(s.killed, s.approved + s.revise + s.killed);
 
   const versions: Record<string, number> = {};
   s.store.forEach((p) => {
@@ -58,18 +57,18 @@ export default function LevelThree({ s }: { s: Stats }) {
         ? 'Checking…'
         : ai?.configured
           ? `Held on the server — ${ai.model}`
-          : 'ANTHROPIC_API_KEY not set in .env.local — AI features disabled',
+          : 'GEMINI_API_KEY not set in .env.local — AI features disabled',
     },
     {
-      ok: lark?.dataSource === 'seed' || !!lark?.ready,
-      name: 'Lark Base',
+      ok: !!supabase?.ready,
+      name: 'Supabase Database & Auth',
       sub: loading
         ? 'Checking…'
-        : lark?.dataSource === 'seed'
-          ? 'Integration prepared — mock data remains active'
-          : lark?.ready
-            ? 'Server configuration present — Lark data mode active'
-            : `Missing: ${lark?.missing?.join(', ') || 'Lark server values'}`,
+        : supabase?.dataSource === 'seed'
+          ? 'Integration prepared — offline seed data remains active'
+          : supabase?.ready
+            ? 'Public configuration present — Auth and RLS active'
+            : `Missing: ${supabase?.missing?.join(', ') || 'Supabase public values'}`,
     },
     {
       ok: !!sla,
@@ -142,7 +141,6 @@ export default function LevelThree({ s }: { s: Stats }) {
           { l: 'End-to-End Win Rate', v: `${s.endToEnd}%`, sub: 'Approval × post-approval', c: 'kpi-up' },
           { l: 'Stage 1 · Approval', v: `${s.approvalRate}%`, sub: `${s.approved} of ${s.approved + s.revise} judged`, c: 'kpi-up' },
           { l: 'Stage 2 · Post-Appr.', v: `${s.winRate}%`, sub: `${s.won} won / ${s.won + s.lost} pitched`, c: 'kpi-up' },
-          { l: 'Kill Rate', v: `${killRate}%`, sub: `${s.killed} Reject & Close`, c: s.killed ? 'kpi-danger' : '' },
           { l: 'Total Pipeline', v: fmtRM(s.pipelineValue), sub: `${s.deals.length} open deals` },
           { l: 'Total Won', v: fmtRM(s.wonValue), sub: 'Closed-won, all periods', c: 'kpi-up' },
         ]}

@@ -8,6 +8,8 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ICON_PATHS, NAV, isSection, type NavIcon } from '@/lib/nav';
 import { clearSession, type Level } from '@/lib/role';
+import { isRemoteDataSource, resetDataLayer } from '@/lib/data-sync';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 function Icon({ name }: { name: NavIcon }) {
   return (
@@ -36,9 +38,14 @@ export default function Sidebar({
   const visible = NAV.filter((n) => isSection(n) || level >= n.min);
   const initials = name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase();
 
-  function logout() {
+  async function logout() {
+    if (isRemoteDataSource()) {
+      await createSupabaseBrowserClient().auth.signOut({ scope: 'local' });
+    }
     clearSession();
+    resetDataLayer();
     router.replace('/login');
+    router.refresh();
   }
 
   return (
@@ -93,7 +100,7 @@ export default function Sidebar({
             </div>
           </div>
         </div>
-        <button className="logout-btn" onClick={logout} title="Log out">
+        <button className="logout-btn" onClick={() => void logout()} title="Log out">
           <svg
             viewBox="0 0 24 24"
             fill="none"

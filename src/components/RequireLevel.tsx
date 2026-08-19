@@ -1,10 +1,7 @@
 'use client';
-/* RequireLevel — replaces the PAGE_LEVELS check that lived in app-shell.js.
-
-   NOTE (carried over from the design doc, still open): this is a
-   client-side guard only, exactly like the old one. It stops the nav,
-   not a determined user. Real enforcement needs the level checked on
-   the server once auth moves off localStorage. */
+/* RequireLevel is a navigation affordance. Supabase RLS is the authority
+   for every remote read and write; this component only avoids showing a
+   screen that the current profile cannot use. */
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { HOME, LEVEL_NAME, currentLevel, getSession, type Level } from '@/lib/role';

@@ -18,22 +18,39 @@ function line(label, missing) {
 }
 
 const source = process.env.DATA_SOURCE?.trim() || process.env.NEXT_PUBLIC_DATA_SOURCE?.trim() || 'seed';
-const aiMissing = ['ANTHROPIC_API_KEY'].filter((name) => !present(name));
+const provider = process.env.AI_PROVIDER?.trim() === 'anthropic' ? 'anthropic' : 'gemini';
+const aiKey = provider === 'gemini' ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY';
+const aiMissing = [aiKey].filter((name) => !present(name));
+const supabaseMissing = [
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+].filter((name) => !present(name));
+const researchMissing = ['SERPAPI_API_KEY'].filter((name) => !present(name));
 const larkMissing = ['LARK_APP_ID', 'LARK_APP_SECRET', 'LARK_APP_TOKEN', 'LARK_TABLE_ID'].filter(
   (name) => !present(name)
 );
 
 console.log('Offline integration readiness (values are never printed)');
-console.log(`Data source: ${source === 'lark' ? 'lark' : 'seed'}`);
-line('Anthropic', aiMissing);
-line('Lark Base', larkMissing);
+console.log(`Data source: ${source === 'supabase' ? 'supabase' : 'seed'}`);
+line(`AI (${provider})`, aiMissing);
+line('Supabase', supabaseMissing);
+line('SerpApi research (optional)', researchMissing);
+line('Lark archive (inactive)', larkMissing);
 
 if (!process.env.DATA_SOURCE && process.env.NEXT_PUBLIC_DATA_SOURCE) {
   console.warn('Warning: rename NEXT_PUBLIC_DATA_SOURCE to server-only DATA_SOURCE.');
 }
 
-const activeMissing = source === 'lark' ? larkMissing : [];
-const requiredMissing = strict ? [...new Set([...aiMissing, ...larkMissing])] : activeMissing;
+if (!['seed', 'supabase'].includes(source)) {
+  console.warn(`Warning: DATA_SOURCE=${source} is unsupported and will fall back to seed.`);
+}
+
+const activeMissing = source === 'supabase'
+  ? [...new Set([...aiMissing, ...supabaseMissing])]
+  : [];
+const requiredMissing = strict
+  ? [...new Set([...aiMissing, ...supabaseMissing])]
+  : activeMissing;
 
 if (requiredMissing.length) {
   console.error(`Readiness check failed. Missing: ${requiredMissing.join(', ')}`);

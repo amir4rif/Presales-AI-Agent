@@ -1,15 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useToast } from './Toast';
 import { titleFor } from '@/lib/nav';
 import { LEVEL_NAME, currentLevel, currentRole, currentUser, getSession, type Level } from '@/lib/role';
-import { initializeDataLayer } from '@/lib/data-sync';
+import { initializeDataLayer, subscribeToProposalChanges, type DataLayerStatus } from '@/lib/data-sync';
 
-const BARE_ROUTES = ['/login'];
+const BARE_ROUTES = ['/login', '/auth/update-password'];
 
 export default function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -17,32 +17,31 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const toast = useToast();
   const [identity, setIdentity] = useState<{ name: string; role: string; level: Level } | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
-  const reportedIgnored = useRef(false);
+  const [dataStatus, setDataStatus] = useState<DataLayerStatus | null>(null);
+  const [dataRevision, setDataRevision] = useState(0);
 
   const bare = BARE_ROUTES.includes(pathname);
 
   const boot = useCallback(async (force = false) => {
     if (bare) return;
 
-    if (!getSession()) {
-      router.replace('/login');
-      return;
-    }
-
     setBootError(null);
     try {
       const data = await initializeDataLayer({ force });
-      setIdentity({ name: currentUser(), role: currentRole(), level: currentLevel() });
-      if (data.ignoredRecords && !reportedIgnored.current) {
-        reportedIgnored.current = true;
-        toast(
-          `Lark loaded, but ${data.ignoredRecords} unrelated or invalid record${data.ignoredRecords === 1 ? '' : 's'} were ignored.`,
-          true
-        );
+      setDataStatus(data);
+      if (data.source === 'seed' && !getSession()) {
+        router.replace('/login');
+        return;
       }
+      setIdentity({ name: currentUser(), role: currentRole(), level: currentLevel() });
     } catch (error) {
       setIdentity(null);
-      setBootError(error instanceof Error ? error.message : 'Could not initialize the shared data layer.');
+      const message = error instanceof Error ? error.message : 'Could not initialize the shared data layer.';
+      if (/session has expired|authentication required/i.test(message)) {
+        router.replace('/login');
+        return;
+      }
+      setBootError(message);
       return;
     }
 
@@ -65,12 +64,23 @@ export default function AppShell({ children }: { children: ReactNode }) {
     function onSync(event: Event) {
       const detail = (event as CustomEvent<{ ok?: boolean; collection?: string; message?: string }>).detail;
       if (detail?.ok === false) {
-        toast(`Lark sync failed for ${detail.collection || 'data'}: ${detail.message || 'unknown error'}`, true);
+        toast(`Data sync failed for ${detail.collection || 'data'}: ${detail.message || 'unknown error'}`, true);
       }
     }
     window.addEventListener('rams:data-sync', onSync);
     return () => window.removeEventListener('rams:data-sync', onSync);
   }, [toast]);
+
+  useEffect(() => {
+    if (bare || dataStatus?.source !== 'supabase') return;
+    return subscribeToProposalChanges();
+  }, [bare, dataStatus?.source]);
+
+  useEffect(() => {
+    const reload = () => setDataRevision((value) => value + 1);
+    window.addEventListener('rams:remote-data', reload);
+    return () => window.removeEventListener('rams:remote-data', reload);
+  }, []);
 
   if (bare) return <>{children}</>;
   if (bootError) {
@@ -82,7 +92,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             {bootError}
           </p>
           <p style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6, marginBottom: 18 }}>
-            Set <code>DATA_SOURCE=seed</code> to keep using mock data, or complete the Lark values in{' '}
+            Set <code>DATA_SOURCE=seed</code> to use the offline demo, or complete the Supabase values in{' '}
             <code>.env.local</code> and restart the server.
           </p>
           <button className="btn-primary" onClick={() => void boot(true)}>Retry</button>
@@ -97,7 +107,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <Sidebar level={identity.level} name={identity.name} role={identity.role} />
       <div className="main">
         <Topbar title={titleFor(pathname)} level={identity.level} />
-        <div className="content">{children}</div>
+        <div className="content" key={dataRevision}>{children}</div>
       </div>
     </>
   );

@@ -1292,11 +1292,12 @@ body::after {
 .proposals-search:focus { border-color: var(--brand-400); }
 .proposals-filter { border: 1px solid var(--gray-200); border-radius: 8px; padding: 8px 12px; font-size: 13px; font-family: var(--font); color: var(--gray-900); background: var(--bg); outline: none; }
 .row-btn { font-size: 11.5px; font-weight: 500; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: var(--font); border: 1px solid var(--gray-200); background: none; color: var(--gray-700); transition: all .15s; }
-.row-btn:hover { border-color: var(--brand-400); color: var(--brand-400); background: var(--brand-50); }
+.row-btn:disabled { opacity: .45; cursor: not-allowed; }
+.row-btn:hover:not(:disabled) { border-color: var(--brand-400); color: var(--brand-400); background: var(--brand-50); }
 .row-btn.resubmit { border-color: #FB923C; color: #FB923C; }
-.row-btn.resubmit:hover { background: #FB923C; color: white; }
+.row-btn.resubmit:hover:not(:disabled) { background: #FB923C; color: white; }
 .row-btn.danger { border-color: var(--red-700); color: var(--red-700); }
-.row-btn.danger:hover { background: var(--red-700); color: white; }
+.row-btn.danger:hover:not(:disabled) { background: var(--red-700); color: white; }
 .row-btn.ghost { border-color: var(--gray-200); color: var(--gray-500); }
 .vh-row { display: grid; grid-template-columns: 60px 1fr 130px; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--gray-100); }
 .vh-row:last-child { border-bottom: none; }
@@ -1342,7 +1343,7 @@ body::after {
 .row-btn.approve { border-color: var(--brand-400); color: var(--brand-400); }
 .row-btn.approve:hover { background: var(--brand-400); color: white; }
 .row-btn.reject { border-color: var(--red-700); color: var(--red-700); }
-.row-btn.reject:hover { background: var(--red-700); color: white; }
+.row-btn.reject:hover:not(:disabled) { background: var(--red-700); color: white; }
 .row-btn.revise-btn { border-color: #FB923C; color: #FB923C; }
 .row-btn.revise-btn:hover { background: #FB923C; color: white; }
 .row-btn.lg { padding: 9px 14px; font-size: 13px; }
@@ -1460,15 +1461,7 @@ body::after {
 .an-dot { width:10px; height:10px; border-radius:3px; display:inline-block; }
 .kpi-value.gold { color: var(--gold-soft); }
 
-/* ── Approvals v10 additions (kill-rate drill-down, confirm step,
-      outcome tracking) — from admin-approvals.html @ "change to v10" ── */
-.kpi-card.kpi-clickable { cursor: pointer; transition: border-color .15s, box-shadow .15s; }
-.kpi-card.kpi-clickable:hover { border-color: var(--red-700); box-shadow: 0 0 0 1px var(--red-700); }
-.killrate-table { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-top: 10px; }
-.killrate-table th { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: var(--gray-400); padding: 8px 12px; border-bottom: 1px solid var(--gray-100); text-align: left; }
-.killrate-table td { padding: 10px 12px; border-bottom: 1px solid var(--gray-100); color: var(--gray-700); }
-.killrate-table tr:last-child td { border-bottom: none; }
-.killrate-empty { text-align:center; padding:24px; color:var(--gray-400); font-size:12.5px; }
+/* ── Approvals v10 additions (confirm step and outcome tracking) ── */
 .confirm-strip { background: var(--gray-50); border: 1px solid var(--gray-200); border-radius: 10px; padding: 14px 16px; margin-top: 4px; }
 .confirm-strip .cs-msg { font-size: 13px; color: var(--gray-900); font-weight: 500; line-height: 1.5; margin-bottom: 10px; }
 .confirm-strip .cs-warn { font-size: 11.5px; color: var(--red-700); margin-bottom: 10px; }

@@ -1,13 +1,15 @@
 'use client';
 /* Add New Prospect — the AI Sales Agent form (Doc §3.3).
 
-   Both AI calls (autofill and research) now go through /api/generate. */
+   AI calls go through /api/generate; optional verified web context comes
+   from the server-only /api/research bridge. */
 import { useState } from 'react';
 import Modal from '@/components/Modal';
 import { useToast } from '@/components/Toast';
 import { callClaude } from '@/lib/ai';
 import { parseJsonReply } from '@/lib/docExport';
 import type { AIResearch, Prospect } from '@/lib/data';
+import { researchCompany } from '@/lib/research';
 
 const INDUSTRIES = ['Banking & Finance', 'Healthcare', 'Government', 'Education', 'Manufacturing', 'Retail & FMCG', 'NGO / Non-profit', 'Technology', 'Logistics & Supply Chain', 'Telecommunications', 'Property & Construction', 'Oil & Gas', 'Other'];
 const EMP_SIZES = ['1 – 50', '51 – 200', '201 – 500', '501 – 1,000', '1,001 – 5,000', '5,001 – 10,000', '10,000+'];
@@ -147,6 +149,14 @@ Field rules:
 You help Ramssol's pre-sales team qualify prospects and win deals in Malaysia and Southeast Asia.
 IMPORTANT: Return ONLY valid JSON, no markdown, no extra text.`;
 
+    const web = await researchCompany(
+      `${f.name} ${f.website || ''} company profile revenue employees technology`,
+      f.location || 'Malaysia'
+    );
+    const verifiedContext = web.configured && web.summary
+      ? `\nVerified web research (use this as the factual source of truth):\n${web.summary}\nSources: ${JSON.stringify(web.sources || [])}\n`
+      : '\nNo verified web research is configured. Clearly label financial and headcount values as estimates.\n';
+
     const prompt = `Research this prospect for Ramssol Group and return a JSON object:
 
 Company: ${f.name}
@@ -158,6 +168,7 @@ Known IT Budget: ${f.itBudget || 'Unknown'}
 Known HR Budget: ${f.hrBudget || 'Unknown'}
 Pain Points / Needs: ${f.pain || 'Not provided'}
 Timeline: ${f.timeline || 'Unknown'}
+${verifiedContext}
 
 Return ONLY this JSON structure (no markdown, no backticks):
 {
@@ -174,7 +185,8 @@ Return ONLY this JSON structure (no markdown, no backticks):
     const raw = await callClaude([{ role: 'user', content: prompt }], system);
     setResearching(false);
     // If JSON parsing fails, keep the raw text so nothing is silently lost.
-    setResearch(parseJsonReply<AIResearch>(raw, { raw }));
+    const parsed = parseJsonReply<AIResearch>(raw, { raw });
+    setResearch({ ...parsed, ...(web.sources?.length ? { sources: web.sources } : {}) });
     setProducts(null);
     setOutline(null);
   }
@@ -523,6 +535,19 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
                 <span className="buying-reason">{research.buyingPotentialReason || '—'}</span>
               </div>
             </div>
+
+            {research.sources?.length ? (
+              <div className="ai-wide-card">
+                <div className="ai-card-lbl">Verified Web Sources</div>
+                <div className="ai-card-val" style={{ display: 'grid', gap: 5 }}>
+                  {research.sources.map((source) => (
+                    <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
+                      {source.title}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div className="ai-actions-row">
               <button className="ai-act-btn btn-rec" onClick={recommendProducts}>

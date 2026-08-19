@@ -1,7 +1,6 @@
 'use client';
-/* Proposal Approvals (Doc §4.3 / §4.9), including the v10 additions:
-   a kill-rate drill-down, a confirm step before any decision is
-   committed, and post-approval outcome tracking.
+/* Proposal Approvals (Doc §4.3 / §4.9), including a confirm step before
+   any decision is committed and post-approval outcome tracking.
 
    Three deliberate differences from admin-approvals.html — each one is
    needed for this page to work against the shared store, which is the
@@ -18,7 +17,7 @@
    3. The reviewer is still captured on the decision (Doc §4.9). v10
       dropped it, but the proposals page displays it.
 
-   The Reject & Close reason guardrail is gone, matching v10. */
+   Reject & Close remains limited to genuinely unfixable reasons. */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
@@ -56,6 +55,11 @@ const REJECTION_REASONS = [
   'Out of scope',
   'Other',
 ];
+const CLOSE_REASONS = new Set([
+  'Compliance issue',
+  'Out of scope',
+  'Wrong product fit',
+]);
 
 const isRejected = (status: string) =>
   status === 'Reject & Revise' || status === 'Reject & Close';
@@ -89,10 +93,9 @@ function ApprovalsPage() {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [note, setNote] = useState('');
-  const [reasonError, setReasonError] = useState(false);
+  const [reasonError, setReasonError] = useState('');
   const [pendingDecision, setPendingDecision] = useState<ProposalStatus | null>(null);
   const [outcomeSaved, setOutcomeSaved] = useState(false);
-  const [killRateOpen, setKillRateOpen] = useState(false);
 
   const reload = useCallback(() => setStore(ensureProposalStore()), []);
   useEffect(() => {
@@ -113,10 +116,6 @@ function ApprovalsPage() {
   const closed = list.filter((p) => p.status === 'Reject & Close');
   const pendingValue = pending.reduce((s, p) => s + (p.value || 0), 0);
 
-  /* v10: Kill Rate = closed / (approved + closed) — excludes revise and pending. */
-  const decided = approved.length + closed.length;
-  const killPct = decided > 0 ? Math.round((closed.length / decided) * 100) : 0;
-
   /* v10: outcome stats for approved proposals. */
   const won = approved.filter((p) => p.outcome === 'Won').length;
   const lost = approved.filter((p) => p.outcome === 'Lost').length;
@@ -125,12 +124,24 @@ function ApprovalsPage() {
     : 'All time';
 
   const kpis = [
-    { label: 'Pending Review', value: pending.length, sub: 'Awaiting your review', color: pending.length ? 'kpi-warn' : '', clickable: false },
-    { label: 'Value Pending', value: fmtRM(pendingValue), sub: 'Across pending proposals', color: '', clickable: false },
-    { label: 'Approved', value: approved.length, sub: outcomeSub, color: 'kpi-up', clickable: false },
-    { label: 'Reject & Revise', value: revise.length, sub: 'Sent back to sales', color: revise.length ? 'kpi-warn' : '', clickable: false },
-    { label: 'Kill Rate', value: `${killPct}%`, sub: `${closed.length} Reject & Close`, color: closed.length ? 'kpi-danger' : '', clickable: true },
+    { label: 'Pending Review', value: pending.length, sub: 'Awaiting your review', color: pending.length ? 'kpi-warn' : '' },
+    { label: 'Value Pending', value: fmtRM(pendingValue), sub: 'Across pending proposals', color: '' },
+    { label: 'Approved', value: approved.length, sub: outcomeSub, color: 'kpi-up' },
+    { label: 'Reject & Revise', value: revise.length, sub: 'Sent back to sales', color: revise.length ? 'kpi-warn' : '' },
   ];
+
+  const sortedRejectionReasons = useMemo(() => {
+    const counts = new Map<string, number>();
+    store.forEach((proposal) => {
+      if (proposal.rejectionReason) {
+        counts.set(proposal.rejectionReason, (counts.get(proposal.rejectionReason) || 0) + 1);
+      }
+    });
+    return REJECTION_REASONS
+      .map((value, index) => ({ value, index, count: counts.get(value) || 0 }))
+      .sort((a, b) => b.count - a.count || a.index - b.index)
+      .map((item) => item.value);
+  }, [store]);
 
   const tabs = [
     { key: 'Pending Review', label: 'Pending', count: pending.length },
@@ -147,7 +158,7 @@ function ApprovalsPage() {
     setReviewingId(id);
     setReason('');
     setNote('');
-    setReasonError(false);
+    setReasonError('');
     setPendingDecision(null);
     setOutcomeSaved(false);
   }
@@ -189,15 +200,24 @@ function ApprovalsPage() {
   function requestConfirm(decision: ProposalStatus) {
     if (!reviewing) return;
     if (isRejected(decision) && !reason) {
-      setReasonError(true);
+      setReasonError('Please select a rejection reason.');
       return;
     }
-    setReasonError(false);
+    if (decision === 'Reject & Close' && !CLOSE_REASONS.has(reason)) {
+      setReasonError('This reason is fixable. Use Reject & Revise instead.');
+      return;
+    }
+    setReasonError('');
     setPendingDecision(decision);
   }
 
   function executeConfirmed() {
     if (!pendingDecision || !reviewing) return;
+    if (pendingDecision === 'Reject & Close' && !CLOSE_REASONS.has(reason)) {
+      setPendingDecision(null);
+      setReasonError('This reason is fixable. Use Reject & Revise instead.');
+      return;
+    }
     const decision = pendingDecision;
     const p = applyDecision(reviewing.id, decision, reason, note.trim());
 
@@ -287,11 +307,7 @@ function ApprovalsPage() {
 
       <div className="kpi-row">
         {kpis.map((k) => (
-          <div
-            className={`kpi-card${k.clickable ? ' kpi-clickable' : ''}`}
-            key={k.label}
-            onClick={k.clickable ? () => setKillRateOpen(true) : undefined}
-          >
+          <div className="kpi-card" key={k.label}>
             <div className="kpi-label">{k.label}</div>
             <div className={`kpi-value ${k.color}`}>{k.value}</div>
             <div className="kpi-sub">{k.sub}</div>
@@ -382,49 +398,6 @@ function ApprovalsPage() {
         </table>
       </div>
 
-      {/* v10 — FEATURE 1: KILL RATE DRILL-DOWN */}
-      <Modal
-        open={killRateOpen}
-        onClose={() => setKillRateOpen(false)}
-        style={{ maxWidth: 560 }}
-        title="Kill Rate — Closed Cases"
-        sub={`${closed.length} closed case${closed.length !== 1 ? 's' : ''} · Kill rate: ${killPct}% of decided proposals`}
-        actions={
-          <button className="btn-secondary" onClick={() => setKillRateOpen(false)}>
-            Close
-          </button>
-        }
-      >
-        {closed.length ? (
-          <table className="killrate-table">
-            <thead>
-              <tr>
-                <th>Company</th>
-                <th>Deal</th>
-                <th>Reason</th>
-                <th>Date Closed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {closed.map((p) => (
-                <tr key={p.id}>
-                  <td style={{ fontWeight: 500 }}>{p.company}</td>
-                  <td>{p.deal}</td>
-                  <td>
-                    <span className="status-pill pill-closed" style={{ fontSize: 10, padding: '1px 7px' }}>
-                      {p.rejectionReason || '—'}
-                    </span>
-                  </td>
-                  <td style={{ fontFamily: 'var(--mono)', fontSize: 11.5 }}>{p.reviewedDate || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        ) : (
-          <div className="killrate-empty">No closed cases yet.</div>
-        )}
-      </Modal>
-
       {/* REVIEW MODAL */}
       <Modal
         open={!!reviewing}
@@ -458,7 +431,10 @@ function ApprovalsPage() {
                 </button>
                 <button
                   className="row-btn reject lg"
-                  title="Unfixable — case ends, counted as loss"
+                  disabled={!CLOSE_REASONS.has(reason)}
+                  title={CLOSE_REASONS.has(reason)
+                    ? 'Unfixable — case ends, counted as loss'
+                    : 'Available only for compliance, out-of-scope, or wrong-product-fit reasons'}
                   onClick={() => requestConfirm('Reject & Close')}
                 >
                   ✕ Reject &amp; Close
@@ -567,9 +543,15 @@ function ApprovalsPage() {
                   <label>
                     Rejection Reason <span className="req">(required on reject)</span>
                   </label>
-                  <select value={reason} onChange={(e) => setReason(e.target.value)}>
+                  <select
+                    value={reason}
+                    onChange={(e) => {
+                      setReason(e.target.value);
+                      setReasonError('');
+                    }}
+                  >
                     <option value="">— Select a reason —</option>
-                    {REJECTION_REASONS.map((r) => (
+                    {sortedRejectionReasons.map((r) => (
                       <option value={r} key={r}>
                         {r}
                       </option>
@@ -577,9 +559,13 @@ function ApprovalsPage() {
                   </select>
                   {reasonError && (
                     <div className="reason-error" style={{ display: 'block' }}>
-                      Please select a rejection reason.
+                      {reasonError}
                     </div>
                   )}
+                  <div className="an-note" style={{ marginTop: 6 }}>
+                    Reject &amp; Close is available only for Compliance issue, Out of scope,
+                    or Wrong product fit. All other reasons must use Reject &amp; Revise.
+                  </div>
                 </div>
 
                 <div className="review-note-box">

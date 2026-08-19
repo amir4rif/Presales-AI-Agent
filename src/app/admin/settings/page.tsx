@@ -16,12 +16,13 @@ import {
   saveTeam,
   type TeamMember,
 } from '@/lib/data';
-import { LEVEL_NAME, ROLE_LEVELS, getProfile, getSession, levelForRole, type Level } from '@/lib/role';
+import { LEVEL_NAME, ROLE_LEVELS, getSession, levelForRole, setSession, type Level } from '@/lib/role';
 import { useIntegrations } from '@/lib/useIntegrations';
+import { isRemoteDataSource } from '@/lib/data-sync';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 const ROLES = Object.keys(ROLE_LEVELS);
 const SLA_KEY = 'ramssolStageSLA';
-const PROFILE_KEY = 'ramssolProfile';
 const NOTIFY_KEY = 'ramssolNotify';
 
 const NOTIFY_RULES = [
@@ -64,7 +65,7 @@ function downloadCSV(name: string, rows: (string | number | undefined)[][]) {
 
 function SettingsPage() {
   const [tab, setTab] = useState<TabId>('profile');
-  const { ai, lark, loading } = useIntegrations();
+  const { ai, supabase, loading } = useIntegrations();
 
   const [profile, setProfile] = useState({ name: '', email: '', role: 'Sales Representative' });
   const [profileStatus, setProfileStatus] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -84,12 +85,11 @@ function SettingsPage() {
   const loadTeam = useCallback(() => setTeam(getTeam()), []);
 
   useEffect(() => {
-    const stored = getProfile();
     const sess = getSession();
     setProfile({
-      name: stored?.name || currentUser(),
-      email: stored?.email || sess?.email || 'user@ramssol.com',
-      role: stored?.role || sess?.role || 'Sales Representative',
+      name: currentUser(),
+      email: sess?.email || 'user@ramssol.com',
+      role: sess?.role || 'Sales Representative',
     });
     loadTeam();
     try {
@@ -112,15 +112,30 @@ function SettingsPage() {
   const profileLevel = levelForRole(profile.role);
 
   function saveProfile() {
-    localStorage.setItem(
-      PROFILE_KEY,
-      JSON.stringify({ name: profile.name.trim() || currentUser(), email: profile.email.trim(), role: profile.role })
+    const session = getSession();
+    const name = profile.name.trim() || currentUser();
+    const next = team.map((member) =>
+      member.id === session?.userId || member.email === session?.email
+        ? { ...member, name, role: profile.role, level: levelForRole(profile.role) }
+        : member
     );
+    saveTeam(next);
+    setTeam(next);
+    const names = name.split(/\s+/);
+    if (session) {
+      setSession({
+        ...session,
+        firstName: names[0] || '',
+        lastName: names.slice(1).join(' '),
+        role: profile.role,
+        level: levelForRole(profile.role),
+      });
+    }
     setProfileStatus({ ok: true, msg: '✅ Profile updated.' });
     setTimeout(() => setProfileStatus(null), 2000);
   }
 
-  function changePassword() {
+  async function changePassword() {
     if (!pw.current || !pw.next || !pw.confirm) {
       setPwStatus({ ok: false, msg: '❌ Please fill in all password fields.' });
       return;
@@ -129,14 +144,41 @@ function SettingsPage() {
       setPwStatus({ ok: false, msg: '❌ New passwords do not match.' });
       return;
     }
-    setPwStatus({ ok: true, msg: '✅ Password updated.' });
+    if (!isRemoteDataSource()) {
+      setPwStatus({ ok: false, msg: 'Password changes are unavailable in the offline seed demo.' });
+      return;
+    }
+    const client = createSupabaseBrowserClient();
+    const signedIn = await client.auth.signInWithPassword({ email: profile.email, password: pw.current });
+    if (signedIn.error) {
+      setPwStatus({ ok: false, msg: '❌ Current password is incorrect.' });
+      return;
+    }
+    const updated = await client.auth.updateUser({ password: pw.next });
+    if (updated.error) {
+      setPwStatus({ ok: false, msg: `❌ ${updated.error.message}` });
+      return;
+    }
+    setPwStatus({ ok: true, msg: '✅ Password updated securely through Supabase Auth.' });
     setPw({ current: '', next: '', confirm: '' });
     setTimeout(() => setPwStatus(null), 2000);
   }
 
   function removeMember(index: number) {
+    if (isRemoteDataSource()) {
+      alert('Remove authentication users in Supabase Auth. This screen only manages application access levels.');
+      return;
+    }
     const next = team.slice();
     next.splice(index, 1);
+    saveTeam(next);
+    setTeam(next);
+  }
+
+  function changeMemberRole(index: number, role: string) {
+    const next = team.map((member, memberIndex) =>
+      memberIndex === index ? { ...member, role, level: levelForRole(role) } : member
+    );
     saveTeam(next);
     setTeam(next);
   }
@@ -144,6 +186,10 @@ function SettingsPage() {
   function sendInvite() {
     if (!invite.email.trim()) {
       alert('Please enter an email address.');
+      return;
+    }
+    if (isRemoteDataSource()) {
+      alert('Ask the teammate to create an account first. Their profile will appear here for role assignment.');
       return;
     }
     const next: TeamMember[] = [
@@ -376,10 +422,12 @@ function SettingsPage() {
                     <td>{m.name}</td>
                     <td style={{ color: 'var(--gray-500)' }}>{m.email}</td>
                     <td>
-                      <span className="tag">{m.role}</span>
+                      <select value={m.role} onChange={(event) => changeMemberRole(i, event.target.value)}>
+                        {ROLES.map((role) => <option key={role}>{role}</option>)}
+                      </select>
                     </td>
                     <td>
-                      <LevelBadge level={levelForRole(m.role)} />
+                      <LevelBadge level={m.level || levelForRole(m.role)} />
                     </td>
                     <td>
                       <span className={`status-badge ${m.status === 'active' ? 'status-completed' : 'status-review'}`}>
@@ -483,9 +531,8 @@ function SettingsPage() {
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  The Anthropic key now lives on the server in <code>.env.local</code> as{' '}
-                  <code>ANTHROPIC_API_KEY</code>, and is used by <code>/api/generate</code> for every
-                  AI feature. It is never sent to the browser, so there is nothing to enter here.
+                  The selected AI provider key lives on the server and is used by <code>/api/generate</code>
+                  for every AI feature. It is never sent to the browser.
                 </div>
                 <div className="cfg-row">
                   <span className={`cfg-dot ${ai?.configured ? 'cfg-ok' : 'cfg-warn'}`} />
@@ -495,8 +542,8 @@ function SettingsPage() {
                       {loading
                         ? 'Checking…'
                         : ai?.configured
-                          ? `Model: ${ai.model} · Effort: ${ai.effort}. Connectivity is tested only when an AI feature is used.`
-                          : `Missing: ${ai?.missing?.join(', ') || 'ANTHROPIC_API_KEY'}.`}
+                          ? `Provider: ${ai.provider} · Model: ${ai.model}. Connectivity is tested only when an AI feature is used.`
+                          : `Missing: ${ai?.missing?.join(', ') || 'GEMINI_API_KEY'}.`}
                     </div>
                   </div>
                 </div>
@@ -505,34 +552,32 @@ function SettingsPage() {
 
             <div className="card" style={{ padding: 22 }}>
               <div className="card-header">
-                <span className="card-title">Lark Base Integration</span>
+                <span className="card-title">Supabase Database &amp; Auth</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
-                  Set <code>LARK_APP_ID</code>, <code>LARK_APP_SECRET</code> and{' '}
-                  <code>LARK_APP_TOKEN</code> in <code>.env.local</code> (plus{' '}
-                  <code>LARK_TABLE_ID</code> for the shared data table). Keep <code>DATA_SOURCE=seed</code>{' '}
-                  until go-live. <code>/api/lark</code> mints the tenant token server-side — the
-                  credentials never reach the browser.
+                  Set the project URL and publishable key in <code>.env.local</code>, apply the checked-in
+                  migration, then switch <code>DATA_SOURCE</code> from <code>seed</code> to <code>supabase</code>.
+                  The publishable key is safe for the browser; RLS protects every row.
                 </div>
                 <div className="cfg-row">
-                  <span className={`cfg-dot ${lark?.dataSource === 'seed' || lark?.ready ? 'cfg-ok' : 'cfg-warn'}`} />
+                  <span className={`cfg-dot ${supabase?.ready ? 'cfg-ok' : 'cfg-warn'}`} />
                   <div className="cfg-info">
                     <div className="cfg-name">
-                      {lark?.dataSource === 'seed'
+                      {supabase?.dataSource === 'seed'
                         ? 'Prepared — seed mode active'
-                        : lark?.ready
-                          ? 'Server configuration ready'
-                          : 'Lark mode needs configuration'}
+                        : supabase?.ready
+                          ? 'Supabase mode ready'
+                          : 'Supabase needs configuration'}
                     </div>
                     <div className="cfg-sub">
                       {loading
                         ? 'Checking…'
-                        : lark?.dataSource === 'seed'
-                          ? 'No Lark request will be made. Change DATA_SOURCE to lark only during final implementation.'
-                          : lark?.ready
-                            ? 'Credentials and table ID are present. Connectivity is tested during hydration.'
-                            : `Missing: ${lark?.missing?.join(', ') || 'Lark server values'}.`}
+                        : supabase?.dataSource === 'seed'
+                          ? 'No remote request is made. Lark code remains archived in the repository for a future switch.'
+                          : supabase?.ready
+                            ? 'Public configuration is present. Auth and RLS are enforced during use.'
+                            : `Missing: ${supabase?.missing?.join(', ') || 'Supabase public values'}.`}
                     </div>
                   </div>
                 </div>

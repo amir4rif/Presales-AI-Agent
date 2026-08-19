@@ -18,9 +18,9 @@ export { currentLevel, currentUser };
 /* ── TYPES ─────────────────────────────────────────────── */
 export type Stage = { id: number; name: string; sla: number; avgDays: number; prob: number };
 export type Opportunity = { oppId: string; account: string; deal: string; value: number; industry: string };
-export type ClosedDeal = { rep: string; account: string; value: number; closeDate: string; source: string; outcome: 'Won' | 'Lost'; lossReason: string };
-export type Deal = { rep: string; account: string; stage: number; daysInStage: number; daysToClose: number; value: number; movement: string; status: string; notes: string };
-export type TeamMember = { name: string; email: string; role: string; status: string; lastActive: string };
+export type ClosedDeal = { id?: string; ownerId?: string; rep: string; account: string; value: number; closeDate: string; source: string; outcome: 'Won' | 'Lost'; lossReason: string };
+export type Deal = { id?: string; ownerId?: string; rep: string; account: string; stage: number; daysInStage: number; daysToClose: number; value: number; movement: string; status: string; notes: string };
+export type TeamMember = { id?: string; name: string; email: string; role: string; level?: 1 | 2 | 3; status: string; lastActive: string };
 export type AIResearch = {
   companyBackground?: string;
   estimatedRevenue?: string;
@@ -30,6 +30,7 @@ export type AIResearch = {
   decisionMaker?: string;
   buyingPotential?: string;
   buyingPotentialReason?: string;
+  sources?: { title: string; url: string }[];
   raw?: string;
 };
 export type Prospect = {
@@ -37,7 +38,7 @@ export type Prospect = {
   tags: string[]; employees: string; opportunities: number; totalValue: number; painPoints: string[];
   // Set on prospects added through the Add Prospect form.
   contact?: string; authority?: string; itBudget?: string; hrBudget?: string; timeline?: string;
-  currentSystem?: string; currentModule?: string; aiResearch?: AIResearch | null; watched?: boolean;
+  ownerId?: string; currentSystem?: string; currentModule?: string; aiResearch?: AIResearch | null; watched?: boolean;
 };
 export type ProposalStatus = 'Draft' | 'Pending Review' | 'Approved' | 'Reject & Revise' | 'Reject & Close' | 'Superseded';
 export type Proposal = {
@@ -45,6 +46,7 @@ export type Proposal = {
   company: string; deal: string; value: number;
   submittedBy: string; owner: string; generatedDate: string; submittedDate: string;
   status: ProposalStatus; reviewer: string; reviewedDate: string;
+  ownerId?: string; submittedById?: string; reviewerId?: string;
   rejectionReason: string; reviewNote: string; lastUpdated: string;
   sections: { executive: string; solution: string; commercials: string };
   /* Post-approval outcome (v10). Only meaningful once status is Approved. */
@@ -295,9 +297,10 @@ function read<T>(key: string, fallback: T): T {
 
 function write(collection: DataCollection, value: unknown[]) {
   if (!canStore()) return;
+  const previous = read<unknown[]>(STORAGE_KEY_BY_COLLECTION[collection], []);
   localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(value));
   window.dispatchEvent(new Event('rams:data-changed'));
-  queueDataSync(collection, value);
+  queueDataSync(collection, previous, value);
 }
 
 /* ── PROPOSALS ─────────────────────────────────────────── */

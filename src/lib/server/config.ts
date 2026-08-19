@@ -3,9 +3,11 @@ import 'server-only';
 import type { DataSource } from '@/lib/integrations';
 
 export type AnthropicEffort = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+export type AiProvider = 'gemini' | 'anthropic';
 
 const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-5';
 const DEFAULT_ANTHROPIC_EFFORT: AnthropicEffort = 'medium';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 const DEFAULT_LARK_BASE_URL = 'https://open.larksuite.com';
 const PLACEHOLDER = /^(?:paste|replace|your|todo|changeme|example|<|\{)/i;
 const EFFORTS = new Set<AnthropicEffort>(['low', 'medium', 'high', 'xhigh', 'max']);
@@ -23,10 +25,12 @@ function positiveInt(name: string, fallback: number, ceiling: number): number {
 }
 
 function dataSource(): DataSource {
-  // NEXT_PUBLIC_DATA_SOURCE is accepted temporarily so existing local files do
-  // not break. New setups should use server-only DATA_SOURCE.
   const value = env('DATA_SOURCE') || env('NEXT_PUBLIC_DATA_SOURCE') || 'seed';
-  return value === 'lark' ? 'lark' : 'seed';
+  return value === 'supabase' ? 'supabase' : 'seed';
+}
+
+function aiProvider(): AiProvider {
+  return env('AI_PROVIDER') === 'anthropic' ? 'anthropic' : 'gemini';
 }
 
 function effort(): AnthropicEffort {
@@ -65,6 +69,74 @@ export function getAnthropicStatus() {
     missing,
   };
 }
+
+export function getGeminiConfig() {
+  return {
+    apiKey: env('GEMINI_API_KEY'),
+    model: env('GEMINI_MODEL') || DEFAULT_GEMINI_MODEL,
+    defaultMaxTokens: positiveInt('GEMINI_DEFAULT_MAX_TOKENS', 4096, 65_536),
+    maxTokensCeiling: positiveInt('GEMINI_MAX_TOKENS', 16_000, 65_536),
+    timeoutMs: positiveInt('GEMINI_TIMEOUT_MS', 90_000, 300_000),
+  };
+}
+
+export function getAiConfig() {
+  const provider = aiProvider();
+  return provider === 'anthropic'
+    ? { provider, ...getAnthropicConfig() }
+    : { provider, ...getGeminiConfig() };
+}
+
+export function getAiStatus() {
+  const config = getAiConfig();
+  const missing = config.apiKey
+    ? []
+    : [config.provider === 'gemini' ? 'GEMINI_API_KEY' : 'ANTHROPIC_API_KEY'];
+  return {
+    configured: missing.length === 0,
+    provider: config.provider,
+    model: config.model,
+    missing,
+  };
+}
+
+export function getSupabaseConfig() {
+  return {
+    url: env('NEXT_PUBLIC_SUPABASE_URL'),
+    publishableKey: env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
+    dataSource: dataSource(),
+  };
+}
+
+export function getSupabaseStatus() {
+  const config = getSupabaseConfig();
+  const missing = [
+    !config.url && 'NEXT_PUBLIC_SUPABASE_URL',
+    !config.publishableKey && 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
+  ].filter((name): name is string => Boolean(name));
+  return {
+    configured: missing.length === 0,
+    ready: config.dataSource === 'seed' || missing.length === 0,
+    dataSource: config.dataSource,
+    missing: config.dataSource === 'supabase' ? missing : [],
+  };
+}
+
+export function getResearchConfig() {
+  return {
+    apiKey: env('SERPAPI_API_KEY'),
+    timeoutMs: positiveInt('SERPAPI_TIMEOUT_MS', 30_000, 90_000),
+  };
+}
+
+export function getResearchStatus() {
+  const config = getResearchConfig();
+  return {
+    configured: Boolean(config.apiKey),
+    provider: 'SerpApi Brave AI Mode' as const,
+    missing: config.apiKey ? [] : ['SERPAPI_API_KEY'],
+  };
+}
 export function getLarkConfig() {
   return {
     appId: env('LARK_APP_ID'),
@@ -74,7 +146,6 @@ export function getLarkConfig() {
     primaryField: env('LARK_PRIMARY_FIELD'),
     baseUrl: larkBaseUrl(),
     timeoutMs: positiveInt('LARK_TIMEOUT_MS', 15_000, 120_000),
-    dataSource: dataSource(),
   };
 }
 
@@ -91,7 +162,7 @@ export function getLarkStatus() {
   return {
     configured,
     ready: configured && Boolean(config.tableId),
-    dataSource: config.dataSource,
+    dataSource: 'inactive' as const,
     tableConfigured: Boolean(config.tableId),
     primaryFieldConfigured: Boolean(config.primaryField),
     missing,

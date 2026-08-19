@@ -1,34 +1,11 @@
 'use client';
-/* ═══════════════════════════════════════════════════════════
-   Sign in / register.
-
-   ⚠️ KNOWN, STILL OPEN (carried over from the design doc, deliberately
-   not fixed in this round): accounts are kept in localStorage and the
-   password is compared in plain text. This needs to move to a real
-   auth backend — do not delete this note.
-═══════════════════════════════════════════════════════════ */
+/* Supabase Auth is the active login path. Seed mode keeps an offline,
+   password-free persona picker so the demo remains usable without keys. */
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { HOME, levelForRole, setSession, getSession, type Session } from '@/lib/role';
-
-type Account = Session & {
-  id: string;
-  password: string;
-  initials: string;
-  createdAt: string;
-};
-
-function getAccounts(): Account[] {
-  try {
-    return JSON.parse(localStorage.getItem('ramssolAccounts') || '[]');
-  } catch {
-    return [];
-  }
-}
-function saveAccounts(accounts: Account[]) {
-  localStorage.setItem('ramssolAccounts', JSON.stringify(accounts));
-}
+import { HOME, setSession, getSession, type Level } from '@/lib/role';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 const EyeIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
@@ -72,7 +49,8 @@ type Alert = { type: 'error' | 'success'; msg: string } | null;
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<'login' | 'register'>('login');
-  const [noAccounts, setNoAccounts] = useState(false);
+  const [source, setSource] = useState<'loading' | 'seed' | 'supabase'>('loading');
+  const [busy, setBusy] = useState(false);
 
   const [loginAlert, setLoginAlert] = useState<Alert>(null);
   const [regAlert, setRegAlert] = useState<Alert>(null);
@@ -84,7 +62,6 @@ export default function LoginPage() {
   const [first, setFirst] = useState('');
   const [last, setLast] = useState('');
   const [regEmail, setRegEmail] = useState('');
-  const [role, setRole] = useState('');
   const [regPwd, setRegPwd] = useState('');
   const [regConfirm, setRegConfirm] = useState('');
   const [showRegPwd, setShowRegPwd] = useState(false);
@@ -92,11 +69,25 @@ export default function LoginPage() {
   const [terms, setTerms] = useState(false);
 
   useEffect(() => {
-    if (getSession()) {
-      router.replace(HOME);
-      return;
-    }
-    setNoAccounts(getAccounts().length === 0);
+    let alive = true;
+    fetch('/api/data', { cache: 'no-store' })
+      .then((response) => response.json())
+      .then(async (status) => {
+        if (!alive) return;
+        const nextSource = status.dataSource === 'supabase' ? 'supabase' : 'seed';
+        setSource(nextSource);
+        if (nextSource === 'seed' && getSession()) router.replace(HOME);
+        if (nextSource === 'supabase') {
+          const { data } = await createSupabaseBrowserClient().auth.getClaims();
+          if (data?.claims?.sub) router.replace(HOME);
+        }
+      })
+      .catch(() => {
+        if (alive) setLoginAlert({ type: 'error', msg: 'Could not read the login configuration.' });
+      });
+    return () => {
+      alive = false;
+    };
   }, [router]);
 
   function switchTab(next: 'login' | 'register') {
@@ -105,24 +96,29 @@ export default function LoginPage() {
     setRegAlert(null);
   }
 
-  const handleLogin = useCallback(() => {
+  const handleLogin = useCallback(async () => {
+    if (source !== 'supabase' || busy) return;
     if (!email.trim() || !password) {
       setLoginAlert({ type: 'error', msg: '⚠️ Please enter your email and password.' });
       return;
     }
-    // ⚠️ Plain-text comparison — see the file header note.
-    const user = getAccounts().find(
-      (a) => (a.email || '').toLowerCase() === email.trim().toLowerCase() && a.password === password
-    );
-    if (!user) {
-      setLoginAlert({ type: 'error', msg: '❌ Incorrect email or password.' });
+    setBusy(true);
+    setLoginAlert(null);
+    const { error } = await createSupabaseBrowserClient().auth.signInWithPassword({
+      email: email.trim(),
+      password,
+    });
+    setBusy(false);
+    if (error) {
+      setLoginAlert({ type: 'error', msg: `❌ ${error.message}` });
       return;
     }
-    setSession(user);
     router.replace(HOME);
-  }, [email, password, router]);
+    router.refresh();
+  }, [source, busy, email, password, router]);
 
-  const handleRegister = useCallback(() => {
+  const handleRegister = useCallback(async () => {
+    if (source !== 'supabase' || busy) return;
     if (!first.trim() || !last.trim()) {
       setRegAlert({ type: 'error', msg: '⚠️ Please enter your full name.' });
       return;
@@ -131,12 +127,8 @@ export default function LoginPage() {
       setRegAlert({ type: 'error', msg: '⚠️ Valid email required.' });
       return;
     }
-    if (!role) {
-      setRegAlert({ type: 'error', msg: '⚠️ Please select a role.' });
-      return;
-    }
     if (regPwd.length < 8) {
-      setRegAlert({ type: 'error', msg: '⚠️ Password > 8 chars.' });
+      setRegAlert({ type: 'error', msg: '⚠️ Use at least 8 characters.' });
       return;
     }
     if (regPwd !== regConfirm) {
@@ -148,39 +140,65 @@ export default function LoginPage() {
       return;
     }
 
-    const accounts = getAccounts();
-    if (accounts.find((a) => (a.email || '').toLowerCase() === regEmail.toLowerCase())) {
-      setRegAlert({ type: 'error', msg: '❌ Account exists.' });
+    setBusy(true);
+    setRegAlert(null);
+    const { data, error } = await createSupabaseBrowserClient().auth.signUp({
+      email: regEmail.trim(),
+      password: regPwd,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(HOME)}`,
+        data: { first_name: first.trim(), last_name: last.trim() },
+      },
+    });
+    setBusy(false);
+    if (error) {
+      setRegAlert({ type: 'error', msg: `❌ ${error.message}` });
       return;
     }
-
-    // Map the chosen role to its starting access level (Design Doc §2).
-    const newUser: Account = {
-      id: `usr_${Date.now()}`,
-      firstName: first.trim(),
-      lastName: last.trim(),
-      email: regEmail,
-      role,
-      password: regPwd,
-      level: levelForRole(role),
-      initials: (first.trim()[0] + last.trim()[0]).toUpperCase(),
-      createdAt: new Date().toISOString(),
-    };
-    accounts.push(newUser);
-    saveAccounts(accounts);
-    setSession(newUser);
+    if (!data.session) {
+      setRegAlert({ type: 'success', msg: 'Check your email to confirm the account, then sign in.' });
+      return;
+    }
     router.replace(HOME);
-  }, [first, last, regEmail, role, regPwd, regConfirm, terms, router]);
+    router.refresh();
+  }, [source, busy, first, last, regEmail, regPwd, regConfirm, terms, router]);
+
+  const resetPassword = useCallback(async () => {
+    if (!email.trim()) {
+      setLoginAlert({ type: 'error', msg: 'Enter your email first, then request a reset.' });
+      return;
+    }
+    setBusy(true);
+    const { error } = await createSupabaseBrowserClient().auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/auth/callback?next=/auth/update-password`,
+    });
+    setBusy(false);
+    setLoginAlert(error
+      ? { type: 'error', msg: error.message }
+      : { type: 'success', msg: 'Password reset instructions have been sent.' });
+  }, [email]);
+
+  function continueSeed(
+    firstName: string,
+    lastName: string,
+    role: string,
+    level: Level,
+    emailAddress: string
+  ) {
+    setSession({ firstName, lastName, role, level, email: emailAddress });
+    router.replace(HOME);
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Enter') return;
-      if (tab === 'login') handleLogin();
-      else handleRegister();
+      if (source !== 'supabase') return;
+      if (tab === 'login') void handleLogin();
+      else void handleRegister();
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [tab, handleLogin, handleRegister]);
+  }, [source, tab, handleLogin, handleRegister]);
 
   // Password strength meter
   let score = 0;
@@ -211,16 +229,44 @@ export default function LoginPage() {
             <div className="card-tagline">Your AI copilot for winning more deals, faster.</div>
           </div>
 
-          <div className="tab-row">
-            <button className={`tab${tab === 'login' ? ' active' : ''}`} onClick={() => switchTab('login')}>
-              Sign In
-            </button>
-            <button className={`tab${tab === 'register' ? ' active' : ''}`} onClick={() => switchTab('register')}>
-              Create Account
-            </button>
-          </div>
+          {source === 'supabase' && (
+            <div className="tab-row">
+              <button className={`tab${tab === 'login' ? ' active' : ''}`} onClick={() => switchTab('login')}>
+                Sign In
+              </button>
+              <button className={`tab${tab === 'register' ? ' active' : ''}`} onClick={() => switchTab('register')}>
+                Create Account
+              </button>
+            </div>
+          )}
 
           <div className="card-body">
+            {source !== 'supabase' ? (
+              <div className="form-view active">
+                <div className="form-title">
+                  {source === 'loading' ? 'Checking your workspace…' : 'Offline seed demo'}
+                </div>
+                <div className="form-subtitle">
+                  {source === 'loading'
+                    ? 'Reading the server configuration.'
+                    : 'Choose a password-free test persona. Remote authorization is disabled in seed mode.'}
+                </div>
+                {source === 'seed' && (
+                  <div style={{ display: 'grid', gap: 10 }}>
+                    <button className="btn-primary" onClick={() => continueSeed('Lim', 'LG', 'Sales Representative', 1, 'lim.lg@ramssol.com')}>
+                      Continue as Level 1 · Sales Rep
+                    </button>
+                    <button className="btn-secondary" onClick={() => continueSeed('Sharon', 'Lim', 'Sales Manager', 2, 'sharon@ramssol.com')}>
+                      Continue as Level 2 · Reviewer
+                    </button>
+                    <button className="btn-secondary" onClick={() => continueSeed('Brian', 'Liew', 'Sales Operations', 3, 'brian.liew@ramssol.com')}>
+                      Continue as Level 3 · Administrator
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <>
             {/* ── SIGN IN ── */}
             <div className={`form-view${tab === 'login' ? ' active' : ''}`}>
               <div className="form-title">Welcome back</div>
@@ -275,30 +321,19 @@ export default function LoginPage() {
               </div>
 
               <div className="forgot-row">
-                <a
+                <button
+                  type="button"
                   className="forgot-link"
-                  onClick={() =>
-                    setLoginAlert({
-                      type: 'success',
-                      msg: '🔐 Password reset will be handled via Lark SSO in the final phase. For now, ask your administrator or register a new account.',
-                    })
-                  }
+                  onClick={() => void resetPassword()}
                 >
                   Forgot password?
-                </a>
+                </button>
               </div>
 
-              <button className="btn-primary" onClick={handleLogin}>
-                <span>Sign In</span>
+              <button className="btn-primary" disabled={busy} onClick={() => void handleLogin()}>
+                <span>{busy ? 'Signing in…' : 'Sign In'}</span>
                 <Arrow id="login-arrow" />
               </button>
-
-              {noAccounts && (
-                <div className="demo-hint">
-                  <strong>Demo accounts ready.</strong> No accounts found yet — register one above,
-                  or use any email/password after creating an account.
-                </div>
-              )}
             </div>
 
             {/* ── REGISTER ── */}
@@ -364,33 +399,8 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="field">
-                <label htmlFor="reg-role">Role / Department</label>
-                <div className="input-wrap">
-                  <span className="input-icon">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                      <rect x="2" y="7" width="20" height="14" rx="2" />
-                      <path d="M16 7V5a2 2 0 0 0-4 0v2M8 7V5a2 2 0 0 0-2-2v0a2 2 0 0 0-2 2v2" />
-                    </svg>
-                  </span>
-                  <select id="reg-role" value={role} onChange={(e) => setRole(e.target.value)}>
-                    <option value="" disabled>
-                      Select your role
-                    </option>
-                    <optgroup label="Sales Roles (Design Doc §2)">
-                      <option value="Sales Representative">Sales Representative — Level 1 (Data Entry)</option>
-                      <option value="Sales Manager">Sales Manager — Level 2 (Reviewer)</option>
-                      <option value="Sales Operations">Sales Operations — Level 3 (Administrator)</option>
-                    </optgroup>
-                    <optgroup label="Other">
-                      <option value="Pre-Sales">Pre-Sales</option>
-                      <option value="COO Office">COO Office</option>
-                      <option value="Business Development">Business Development</option>
-                      <option value="Solutions Architect">Solutions Architect</option>
-                      <option value="Other">Other</option>
-                    </optgroup>
-                  </select>
-                </div>
+              <div className="demo-hint">
+                New accounts start as <strong>Level 1 · Sales Representative</strong>. A Level 3 administrator can assign reviewer or administrator access after signup.
               </div>
 
               <div className="field">
@@ -466,14 +476,16 @@ export default function LoginPage() {
                 </label>
               </div>
 
-              <button className="btn-primary" onClick={handleRegister}>
-                <span>Create Account</span>
+              <button className="btn-primary" disabled={busy} onClick={() => void handleRegister()}>
+                <span>{busy ? 'Creating account…' : 'Create Account'}</span>
                 <Arrow id="register-arrow" />
               </button>
             </div>
+              </>
+            )}
           </div>
 
-          <div className="card-footer">
+          {source === 'supabase' && <div className="card-footer">
             {tab === 'login' ? (
               <div className="footer-text">
                 Don&apos;t have an account?{' '}
@@ -489,7 +501,7 @@ export default function LoginPage() {
                 </span>
               </div>
             )}
-          </div>
+          </div>}
         </div>
       </div>
     </>

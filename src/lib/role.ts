@@ -31,6 +31,7 @@ export const PAGE_LEVELS: Record<string, Level> = {
 };
 
 export type Session = {
+  userId?: string;
   firstName?: string;
   lastName?: string;
   email?: string;
@@ -39,7 +40,6 @@ export type Session = {
 };
 
 const SESSION_KEY = 'ramssolSession';
-const PROFILE_KEY = 'ramssolProfile';
 
 function parse<T>(raw: string | null): T | null {
   if (!raw) return null;
@@ -64,11 +64,6 @@ export function clearSession() {
   sessionStorage.removeItem(SESSION_KEY);
 }
 
-export function getProfile(): { name?: string; email?: string; role?: string } | null {
-  if (typeof window === 'undefined') return null;
-  return parse(localStorage.getItem(PROFILE_KEY));
-}
-
 /** Identity of the signed-in user (Doc §3.8 — "My Proposals shows own only"). */
 export function currentUser(): string {
   const s = getSession();
@@ -76,8 +71,6 @@ export function currentUser(): string {
     const name = `${s.firstName || ''} ${s.lastName || ''}`.trim();
     if (name) return name;
   }
-  const p = getProfile();
-  if (p?.name && p.name !== 'User') return p.name;
   return 'Lim LG';
 }
 
@@ -90,7 +83,7 @@ export function currentLevel(): Level {
 
 export function currentRole(): string {
   const s = getSession();
-  return s?.role || getProfile()?.role || 'Sales Representative';
+  return s?.role || 'Sales Representative';
 }
 
 /** Level from a role name, used at sign-up / sign-in. */

@@ -18,6 +18,7 @@ import {
   type ProposalStatus,
 } from '@/lib/data';
 import { notify } from '@/lib/notify';
+import { isRemoteDataSource } from '@/lib/data-sync';
 
 const SECTION_LABELS: Record<string, string> = {
   executive: 'Executive Summary',
@@ -86,7 +87,7 @@ const DEFAULT_SECTIONS: Record<string, string> = {
     '1. Schedule a technical demo (30 mins) with your IT team\n2. Conduct a 2-week proof-of-concept pilot\n3. Finalize commercial terms and SLA\n4. Sign MOU and kick off implementation',
 };
 
-const genId = (prefix: string) => `${prefix}-${Date.now().toString().slice(-7)}`;
+const genId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const todayUK = () =>
   new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const dealTitle = (p: Proposal) => p.deal + (p.version > 1 ? ` (v${p.version})` : '');
@@ -155,6 +156,10 @@ function ProposalsPage() {
       toast('⚠️ Only drafts can be deleted', true);
       return;
     }
+    if (isRemoteDataSource()) {
+      toast('Proposal versions are permanent in Supabase, including drafts.', true);
+      return;
+    }
     if (!confirm(`Delete draft proposal for "${p.company}"? This cannot be undone.`)) return;
     const next = store.filter((x) => x.id !== id);
     saveProposals(next);
@@ -202,7 +207,8 @@ function ProposalsPage() {
     const id = genId('PROP');
     const created: Proposal = {
       id,
-      caseId: genId('CASE'),
+      // Supabase assigns collision-free case numbers. Seed mode remains fully offline.
+      caseId: isRemoteDataSource() ? '' : genId('CASE'),
       opportunityId: o.oppId,
       version: 1,
       company: o.account,
