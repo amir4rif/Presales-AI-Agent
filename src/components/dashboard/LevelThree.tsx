@@ -11,13 +11,13 @@ import { BADGE, Card, DOT, Empty, KpiRow, RepBars, plural, rankReps, Arrow } fro
 const ADMIN_TOOLS = [
   { n: '01', title: 'User Management', desc: 'Invite members, assign roles and set access levels.', cta: 'Manage Team' },
   { n: '02', title: 'Pipeline & SLA',  desc: 'Define stage thresholds that drive stalled-deal alerts.', cta: 'Configure' },
-  { n: '03', title: 'Integrations',    desc: 'AI and Lark Base connection settings.', cta: 'Connect' },
+  { n: '03', title: 'Integrations',    desc: 'Gemini and Supabase connection readiness.', cta: 'Connect' },
   { n: '04', title: 'Data Export',     desc: 'Export the Proposal Store, team access levels and SLAs.', cta: 'Export' },
 ];
 
 export default function LevelThree({ s }: { s: Stats }) {
   const router = useRouter();
-  const { ai, lark, loading } = useIntegrations();
+  const { ai, supabase, loading } = useIntegrations();
 
   const team = getTeam();
   const caseCount = new Set(s.store.map((p) => p.caseId)).size;
@@ -58,18 +58,18 @@ export default function LevelThree({ s }: { s: Stats }) {
         ? 'Checking…'
         : ai?.configured
           ? `Held on the server — ${ai.model}`
-          : 'ANTHROPIC_API_KEY not set in .env.local — AI features disabled',
+          : 'GEMINI_API_KEY not set in .env.local — AI features disabled',
     },
     {
-      ok: lark?.dataSource === 'seed' || !!lark?.ready,
-      name: 'Lark Base',
+      ok: !!supabase?.ready,
+      name: 'Supabase Database & Auth',
       sub: loading
         ? 'Checking…'
-        : lark?.dataSource === 'seed'
-          ? 'Integration prepared — mock data remains active'
-          : lark?.ready
-            ? 'Server configuration present — Lark data mode active'
-            : `Missing: ${lark?.missing?.join(', ') || 'Lark server values'}`,
+        : supabase?.dataSource === 'seed'
+          ? 'Integration prepared — offline seed data remains active'
+          : supabase?.ready
+            ? 'Public configuration present — Auth and RLS active'
+            : `Missing: ${supabase?.missing?.join(', ') || 'Supabase public values'}`,
     },
     {
       ok: !!sla,

@@ -1,6 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk';
 import { NextResponse } from 'next/server';
-import { getAnthropicConfig, getAnthropicStatus, type AnthropicEffort } from '@/lib/server/config';
+import { AiProviderError, generateAi } from '@/lib/server/ai-provider';
+import { getAiConfig, getAiStatus, type AnthropicEffort } from '@/lib/server/config';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -21,18 +21,18 @@ type Body = {
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, {
     status,
-    headers: { 'Cache-Control': 'no-store' },
+    headers: { 'Cache-Control': 'private, no-store' },
   });
 }
-/** Readiness only: this never calls Anthropic and never returns a secret. */
+/** Readiness only: this never calls either provider and never returns a key. */
 export async function GET() {
-  return json(getAnthropicStatus());
+  return json(getAiStatus());
 }
 
 export async function POST(request: Request) {
-  const config = getAnthropicConfig();
+  const config = getAiConfig();
   if (!config.apiKey) {
-    console.error('[api/generate] ANTHROPIC_API_KEY is not configured');
+    console.error(`[api/generate] ${config.provider} key is not configured`);
     return json({ error: 'AI is not configured on the server yet.' }, 503);
   }
 
@@ -82,56 +82,44 @@ export async function POST(request: Request) {
   const maxTokens = Number.isFinite(requestedMax)
     ? Math.min(Math.max(Math.trunc(requestedMax), 1), config.maxTokensCeiling)
     : defaultMax;
-  const effort = body.effort || config.effort;
-  const client = new Anthropic({ apiKey: config.apiKey });
+  const effort = body.effort || ('effort' in config ? config.effort : 'medium');
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
 
   try {
-    const response = await client.messages.create(
-      {
-        model: config.model,
-        max_tokens: maxTokens,
-        ...(body.system ? { system: body.system } : {}),
-        messages,
-        output_config: { effort },
-      },
-      { signal: controller.signal }
-    );
-
-    if (response.stop_reason === 'refusal') {
-      return json({ error: 'The model declined this request. Try rephrasing it.' }, 422);
-    }
-
-    const text = response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
-      .map((block) => block.text)
-      .join('');
-
-    if (!text) return json({ error: 'The AI service returned no text.' }, 502);
-    return json({ text, model: response.model });
+    const response = await generateAi({
+      messages,
+      system: body.system,
+      maxTokens,
+      effort,
+      signal: controller.signal,
+    });
+    return json(response);
   } catch (error) {
     console.error('[api/generate] request failed', {
       name: error instanceof Error ? error.name : 'UnknownError',
-      status: error instanceof Anthropic.APIError ? error.status : undefined,
+      provider: error instanceof AiProviderError ? error.provider : config.provider,
+      kind: error instanceof AiProviderError ? error.kind : undefined,
+      status: error instanceof AiProviderError ? error.status : undefined,
     });
 
-    if (
-      error instanceof Anthropic.APIUserAbortError ||
-      (error instanceof DOMException && error.name === 'AbortError')
-    ) {
-      return json({ error: 'The AI request timed out.' }, 504);
-    }
-    if (error instanceof Anthropic.AuthenticationError) {
-      return json({ error: 'The server-side Anthropic key was rejected.' }, 502);
-    }
-    if (error instanceof Anthropic.RateLimitError) {
-      return json({ error: 'AI is busy right now. Please try again in a moment.' }, 429);
-    }
-    if (error instanceof Anthropic.APIConnectionError) {
-      return json({ error: 'Could not reach the AI service.' }, 504);
-    }
-    if (error instanceof Anthropic.APIError) {
+    if (error instanceof AiProviderError) {
+      if (error.kind === 'timeout') return json({ error: 'The AI request timed out.' }, 504);
+      if (error.kind === 'authentication') {
+        return json({ error: `The server-side ${error.provider} key was rejected.` }, 502);
+      }
+      if (error.kind === 'rate_limit') {
+        const message = error.provider === 'gemini'
+          ? 'Gemini’s free-tier request limit has been reached. Please try again after the quota window resets.'
+          : 'The AI request limit has been reached. Please try again later.';
+        return json({ error: message }, 429);
+      }
+      if (error.kind === 'refusal') {
+        return json({ error: 'The model declined this request. Try rephrasing it.' }, 422);
+      }
+      if (error.kind === 'connection') {
+        return json({ error: `Could not reach ${error.provider}.` }, 504);
+      }
       return json({ error: 'The AI service returned an error.' }, 502);
     }
     return json({ error: 'Unexpected error while generating.' }, 500);

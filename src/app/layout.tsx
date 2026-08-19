@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-page-custom-font -- Avoid a build-time font download; Vercel loads these at runtime. */
 import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import AppShell from '@/components/AppShell';
