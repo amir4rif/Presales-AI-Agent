@@ -15,6 +15,8 @@ import type { Database, Json, Tables } from '@/lib/supabase/database.types';
 
 type Client = SupabaseClient<Database>;
 type ProfileRow = Tables<'profiles'>;
+type ProfileLookupRow = Pick<ProfileRow, 'id' | 'full_name' | 'email'>;
+type ProfilesLoader = () => Promise<ProfileLookupRow[]>;
 
 export type DataChangeSet = {
   upserts: unknown[];
@@ -80,20 +82,21 @@ function accessLevelForRole(role: string): 1 | 2 | 3 {
   return 1;
 }
 
-function profileMap(profiles: ProfileRow[]) {
+function profileMap(profiles: ProfileLookupRow[]) {
   return new Map(profiles.map((profile) => [profile.full_name.trim().toLowerCase(), profile.id]));
 }
 
-function resolveOwner(
+async function resolveOwner(
   item: Record<string, unknown>,
   nameField: string,
   idField: string,
-  profiles: Map<string, string>,
+  loadProfiles: ProfilesLoader,
   fallback: string
 ) {
   const explicit = str(item[idField]);
   if (explicit) return explicit;
-  return profiles.get(str(item[nameField]).trim().toLowerCase()) || fallback;
+  const names = profileMap(await loadProfiles());
+  return names.get(str(item[nameField]).trim().toLowerCase()) || fallback;
 }
 
 function proposalToDomain(row: Tables<'proposals'>): Proposal {
@@ -226,14 +229,14 @@ async function upsertProposal(
   client: Client,
   value: unknown,
   userId: string,
-  names: Map<string, string>
+  loadProfiles: ProfilesLoader
 ) {
   const item = record(value);
-  const submittedById = resolveOwner(item, 'submittedBy', 'submittedById', names, userId);
-  const ownerId = resolveOwner(item, 'owner', 'ownerId', names, userId);
+  const submittedById = await resolveOwner(item, 'submittedBy', 'submittedById', loadProfiles, userId);
+  const ownerId = await resolveOwner(item, 'owner', 'ownerId', loadProfiles, userId);
   const reviewerName = str(item.reviewer);
   const reviewerId = reviewerName
-    ? resolveOwner(item, 'reviewer', 'reviewerId', names, userId)
+    ? await resolveOwner(item, 'reviewer', 'reviewerId', loadProfiles, userId)
     : null;
   const row: Database['public']['Tables']['proposals']['Insert'] = {
     company: str(item.company),
@@ -269,12 +272,12 @@ async function upsertDeal(
   client: Client,
   value: unknown,
   userId: string,
-  names: Map<string, string>
+  loadProfiles: ProfilesLoader
 ) {
   const item = record(value);
   const id = str(item.id);
   const row: Database['public']['Tables']['deals']['Insert'] = {
-    owner_id: resolveOwner(item, 'rep', 'ownerId', names, userId),
+    owner_id: await resolveOwner(item, 'rep', 'ownerId', loadProfiles, userId),
     rep: str(item.rep),
     account: str(item.account),
     stage: Math.min(8, Math.max(1, Math.trunc(num(item.stage, 1)))),
@@ -299,12 +302,12 @@ async function upsertClosedDeal(
   client: Client,
   value: unknown,
   userId: string,
-  names: Map<string, string>
+  loadProfiles: ProfilesLoader
 ) {
   const item = record(value);
   const id = str(item.id);
   const row: Database['public']['Tables']['closed_deals']['Insert'] = {
-    owner_id: resolveOwner(item, 'rep', 'ownerId', names, userId),
+    owner_id: await resolveOwner(item, 'rep', 'ownerId', loadProfiles, userId),
     rep: str(item.rep),
     account: str(item.account),
     value: Math.max(0, num(item.value)),
@@ -352,9 +355,11 @@ async function upsertProspect(client: Client, value: unknown, userId: string) {
   fail('Could not save prospect', response.error);
 }
 
-async function updateProfile(client: Client, value: unknown, profiles: ProfileRow[]) {
+async function updateProfile(client: Client, value: unknown, loadProfiles: ProfilesLoader) {
   const item = record(value);
-  const id = str(item.id) || profiles.find((profile) => profile.email === str(item.email))?.id;
+  const explicitId = str(item.id);
+  const email = str(item.email);
+  const id = explicitId || (email ? (await loadProfiles()).find((profile) => profile.email === email)?.id : undefined);
   if (!id) throw new Error('A profile update needs an existing profile id or email.');
   const name = str(item.name);
   const role = str(item.role, 'Sales Representative');
@@ -403,17 +408,24 @@ export async function writeSupabaseChanges(
   collection: DataCollection,
   changes: DataChangeSet
 ) {
-  const profilesResponse = await client.from('profiles').select('*');
-  fail('Could not resolve team ownership', profilesResponse.error);
-  const profiles = profilesResponse.data || [];
-  const names = profileMap(profiles);
+  let profilesPromise: Promise<ProfileLookupRow[]> | null = null;
+  const loadProfiles: ProfilesLoader = () => {
+    if (!profilesPromise) {
+      profilesPromise = (async () => {
+        const response = await client.from('profiles').select('id, full_name, email');
+        fail('Could not resolve team ownership', response.error);
+        return response.data || [];
+      })();
+    }
+    return profilesPromise;
+  };
 
   for (const value of changes.upserts) {
-    if (collection === 'proposals') await upsertProposal(client, value, userId, names);
-    else if (collection === 'deals') await upsertDeal(client, value, userId, names);
-    else if (collection === 'closedDeals') await upsertClosedDeal(client, value, userId, names);
+    if (collection === 'proposals') await upsertProposal(client, value, userId, loadProfiles);
+    else if (collection === 'deals') await upsertDeal(client, value, userId, loadProfiles);
+    else if (collection === 'closedDeals') await upsertClosedDeal(client, value, userId, loadProfiles);
     else if (collection === 'prospects') await upsertProspect(client, value, userId);
-    else await updateProfile(client, value, profiles);
+    else await updateProfile(client, value, loadProfiles);
   }
 
   await deleteRecords(client, collection, changes.deletes);
