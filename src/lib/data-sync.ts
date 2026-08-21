@@ -237,17 +237,23 @@ export function queueDataSync(
     });
 }
 
-export function subscribeToProposalChanges() {
+/* Only tables people edit concurrently need live pushes: proposals (shared review)
+   and deals (pipeline, worked by multiple reps). Prospects, closed deals, and
+   profiles are single-actor edits and refresh on save without realtime. */
+const REALTIME_TABLES = ['proposals', 'deals'] as const;
+
+export function subscribeToRemoteChanges() {
   if (!isRemoteDataSource()) return () => undefined;
   const supabase = createSupabaseBrowserClient();
-  const channel = supabase
-    .channel(`proposal-store-${crypto.randomUUID()}`)
-    .on(
+  let channel = supabase.channel(`remote-store-${crypto.randomUUID()}`);
+  for (const table of REALTIME_TABLES) {
+    channel = channel.on(
       'postgres_changes',
-      { event: '*', schema: 'public', table: 'proposals' },
+      { event: '*', schema: 'public', table },
       () => void refreshRemoteData()
-    )
-    .subscribe();
+    );
+  }
+  channel.subscribe();
 
   return () => {
     void supabase.removeChannel(channel);

@@ -7,7 +7,7 @@ import Topbar from './Topbar';
 import { useToast } from './Toast';
 import { titleFor } from '@/lib/nav';
 import { LEVEL_NAME, currentLevel, currentRole, currentUser, getSession, type Level } from '@/lib/role';
-import { initializeDataLayer, subscribeToProposalChanges, type DataLayerStatus } from '@/lib/data-sync';
+import { initializeDataLayer, subscribeToRemoteChanges, type DataLayerStatus } from '@/lib/data-sync';
 
 const BARE_ROUTES = ['/login', '/auth/update-password'];
 
@@ -73,7 +73,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (bare || dataStatus?.source !== 'supabase') return;
-    return subscribeToProposalChanges();
+    return subscribeToRemoteChanges();
   }, [bare, dataStatus?.source]);
 
   useEffect(() => {
