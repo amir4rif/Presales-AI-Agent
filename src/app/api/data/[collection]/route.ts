@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { isDataCollection } from '@/lib/integrations';
 import { getSupabaseStatus } from '@/lib/server/config';
-import { writeSupabaseChanges } from '@/lib/server/supabase-data';
+import { AuthorizationError, writeSupabaseChanges } from '@/lib/server/supabase-data';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
@@ -60,8 +60,9 @@ export async function PUT(
       name: error instanceof Error ? error.name : 'UnknownError',
       message: error instanceof Error ? error.message : 'Unknown error',
     });
-    const message = error instanceof Error ? error.message : `Could not persist ${collection}.`;
-    const denied = /cannot|only|requires|permanent|needs/i.test(message);
-    return json({ error: denied ? message : `Could not persist ${collection} to Supabase.` }, denied ? 403 : 502);
+    if (error instanceof AuthorizationError) {
+      return json({ error: error.message }, 403);
+    }
+    return json({ error: `Could not persist ${collection} to Supabase.` }, 502);
   }
 }

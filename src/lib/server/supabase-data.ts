@@ -23,6 +23,14 @@ export type DataChangeSet = {
   deletes: unknown[];
 };
 
+/** A deliberate, safe-to-show rejection — as opposed to a raw database error. */
+export class AuthorizationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthorizationError';
+  }
+}
+
 function fail(context: string, error: { message: string } | null) {
   if (error) throw new Error(`${context}: ${error.message}`);
 }
@@ -54,7 +62,7 @@ function isoTimestamp(value: unknown): string | null {
 
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    throw new Error('Every data change must be an object.');
+    throw new AuthorizationError('Every data change must be an object.');
   }
   return value as Record<string, unknown>;
 }
@@ -360,7 +368,7 @@ async function updateProfile(client: Client, value: unknown, loadProfiles: Profi
   const explicitId = str(item.id);
   const email = str(item.email);
   const id = explicitId || (email ? (await loadProfiles()).find((profile) => profile.email === email)?.id : undefined);
-  if (!id) throw new Error('A profile update needs an existing profile id or email.');
+  if (!id) throw new AuthorizationError('A profile update needs an existing profile id or email.');
   const name = str(item.name);
   const role = str(item.role, 'Sales Representative');
   const parts = name.trim().split(/\s+/);
@@ -379,14 +387,14 @@ async function updateProfile(client: Client, value: unknown, loadProfiles: Profi
 async function deleteRecords(client: Client, collection: DataCollection, values: unknown[]) {
   if (!values.length) return;
   if (collection === 'proposals') {
-    throw new Error('Proposal versions are permanent and cannot be deleted.');
+    throw new AuthorizationError('Proposal versions are permanent and cannot be deleted.');
   }
   if (collection === 'team') {
-    throw new Error('Authentication users cannot be deleted through the shared data route.');
+    throw new AuthorizationError('Authentication users cannot be deleted through the shared data route.');
   }
   const ids = values.map((value) => str(record(value).id)).filter(Boolean);
   if (ids.length !== values.length) {
-    throw new Error(`Every deleted ${collection} record needs its database id.`);
+    throw new AuthorizationError(`Every deleted ${collection} record needs its database id.`);
   }
   const table = collection === 'closedDeals' ? 'closed_deals' : collection;
   if (table === 'deals') {
