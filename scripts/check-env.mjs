@@ -52,7 +52,15 @@ const requiredMissing = strict
   ? [...new Set([...aiMissing, ...supabaseMissing])]
   : activeMissing;
 
-if (requiredMissing.length) {
+const isVercelProduction = process.env.VERCEL === '1' && process.env.VERCEL_ENV === 'production';
+if (isVercelProduction && source !== 'supabase') {
+  console.error(
+    'Readiness check failed. This is a Vercel production build but DATA_SOURCE is not "supabase" ' +
+      '(it defaults to seed mode, which skips authentication entirely). ' +
+      'Set DATA_SOURCE=supabase and the Supabase env vars in the Vercel project before deploying.'
+  );
+  process.exitCode = 1;
+} else if (requiredMissing.length) {
   console.error(`Readiness check failed. Missing: ${requiredMissing.join(', ')}`);
   process.exitCode = 1;
 } else if (strict) {
