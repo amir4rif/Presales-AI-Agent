@@ -68,7 +68,7 @@ Gemini is the default provider:
 ```dotenv
 AI_PROVIDER=gemini
 GEMINI_API_KEY=
-GEMINI_MODEL=gemini-2.5-flash
+GEMINI_MODEL=gemini-3.6-flash
 ```
 
 `/api/generate` keeps the original browser request and response contract. The provider adapter maps the existing effort option to a Gemini thinking budget and returns a clear `429` message when a free-tier quota is exhausted. Set `AI_PROVIDER=anthropic` and the documented Anthropic variables to use the retained fallback.

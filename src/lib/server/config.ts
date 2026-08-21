@@ -7,7 +7,7 @@ export type AiProvider = 'gemini' | 'anthropic';
 
 const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-5';
 const DEFAULT_ANTHROPIC_EFFORT: AnthropicEffort = 'medium';
-const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+const DEFAULT_GEMINI_MODEL = 'gemini-3.6-flash';
 const DEFAULT_LARK_BASE_URL = 'https://open.larksuite.com';
 const PLACEHOLDER = /^(?:paste|replace|your|todo|changeme|example|<|\{)/i;
 const EFFORTS = new Set<AnthropicEffort>(['low', 'medium', 'high', 'xhigh', 'max']);
