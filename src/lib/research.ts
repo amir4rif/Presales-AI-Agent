@@ -4,6 +4,7 @@ export type ResearchResult = {
   configured: boolean;
   summary?: string;
   sources?: { title: string; url: string }[];
+  error?: string;
 };
 
 export async function researchCompany(
@@ -17,10 +18,13 @@ export async function researchCompany(
       body: JSON.stringify({ query, location }),
     });
     const body = (await response.json().catch(() => ({}))) as ResearchResult & { error?: string };
+    // 503 + configured:false is the one case that actually means "not set up".
     if (response.status === 503 && body.configured === false) return { configured: false };
-    if (!response.ok) throw new Error(body.error || `Research failed (${response.status}).`);
+    if (!response.ok) {
+      return { configured: true, error: body.error || `Research failed (${response.status}).` };
+    }
     return body;
   } catch {
-    return { configured: false };
+    return { configured: true, error: 'Could not reach the prospect-research service.' };
   }
 }

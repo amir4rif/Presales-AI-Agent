@@ -153,9 +153,10 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no extra text.`;
       `${f.name} ${f.website || ''} company profile revenue employees technology`,
       f.location || 'Malaysia'
     );
+    if (web.error) toast(`⚠️ Prospect research failed — ${web.error}`, true);
     const verifiedContext = web.configured && web.summary
       ? `\nVerified web research (use this as the factual source of truth):\n${web.summary}\nSources: ${JSON.stringify(web.sources || [])}\n`
-      : '\nNo verified web research is configured. Clearly label financial and headcount values as estimates.\n';
+      : '\nNo verified web research is available for this run. Clearly label financial and headcount values as estimates.\n';
 
     const prompt = `Research this prospect for Ramssol Group and return a JSON object:
 
