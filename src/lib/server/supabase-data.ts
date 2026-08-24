@@ -336,8 +336,9 @@ async function upsertClosedDeal(
 
 async function upsertProspect(client: Client, value: unknown, userId: string) {
   const item = record(value);
+  const parsedId = Number(item.id);
+  const id = Number.isFinite(parsedId) && parsedId > 0 ? Math.trunc(parsedId) : null;
   const row: Database['public']['Tables']['prospects']['Insert'] = {
-    id: Math.trunc(num(item.id)),
     owner_id: str(item.ownerId, userId),
     name: str(item.name),
     type: str(item.type),
@@ -359,8 +360,14 @@ async function upsertProspect(client: Client, value: unknown, userId: string) {
     ai_research: (item.aiResearch || null) as Json | null,
     watched: bool(item.watched),
   };
-  const response = await client.from('prospects').upsert(row, { onConflict: 'id' });
-  fail('Could not save prospect', response.error);
+  if (id) {
+    row.id = id;
+    const response = await client.from('prospects').upsert(row, { onConflict: 'id' });
+    fail('Could not save prospect', response.error);
+  } else {
+    const response = await client.from('prospects').insert(row);
+    fail('Could not create prospect', response.error);
+  }
 }
 
 async function updateProfile(client: Client, value: unknown, loadProfiles: ProfilesLoader) {
