@@ -59,6 +59,10 @@ async function generateWithGemini(options: GenerateOptions) {
   });
 
   try {
+    // Gemini counts thinking tokens against maxOutputTokens, so the visible
+    // answer gets squeezed (and cut off mid-sentence) unless we budget extra
+    // headroom for the thinking pass on top of what the caller asked for.
+    const thinkingBudget = THINKING_BUDGET[options.effort];
     const response = await client.models.generateContent({
       model: config.model,
       contents: options.messages.map((message) => ({
@@ -67,14 +71,21 @@ async function generateWithGemini(options: GenerateOptions) {
       })),
       config: {
         ...(options.system ? { systemInstruction: options.system } : {}),
-        maxOutputTokens: options.maxTokens,
-        thinkingConfig: { thinkingBudget: THINKING_BUDGET[options.effort] },
+        maxOutputTokens: options.maxTokens + thinkingBudget,
+        thinkingConfig: { thinkingBudget },
         abortSignal: options.signal,
       },
     });
     const text = response.text?.trim();
     if (!text) {
       throw new AiProviderError('upstream', 'Gemini returned no text.', 'gemini');
+    }
+    if (response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+      throw new AiProviderError(
+        'upstream',
+        'Gemini response was cut off by the token limit. Try a shorter request or a higher maxTokens.',
+        'gemini'
+      );
     }
     return { text, model: config.model, provider: 'gemini' as const };
   } catch (error) {
