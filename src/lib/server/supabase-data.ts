@@ -103,8 +103,11 @@ async function resolveOwner(
 ) {
   const explicit = str(item[idField]);
   if (explicit) return explicit;
-  const names = profileMap(await loadProfiles());
-  return names.get(str(item[nameField]).trim().toLowerCase()) || fallback;
+  const name = str(item[nameField]).trim();
+  if (!name) return fallback;
+  const matched = profileMap(await loadProfiles()).get(name.toLowerCase());
+  if (matched) return matched;
+  throw new AuthorizationError(`Could not resolve "${name}" to an existing user for ${nameField}.`);
 }
 
 function proposalToDomain(row: Tables<'proposals'>): Proposal {
