@@ -46,6 +46,13 @@ const Arrow = ({ id }: { id: string }) => (
 
 type Alert = { type: 'error' | 'success'; msg: string } | null;
 
+/* Password-free Level 2/3 personas are a local-dev convenience only.
+   process.env.NODE_ENV is inlined at build time, so this branch — and
+   everything only reachable through it, including continueSeed's
+   setSession call — is dead-code-eliminated from a production bundle;
+   it isn't merely hidden by a runtime check. */
+const SEED_DEMO_ENABLED = process.env.NODE_ENV !== 'production';
+
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<'login' | 'register'>('login');
@@ -185,6 +192,7 @@ export default function LoginPage() {
     level: Level,
     emailAddress: string
   ) {
+    if (!SEED_DEMO_ENABLED) return;
     setSession({ firstName, lastName, role, level, email: emailAddress });
     router.replace(HOME);
   }
@@ -249,9 +257,11 @@ export default function LoginPage() {
                 <div className="form-subtitle">
                   {source === 'loading'
                     ? 'Reading the server configuration.'
-                    : 'Choose a password-free test persona. Remote authorization is disabled in seed mode.'}
+                    : SEED_DEMO_ENABLED
+                      ? 'Choose a password-free test persona. Remote authorization is disabled in seed mode.'
+                      : 'This deployment has no authentication configured.'}
                 </div>
-                {source === 'seed' && (
+                {source === 'seed' && (SEED_DEMO_ENABLED ? (
                   <div style={{ display: 'grid', gap: 10 }}>
                     <button className="btn-primary" onClick={() => continueSeed('Lim', 'LG', 'Sales Representative', 1, 'lim.lg@ramssol.com')}>
                       Continue as Level 1 · Sales Rep
@@ -263,7 +273,11 @@ export default function LoginPage() {
                       Continue as Level 3 · Administrator
                     </button>
                   </div>
-                )}
+                ) : (
+                  <div className="alert error" style={{ display: 'block' }}>
+                    Set DATA_SOURCE=supabase and complete the Supabase configuration to enable sign-in.
+                  </div>
+                ))}
               </div>
             ) : (
               <>
