@@ -1,0 +1,12 @@
+-- One-time Level 3 administrator bootstrap (deployment runbook, README
+-- "Supabase setup" step 6). On 2026-08-26 the first environment's initial
+-- account was promoted to role = 'Sales Operations', level = 3 through the
+-- Supabase management API, which recorded this migration version remotely.
+-- This file exists so local migration files stay in sync with that history.
+--
+-- It deliberately contains no promotion SQL. The bootstrap is a manual,
+-- environment-specific step: register the administrator through the signup
+-- form first, then run the runbook's UPDATE with that account's real email
+-- in the SQL Editor. Baking an email into a migration would re-grant
+-- administrator access on every future environment unattended.
+do $$ begin null; end $$;
