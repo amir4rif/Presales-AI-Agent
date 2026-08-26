@@ -94,14 +94,39 @@ function cacheRemotePayload(payload: RemotePayload) {
   window.dispatchEvent(new Event('rams:data-changed'));
 }
 
-async function loadRemotePayload() {
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchRemotePayload() {
   const response = await fetch('/api/data?all=1', { cache: 'no-store' });
   const payload = (await responseJson(response)) as RemotePayload & { error?: string };
   if (!response.ok) {
     if (response.status === 401) throw new DataLayerError('Your session has expired. Please sign in again.');
     throw new DataLayerError(payload.error || 'Could not load shared data from Supabase.');
   }
-  cacheRemotePayload(payload);
+  return payload;
+}
+
+/**
+ * A brand-new profile row can briefly lag behind the auth session that just
+ * created it (pooled-connection read-after-write skew), so the first
+ * hydration right after signup can 502 even though the data is already
+ * there. Retry a couple times before surfacing the error screen.
+ */
+async function loadRemotePayload() {
+  const attempts = 3;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const payload = await fetchRemotePayload();
+      cacheRemotePayload(payload);
+      return;
+    } catch (error) {
+      const retryable = attempt < attempts && !(error instanceof DataLayerError && /session has expired/i.test(error.message));
+      if (!retryable) throw error;
+      await wait(attempt * 400);
+    }
+  }
 }
 
 async function initialize(): Promise<DataLayerStatus> {
