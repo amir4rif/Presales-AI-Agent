@@ -4,7 +4,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { HOME, setSession, getSession, type Level } from '@/lib/role';
+import { HOME, clearSession, setSession, getSession, type Level } from '@/lib/role';
+import { resetDataLayer } from '@/lib/data-sync';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 const EyeIcon = () => (
   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -47,10 +48,9 @@ const Arrow = ({ id }: { id: string }) => (
 type Alert = { type: 'error' | 'success'; msg: string } | null;
 
 /* Password-free Level 2/3 personas are a local-dev convenience only.
-   process.env.NODE_ENV is inlined at build time, so this branch — and
-   everything only reachable through it, including continueSeed's
-   setSession call — is dead-code-eliminated from a production bundle;
-   it isn't merely hidden by a runtime check. */
+   process.env.NODE_ENV is inlined at build time, so production can never
+   take the rendering branch. The handler repeats the guard as a second
+   protection in case this UI is refactored later. */
 const SEED_DEMO_ENABLED = process.env.NODE_ENV !== 'production';
 
 export default function LoginPage() {
@@ -86,7 +86,12 @@ export default function LoginPage() {
         if (nextSource === 'seed' && getSession()) router.replace(HOME);
         if (nextSource === 'supabase') {
           const { data } = await createSupabaseBrowserClient().auth.getClaims();
-          if (data?.claims?.sub) router.replace(HOME);
+          if (data?.claims?.sub) {
+            router.replace(HOME);
+          } else {
+            clearSession();
+            resetDataLayer();
+          }
         }
       })
       .catch(() => {
@@ -120,6 +125,8 @@ export default function LoginPage() {
       setLoginAlert({ type: 'error', msg: `❌ ${error.message}` });
       return;
     }
+    clearSession();
+    resetDataLayer();
     router.replace(HOME);
     router.refresh();
   }, [source, busy, email, password, router]);
@@ -166,6 +173,8 @@ export default function LoginPage() {
       setRegAlert({ type: 'success', msg: 'Check your email to confirm the account, then sign in.' });
       return;
     }
+    clearSession();
+    resetDataLayer();
     router.replace(HOME);
     router.refresh();
   }, [source, busy, first, last, regEmail, regPwd, regConfirm, terms, router]);

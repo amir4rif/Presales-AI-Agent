@@ -6,7 +6,7 @@
    is detected from the message, same as before. */
 import { useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/Toast';
-import { callClaude } from '@/lib/ai';
+import { callClaude, isAiError } from '@/lib/ai';
 import {
   detectDocIntent,
   detectProposalIntent,
@@ -14,9 +14,11 @@ import {
   downloadReportPDF,
   downloadReportWord,
   parseJsonReply,
+  safeFilenamePart,
 } from '@/lib/docExport';
 import { buildProposalHTML, buildReportHTML, type ProposalData, type ReportData } from '@/lib/docTemplates';
 import { STAGES, currentUser, getDeals, saveProspects, type Deal, type Prospect } from '@/lib/data';
+import { getSession } from '@/lib/role';
 
 const PAIN_ICONS = ['🟠', '⚠️', '🔴', '📊', '🌐'];
 
@@ -35,6 +37,12 @@ type ChatItem =
   | { kind: 'typing' }
   | { kind: 'report'; name: string; html: string; filename: string }
   | { kind: 'proposal'; name: string; html: string; filename: string };
+
+function notesStorageKey(prospectId: Prospect['id']) {
+  const session = getSession();
+  const identity = session?.userId || session?.email || 'seed-user';
+  return `ramssolNotes_${identity}_${prospectId}`;
+}
 
 export default function ProspectDetail({
   prospect,
@@ -62,7 +70,7 @@ export default function ProspectDetail({
 
   useEffect(() => {
     setDeals(getDeals());
-    setNotes(localStorage.getItem(`ramssolNotes_${p.id}`) || '');
+    setNotes(localStorage.getItem(notesStorageKey(p.id)) || '');
   }, [p.id]);
 
   useEffect(() => {
@@ -82,7 +90,7 @@ export default function ProspectDetail({
   /* Per-prospect notes stay local until the Lark phase. */
   function onNotes(value: string) {
     setNotes(value);
-    localStorage.setItem(`ramssolNotes_${p.id}`, value);
+    localStorage.setItem(notesStorageKey(p.id), value);
     setNotesSaved('Saved ✓');
     setTimeout(() => setNotesSaved(''), 1500);
   }
@@ -139,29 +147,22 @@ User request: ${userMsg}`;
 
     const raw = await callClaude([{ role: 'user', content: prompt }], system, { maxTokens: 8000 });
     dropTyping();
+    if (isAiError(raw)) {
+      push({ kind: 'bot', text: raw });
+      return;
+    }
 
-    const data = parseJsonReply<ProposalData>(raw, {
-      proposalTitle: `Partnership Proposal for ${p.name}`,
-      executiveSummary:
-        p.aiResearch?.companyBackground || `${p.name} is a ${p.type} organisation based in ${p.country}.`,
-      employeeSize: p.employees,
-      keyPainPoints: p.painPoints || [],
-      recommendedSolutions: [],
-      pricing: { items: [], total: '—' },
-      timeline: [],
-      whyRamssol: [],
-      nextSteps: [
-        'Schedule a follow-up discussion',
-        'Confirm scope and pricing',
-        'Sign off and kick off implementation',
-      ],
-    });
+    const data = parseJsonReply<ProposalData | null>(raw, null);
+    if (!data || typeof data !== 'object') {
+      push({ kind: 'bot', text: '⚠️ The AI returned an invalid proposal. Please retry.' });
+      return;
+    }
 
     push({
       kind: 'proposal',
       name: p.name,
       html: buildProposalHTML(data, p),
-      filename: `Ramssol_Proposal_${p.name.replace(/\s+/g, '_')}`,
+      filename: `Ramssol_Proposal_${safeFilenamePart(p.name)}`,
     });
   }
 
@@ -197,34 +198,22 @@ User request: ${userMsg}`;
 
     const raw = await callClaude([{ role: 'user', content: prompt }], system, { maxTokens: 6000 });
     dropTyping();
+    if (isAiError(raw)) {
+      push({ kind: 'bot', text: raw });
+      return;
+    }
 
-    // If JSON fails, build a minimal report from existing prospect data.
-    const data = parseJsonReply<ReportData>(raw, {
-      executiveSummary:
-        p.aiResearch?.companyBackground || `${p.name} is a ${p.type} organisation based in ${p.country}.`,
-      financials: {
-        revenue: p.aiResearch?.estimatedRevenue || '—',
-        itSpend: p.aiResearch?.estimatedITSpend || '—',
-        hrSpend: p.aiResearch?.estimatedHRSpend || '—',
-      },
-      employeeSize: p.employees,
-      decisionMaker: p.aiResearch?.decisionMaker || '—',
-      buyingPotential: p.aiResearch?.buyingPotential || 'Medium',
-      buyingPotentialReason: p.aiResearch?.buyingPotentialReason || '—',
-      keyPainPoints: p.painPoints || [],
-      recommendedSolutions: [],
-      nextSteps: [
-        'Schedule discovery call',
-        'Send introductory proposal',
-        'Follow up within 5 business days',
-      ],
-    });
+    const data = parseJsonReply<ReportData | null>(raw, null);
+    if (!data || typeof data !== 'object') {
+      push({ kind: 'bot', text: '⚠️ The AI returned an invalid report. Please retry.' });
+      return;
+    }
 
     push({
       kind: 'report',
       name: p.name,
       html: buildReportHTML(data, p),
-      filename: `Ramssol_Intelligence_${p.name.replace(/\s+/g, '_')}`,
+      filename: `Ramssol_Intelligence_${safeFilenamePart(p.name)}`,
     });
   }
 

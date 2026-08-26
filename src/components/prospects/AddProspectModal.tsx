@@ -6,7 +6,7 @@
 import { useState } from 'react';
 import Modal from '@/components/Modal';
 import { useToast } from '@/components/Toast';
-import { callClaude } from '@/lib/ai';
+import { callClaude, isAiError } from '@/lib/ai';
 import { parseJsonReply } from '@/lib/docExport';
 import type { AIResearch, Prospect } from '@/lib/data';
 import { researchCompany } from '@/lib/research';
@@ -50,8 +50,11 @@ export default function AddProspectModal({
   const [autofilling, setAutofilling] = useState(false);
   const [researching, setResearching] = useState(false);
   const [research, setResearch] = useState<AIResearch | null>(null);
+  const [researchError, setResearchError] = useState<string | null>(null);
   const [products, setProducts] = useState<string | null>(null);
   const [outline, setOutline] = useState<string | null>(null);
+  const [recommending, setRecommending] = useState(false);
+  const [outlining, setOutlining] = useState(false);
 
   const set = (k: keyof Form) => (e: { target: { value: string } }) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }));
@@ -59,8 +62,11 @@ export default function AddProspectModal({
   function reset() {
     setF(EMPTY);
     setResearch(null);
+    setResearchError(null);
     setProducts(null);
     setOutline(null);
+    setRecommending(false);
+    setOutlining(false);
   }
 
   /* ── AI AUTOFILL: FILL FORM FROM NAME + WEBSITE ────────── */
@@ -133,11 +139,13 @@ Field rules:
 
   /* ── AI SALES AGENT: RESEARCH COMPANY ──────────────────── */
   async function runResearch() {
+    if (researching) return;
     if (!f.name) {
       alert('Please enter a Company Name before running AI research.');
       return;
     }
     setResearching(true);
+    setResearchError(null);
 
     const system = `You are an expert AI Sales Intelligence Agent for Ramssol Group, a Malaysian B2B technology company specialising in enterprise software:
 - RAMS PeopleTech: HCM/HR consulting (Oracle Fusion HCM, Darwinbox, Hono.ai, RAMCO Payce)
@@ -185,8 +193,19 @@ Return ONLY this JSON structure (no markdown, no backticks):
 
     const raw = await callClaude([{ role: 'user', content: prompt }], system);
     setResearching(false);
-    // If JSON parsing fails, keep the raw text so nothing is silently lost.
-    const parsed = parseJsonReply<AIResearch>(raw, { raw });
+    if (isAiError(raw)) {
+      setResearchError(raw);
+      toast(raw, true);
+      return;
+    }
+
+    const parsed = parseJsonReply<AIResearch | null>(raw, null);
+    if (!parsed || typeof parsed !== 'object') {
+      const message = '⚠️ The AI returned an invalid research result. Please retry.';
+      setResearchError(message);
+      toast(message, true);
+      return;
+    }
     setResearch({ ...parsed, ...(web.sources?.length ? { sources: web.sources } : {}) });
     setProducts(null);
     setOutline(null);
@@ -194,6 +213,8 @@ Return ONLY this JSON structure (no markdown, no backticks):
 
   /* ── AI: RECOMMEND PRODUCTS ────────────────────────────── */
   async function recommendProducts() {
+    if (recommending) return;
+    setRecommending(true);
     setProducts('⏳ Analysing and recommending products...');
     const system = `You are a senior pre-sales consultant at Ramssol Group. Ramssol's product portfolio:
 
@@ -232,11 +253,16 @@ Recommend the top 2-3 Ramssol products/solutions for this prospect. For each:
 
 Format clearly with numbered sections.`;
 
-    setProducts(await callClaude([{ role: 'user', content: prompt }], system));
+    const result = await callClaude([{ role: 'user', content: prompt }], system);
+    setProducts(result);
+    setRecommending(false);
+    if (isAiError(result)) toast(result, true);
   }
 
   /* ── AI: GENERATE PROPOSAL OUTLINE ─────────────────────── */
   async function generateOutline() {
+    if (outlining) return;
+    setOutlining(true);
     setOutline('⏳ Generating proposal outline...');
     const name = f.name || 'the prospect';
     const system = `You are a senior proposal writer for Ramssol Group, a Malaysian technology solutions company. Write professional, persuasive proposal outlines tailored to the prospect's industry and pain points. Be specific, not generic.`;
@@ -264,7 +290,10 @@ Create a structured proposal outline with these 8 sections:
 
 For each section, write 2-3 bullet points of specific content guidance tailored to ${name}.`;
 
-    setOutline(await callClaude([{ role: 'user', content: prompt }], system));
+    const result = await callClaude([{ role: 'user', content: prompt }], system);
+    setOutline(result);
+    setOutlining(false);
+    if (isAiError(result)) toast(result, true);
   }
 
   function submit() {
@@ -470,20 +499,32 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
         </select>
       </div>
 
-      <button className={`ai-agent-btn${researching ? ' loading' : ''}`} onClick={runResearch}>
+      <button
+        type="button"
+        className={`ai-agent-btn${researching ? ' loading' : ''}`}
+        disabled={researching}
+        onClick={runResearch}
+      >
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} width={18} height={18}>
           <circle cx="12" cy="12" r="10" />
           <path d="M12 8v4l3 3" />
         </svg>
         {researching
           ? `Researching ${f.name}...`
-          : research
+          : researchError
+            ? '⚠️ Research Failed — Click to Retry'
+            : research
             ? '✅ Research Complete — Click to Re-run'
             : '🤖 Research Company with AI Sales Agent'}
       </button>
       <div style={{ fontSize: 11, color: 'var(--gray-400)', textAlign: 'center', marginTop: 6 }}>
         AI will analyse company background, financials, decision makers and buying potential
       </div>
+      {researchError && (
+        <div role="alert" style={{ fontSize: 12, color: 'var(--red-700)', textAlign: 'center', marginTop: 8 }}>
+          {researchError}
+        </div>
+      )}
 
       {research && (
         <div className="ai-results visible">
@@ -551,18 +592,28 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
             ) : null}
 
             <div className="ai-actions-row">
-              <button className="ai-act-btn btn-rec" onClick={recommendProducts}>
+              <button
+                type="button"
+                className="ai-act-btn btn-rec"
+                disabled={recommending}
+                onClick={recommendProducts}
+              >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
                 </svg>
-                Recommend Products &amp; Solutions
+                {recommending ? 'Recommending...' : 'Recommend Products & Solutions'}
               </button>
-              <button className="ai-act-btn btn-prop" onClick={generateOutline}>
+              <button
+                type="button"
+                className="ai-act-btn btn-prop"
+                disabled={outlining}
+                onClick={generateOutline}
+              >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
                   <polyline points="14 2 14 8 20 8" />
                 </svg>
-                Generate Proposal Outline
+                {outlining ? 'Generating...' : 'Generate Proposal Outline'}
               </button>
             </div>
 

@@ -36,19 +36,45 @@ export type ProposalData = ReportData & {
   whyRamssol?: { title?: string; detail?: string }[];
 };
 
+function escapeDocumentData<T>(value: T): T {
+  if (typeof value === 'string') {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;') as T;
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => escapeDocumentData(item)) as T;
+  }
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, escapeDocumentData(item)])
+    ) as T;
+  }
+  return value;
+}
+
+function arrayOf<T>(value: unknown): T[] {
+  return Array.isArray(value) ? value as T[] : [];
+}
+
 // ── BUILD REPORT HTML TEMPLATE ───────────────────────────
-export function buildReportHTML(data: ReportData, prospect: Prospect): string {
+export function buildReportHTML(inputData: ReportData, inputProspect: Prospect): string {
+  const data = escapeDocumentData(inputData);
+  const prospect = escapeDocumentData(inputProspect);
   const date = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
   const pot   = (data.buyingPotential || 'Medium').trim();
   const potColor  = pot==='High' ? '#0A6650' : pot==='Low' ? '#A32D2D' : '#BA7517';
   const potBg     = pot==='High' ? '#E7F9F2' : pot==='Low' ? '#FEF2F2' : '#FEF9EC';
-  const pains     = (data.keyPainPoints || []).map((p: string) =>`<li style="margin-bottom:6px">${p}</li>`).join('');
-  const solutions = (data.recommendedSolutions || []).map((s: Solution, i: number) =>`
+  const pains     = arrayOf<string>(data.keyPainPoints).map((p) =>`<li style="margin-bottom:6px">${p}</li>`).join('');
+  const solutions = arrayOf<Solution>(data.recommendedSolutions).map((s, i) =>`
     <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #F0EFF0">
       <div style="width:24px;height:24px;border-radius:50%;background:#1B2A4A;color:white;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
       <div><div style="font-size:13px;font-weight:600;color:#1B2A4A">${s.product||s}</div><div style="font-size:12px;color:#6B7280;margin-top:2px">${s.reason||''}</div></div>
     </div>`).join('');
-  const nextSteps = (data.nextSteps || []).map((s: string, i: number) =>`
+  const nextSteps = arrayOf<string>(data.nextSteps).map((s, i) =>`
     <div style="display:flex;align-items:flex-start;gap:10px;margin-bottom:8px">
       <div style="background:#00B4A0;color:white;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;flex-shrink:0;margin-top:1px">Step ${i+1}</div>
       <div style="font-size:12px;color:#374151">${s}</div>
@@ -136,7 +162,9 @@ export function buildReportHTML(data: ReportData, prospect: Prospect): string {
 // Renders a set of 16:9 "slides" (1280x720px each). Each slide is
 // captured as its own canvas and placed on its own PDF page in JS
 // (see downloadProposalPDF) — no CSS page-break is used.
-export function buildProposalHTML(data: ProposalData, prospect: Prospect): string {
+export function buildProposalHTML(inputData: ProposalData, inputProspect: Prospect): string {
+  const data = escapeDocumentData(inputData);
+  const prospect = escapeDocumentData(inputProspect);
   const date = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
   const navy = '#1B2A4A', teal = '#00B4A0', tealLight='#00D4B4';
 
@@ -196,7 +224,10 @@ export function buildProposalHTML(data: ProposalData, prospect: Prospect): strin
     ${pageFooter(2)}`, {pageBreak:true});
 
   // ── Slide 3: Challenges ──
-  const pains = (data.keyPainPoints || prospect.painPoints || []).map((p: string, i: number) =>`
+  const painPoints = Array.isArray(data.keyPainPoints)
+    ? data.keyPainPoints
+    : arrayOf<string>(prospect.painPoints);
+  const pains = painPoints.map((p, i) =>`
     <div style="display:flex;gap:16px;align-items:flex-start;background:#F8F9FA;border-radius:10px;padding:16px 20px">
       <div style="width:28px;height:28px;border-radius:50%;background:#FEF2F2;color:#A32D2D;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
       <div style="font-size:14px;color:#374151;line-height:1.6;padding-top:3px">${p}</div>
@@ -207,7 +238,7 @@ export function buildProposalHTML(data: ProposalData, prospect: Prospect): strin
     ${pageFooter(3)}`, {pageBreak:true});
 
   // ── Slide 4: Proposed Solution ──
-  const solutions = (data.recommendedSolutions || []).map((s: Solution, i: number) =>`
+  const solutions = arrayOf<Solution>(data.recommendedSolutions).map((s, i) =>`
     <div style="display:flex;gap:18px;padding:18px 0;border-bottom:1px solid #EDEFF2">
       <div style="width:34px;height:34px;border-radius:50%;background:${navy};color:white;font-size:14px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0">${i+1}</div>
       <div>
@@ -221,7 +252,7 @@ export function buildProposalHTML(data: ProposalData, prospect: Prospect): strin
     ${pageFooter(4)}`, {pageBreak:true});
 
   // ── Slide 5: Investment / Pricing ──
-  const items = data.pricing?.items || [];
+  const items = arrayOf<{ item?: string; description?: string; cost?: string }>(data.pricing?.items);
   const rows = items.map(it=>`
     <tr>
       <td style="padding:14px 20px;font-size:13px;color:#374151;border-bottom:1px solid #EDEFF2">${it.item||'—'}</td>
@@ -249,7 +280,7 @@ export function buildProposalHTML(data: ProposalData, prospect: Prospect): strin
     ${pageFooter(5)}`, {pageBreak:true});
 
   // ── Slide 6: Timeline ──
-  const phases = (data.timeline || []).map((t,i,arr)=>`
+  const phases = arrayOf<{ phase?: string; duration?: string; description?: string }>(data.timeline).map((t,i,arr)=>`
     <div style="flex:1;position:relative;padding-top:26px">
       <div style="position:absolute;top:0;left:0;right:${i===arr.length-1?'50%':'0'};height:3px;background:${teal}"></div>
       <div style="width:16px;height:16px;border-radius:50%;background:${teal};border:3px solid white;box-shadow:0 0 0 2px ${teal};position:absolute;top:-7px;left:0"></div>
@@ -263,7 +294,7 @@ export function buildProposalHTML(data: ProposalData, prospect: Prospect): strin
     ${pageFooter(6)}`, {pageBreak:true});
 
   // ── Slide 7: Why Ramssol ──
-  const why = (data.whyRamssol || []).map(w=>`
+  const why = arrayOf<{ title?: string; detail?: string }>(data.whyRamssol).map(w=>`
     <div style="background:#F8F9FA;border-radius:10px;padding:20px 22px;border-top:3px solid ${teal}">
       <div style="font-size:14px;font-weight:700;color:${navy};margin-bottom:6px">${w.title||w}</div>
       <div style="font-size:12px;color:#6B7280;line-height:1.6">${w.detail||''}</div>
@@ -274,7 +305,7 @@ export function buildProposalHTML(data: ProposalData, prospect: Prospect): strin
     ${pageFooter(7)}`, {pageBreak:true});
 
   // ── Slide 8: Next Steps / Close ──
-  const steps = (data.nextSteps || []).map((s: string, i: number) =>`
+  const steps = arrayOf<string>(data.nextSteps).map((s, i) =>`
     <div style="display:flex;align-items:flex-start;gap:14px;margin-bottom:16px">
       <div style="background:${teal};color:white;font-size:11px;font-weight:700;padding:4px 10px;border-radius:5px;flex-shrink:0">Step ${i+1}</div>
       <div style="font-size:14px;color:#374151;line-height:1.6;padding-top:1px">${s}</div>

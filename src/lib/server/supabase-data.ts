@@ -439,21 +439,27 @@ async function deleteRecords(client: Client, collection: DataCollection, values:
   if (collection === 'team') {
     throw new AuthorizationError('Authentication users cannot be deleted through the shared data route.');
   }
+  const table = collection === 'closedDeals' ? 'closed_deals' : collection;
+  if (table === 'prospects') {
+    const numericIds = values.map((value) => Number(record(value).id));
+    if (numericIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
+      throw new AuthorizationError('Every deleted prospect needs a valid numeric database id.');
+    }
+    const response = await client.from('prospects').delete().in('id', numericIds);
+    fail('Could not delete prospects', response.error);
+    return;
+  }
+
   const ids = values.map((value) => str(record(value).id)).filter(Boolean);
   if (ids.length !== values.length) {
     throw new AuthorizationError(`Every deleted ${collection} record needs its database id.`);
   }
-  const table = collection === 'closedDeals' ? 'closed_deals' : collection;
   if (table === 'deals') {
     const response = await client.from('deals').delete().in('id', ids);
     fail('Could not delete deals', response.error);
-  } else if (table === 'closed_deals') {
+  } else {
     const response = await client.from('closed_deals').delete().in('id', ids);
     fail('Could not delete closed deals', response.error);
-  } else {
-    const numericIds = ids.map(Number);
-    const response = await client.from('prospects').delete().in('id', numericIds);
-    fail('Could not delete prospects', response.error);
   }
 }
 

@@ -37,11 +37,19 @@ export async function callClaude(
       signal: options.signal,
     });
 
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) return `⚠️ ${data.error || `Request failed (${res.status}).`}`;
-    return data.text || '';
+    const data = await res.json().catch(() => ({})) as { error?: unknown; text?: unknown };
+    if (!res.ok) {
+      const message = typeof data.error === 'string'
+        ? data.error
+        : `Request failed (${res.status}).`;
+      return `⚠️ ${message}`;
+    }
+    if (typeof data.text !== 'string' || !data.text.trim()) {
+      return '⚠️ The AI service returned an empty response.';
+    }
+    return data.text;
   } catch (e) {
-    if (e instanceof DOMException && e.name === 'AbortError') return '';
+    if (e instanceof Error && e.name === 'AbortError') return '';
     return `⚠️ ${e instanceof Error ? e.message : 'Network error.'}`;
   }
 }

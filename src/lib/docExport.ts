@@ -139,3 +139,15 @@ export function parseJsonReply<T>(raw: string, fallback: T): T {
     return fallback;
   }
 }
+
+/** Keep user-supplied company names safe and portable as download filenames. */
+export function safeFilenamePart(value: string, fallback = 'document') {
+  const cleaned = value
+    .normalize('NFKC')
+    .replace(/[<>:"/\\|?*\u0000-\u001f\u007f]+/g, '_')
+    .replace(/\s+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^[ ._]+|[ ._]+$/g, '')
+    .slice(0, 80);
+  return cleaned || fallback;
+}

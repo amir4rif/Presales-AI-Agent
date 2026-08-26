@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireApiSession } from '@/lib/server/api-auth';
 import { getResearchConfig, getResearchStatus } from '@/lib/server/config';
 
 export const runtime = 'nodejs';
@@ -43,10 +44,15 @@ function summaryFrom(payload: Record<string, unknown>) {
 }
 
 export async function GET() {
+  const auth = await requireApiSession();
+  if (!auth.ok) return auth.response;
   return json(getResearchStatus());
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiSession();
+  if (!auth.ok) return auth.response;
+
   const config = getResearchConfig();
   if (!config.apiKey) {
     return json({ ...getResearchStatus(), error: 'Prospect research is not configured.' }, 503);
@@ -105,7 +111,7 @@ export async function POST(request: Request) {
       sources,
     });
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (error instanceof Error && error.name === 'AbortError') {
       return json({ error: 'Prospect research timed out.' }, 504);
     }
     return json({ error: 'Could not reach the prospect-research provider.' }, 504);

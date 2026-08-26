@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { isDataCollection } from '@/lib/integrations';
+import { requireApiSession } from '@/lib/server/api-auth';
 import { getSupabaseStatus } from '@/lib/server/config';
 import { AuthorizationError, writeSupabaseChanges } from '@/lib/server/supabase-data';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +30,9 @@ export async function PUT(
     return json({ error: 'Supabase mode is selected but its public configuration is incomplete.' }, 503);
   }
 
+  const auth = await requireApiSession();
+  if (!auth.ok) return auth.response;
+
   let body: unknown;
   try {
     body = await request.json();
@@ -46,11 +49,8 @@ export async function PUT(
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.getClaims();
-    const userId = typeof data?.claims?.sub === 'string' ? data.claims.sub : null;
-    if (error || !userId) return json({ error: 'Authentication required.' }, 401);
-    const result = await writeSupabaseChanges(supabase, userId, collection, {
+    if (!auth.supabase) return json({ error: 'Supabase mode is not available.' }, 503);
+    const result = await writeSupabaseChanges(auth.supabase, auth.userId, collection, {
       upserts: candidate.upserts,
       deletes: candidate.deletes,
     });

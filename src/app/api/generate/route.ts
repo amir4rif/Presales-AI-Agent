@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { AiProviderError, generateAi } from '@/lib/server/ai-provider';
+import { requireApiSession } from '@/lib/server/api-auth';
 import { getAiConfig, getAiStatus, type AnthropicEffort } from '@/lib/server/config';
 
 export const runtime = 'nodejs';
@@ -26,10 +27,15 @@ function json(body: unknown, status = 200) {
 }
 /** Readiness only: this never calls either provider and never returns a key. */
 export async function GET() {
+  const auth = await requireApiSession();
+  if (!auth.ok) return auth.response;
   return json(getAiStatus());
 }
 
 export async function POST(request: Request) {
+  const auth = await requireApiSession();
+  if (!auth.ok) return auth.response;
+
   const config = getAiConfig();
   if (!config.apiKey) {
     console.error(`[api/generate] ${config.provider} key is not configured`);
@@ -116,6 +122,15 @@ export async function POST(request: Request) {
       }
       if (error.kind === 'refusal') {
         return json({ error: 'The model declined this request. Try rephrasing it.' }, 422);
+      }
+      if (error.kind === 'truncated') {
+        return json({ error: 'The model response was cut off. Try a shorter request.' }, 422);
+      }
+      if (error.kind === 'configuration') {
+        return json(
+          { error: `The configured ${error.provider} model or generation settings were rejected.` },
+          503
+        );
       }
       if (error.kind === 'connection') {
         return json({ error: `Could not reach ${error.provider}.` }, 504);

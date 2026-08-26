@@ -3,13 +3,32 @@ import { NextResponse, type NextRequest } from 'next/server';
 import type { Database } from '@/lib/supabase/database.types';
 
 export async function proxy(request: NextRequest) {
-  if ((process.env.DATA_SOURCE || 'seed') !== 'supabase') {
-    return NextResponse.next({ request });
-  }
-
+  const pathname = request.nextUrl.pathname;
+  const publicReadiness =
+    pathname === '/api/data' &&
+    request.method === 'GET' &&
+    request.nextUrl.searchParams.get('all') !== '1';
+  const publicPath =
+    pathname.startsWith('/login') || pathname.startsWith('/auth') || publicReadiness;
+  const dataSource = process.env.DATA_SOURCE || process.env.NEXT_PUBLIC_DATA_SOURCE || 'seed';
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
-  if (!url || !key) return NextResponse.next({ request });
+
+  if (dataSource !== 'supabase' || !url || !key) {
+    if (process.env.NODE_ENV !== 'production' || publicPath) {
+      return NextResponse.next({ request });
+    }
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json(
+        { error: 'Server authentication is not configured.' },
+        { status: 503, headers: { 'Cache-Control': 'private, no-store' } }
+      );
+    }
+    const login = request.nextUrl.clone();
+    login.pathname = '/login';
+    login.searchParams.set('error', 'server_configuration');
+    return NextResponse.redirect(login);
+  }
 
   let response = NextResponse.next({ request });
   const supabase = createServerClient<Database>(url, key, {
@@ -30,14 +49,6 @@ export async function proxy(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const authenticated = Boolean(data?.claims?.sub);
-  const pathname = request.nextUrl.pathname;
-  const publicReadiness =
-    pathname === '/api/data' &&
-    request.method === 'GET' &&
-    request.nextUrl.searchParams.get('all') !== '1';
-  const publicPath =
-    pathname.startsWith('/login') || pathname.startsWith('/auth') || publicReadiness;
-
   if (!authenticated && !publicPath) {
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(

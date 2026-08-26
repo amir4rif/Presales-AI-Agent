@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireApiSession } from '@/lib/server/api-auth';
 import { getLarkStatus } from '@/lib/server/config';
 import {
   createLarkRecords,
@@ -43,8 +44,11 @@ async function bodyOf(request: Request) {
  * GET /api/lark?records=1 is the explicit diagnostic/read operation.
  */
 export async function GET(request: Request) {
-  const status = getLarkStatus();
   const wantsRecords = new URL(request.url).searchParams.get('records') === '1';
+  const auth = await requireApiSession(wantsRecords ? 3 : 1);
+  if (!auth.ok) return auth.response;
+
+  const status = getLarkStatus();
   if (!wantsRecords) return json(status);
   if (!status.ready) return json({ error: 'Lark Base is not configured on the server yet.' }, 503);
 
@@ -58,6 +62,9 @@ export async function GET(request: Request) {
 
 /** POST /api/lark — create up to 500 raw Bitable records. */
 export async function POST(request: Request) {
+  const auth = await requireApiSession(3);
+  if (!auth.ok) return auth.response;
+
   if (!getLarkStatus().ready) {
     return json({ error: 'Lark Base is not configured on the server yet.' }, 503);
   }
@@ -82,6 +89,9 @@ export async function POST(request: Request) {
 
 /** PATCH /api/lark — update up to 500 raw Bitable records. */
 export async function PATCH(request: Request) {
+  const auth = await requireApiSession(3);
+  if (!auth.ok) return auth.response;
+
   if (!getLarkStatus().ready) {
     return json({ error: 'Lark Base is not configured on the server yet.' }, 503);
   }
@@ -111,6 +121,9 @@ export async function PATCH(request: Request) {
 
 /** DELETE /api/lark — delete up to 500 raw Bitable record IDs. */
 export async function DELETE(request: Request) {
+  const auth = await requireApiSession(3);
+  if (!auth.ok) return auth.response;
+
   if (!getLarkStatus().ready) {
     return json({ error: 'Lark Base is not configured on the server yet.' }, 503);
   }

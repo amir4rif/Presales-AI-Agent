@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
+import { requireApiSession } from '@/lib/server/api-auth';
 import { getSupabaseStatus } from '@/lib/server/config';
 import { readAllSupabaseData } from '@/lib/server/supabase-data';
-import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,6 +17,10 @@ export async function GET(request: Request) {
   const status = getSupabaseStatus();
   const wantsData = new URL(request.url).searchParams.get('all') === '1';
   if (!wantsData) return json(status);
+
+  const auth = await requireApiSession();
+  if (!auth.ok) return auth.response;
+
   if (status.dataSource !== 'supabase') {
     return json({ error: 'Remote hydration is disabled while DATA_SOURCE=seed.' }, 409);
   }
@@ -25,11 +29,8 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase.auth.getClaims();
-    const userId = typeof data?.claims?.sub === 'string' ? data.claims.sub : null;
-    if (error || !userId) return json({ error: 'Authentication required.' }, 401);
-    const result = await readAllSupabaseData(supabase, userId);
+    if (!auth.supabase) return json({ error: 'Supabase mode is not available.' }, 503);
+    const result = await readAllSupabaseData(auth.supabase, auth.userId);
     return json({ source: 'supabase', ...result });
   } catch (error) {
     console.error('[api/data] Supabase hydration failed', {

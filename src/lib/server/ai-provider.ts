@@ -1,7 +1,7 @@
 import 'server-only';
 
 import Anthropic from '@anthropic-ai/sdk';
-import { ApiError, GoogleGenAI } from '@google/genai';
+import { ApiError, GoogleGenAI, ThinkingLevel } from '@google/genai';
 import {
   getAiConfig,
   type AiProvider,
@@ -23,10 +23,12 @@ export type GenerateOptions = {
 
 export type AiErrorKind =
   | 'authentication'
+  | 'configuration'
   | 'connection'
   | 'rate_limit'
   | 'refusal'
   | 'timeout'
+  | 'truncated'
   | 'upstream';
 
 export class AiProviderError extends Error {
@@ -47,6 +49,29 @@ const THINKING_BUDGET: Record<AnthropicEffort, number> = {
   xhigh: 8192,
   max: 12288,
 };
+const THINKING_LEVEL: Record<AnthropicEffort, ThinkingLevel> = {
+  low: ThinkingLevel.LOW,
+  medium: ThinkingLevel.MEDIUM,
+  high: ThinkingLevel.HIGH,
+  xhigh: ThinkingLevel.HIGH,
+  max: ThinkingLevel.HIGH,
+};
+const GEMINI_OUTPUT_LIMIT = 65_536;
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError';
+}
+
+function geminiThinkingConfig(model: string, effort: AnthropicEffort) {
+  const normalized = model.toLowerCase();
+  if (normalized.startsWith('gemini-3')) {
+    return { thinkingLevel: THINKING_LEVEL[effort] };
+  }
+  if (normalized.startsWith('gemini-2.5')) {
+    return { thinkingBudget: THINKING_BUDGET[effort] };
+  }
+  return undefined;
+}
 
 async function generateWithGemini(options: GenerateOptions) {
   const config = getAiConfig();
@@ -62,7 +87,8 @@ async function generateWithGemini(options: GenerateOptions) {
     // Gemini counts thinking tokens against maxOutputTokens, so the visible
     // answer gets squeezed (and cut off mid-sentence) unless we budget extra
     // headroom for the thinking pass on top of what the caller asked for.
-    const thinkingBudget = THINKING_BUDGET[options.effort];
+    const thinkingHeadroom = THINKING_BUDGET[options.effort];
+    const thinkingConfig = geminiThinkingConfig(config.model, options.effort);
     const response = await client.models.generateContent({
       model: config.model,
       contents: options.messages.map((message) => ({
@@ -71,18 +97,27 @@ async function generateWithGemini(options: GenerateOptions) {
       })),
       config: {
         ...(options.system ? { systemInstruction: options.system } : {}),
-        maxOutputTokens: options.maxTokens + thinkingBudget,
-        thinkingConfig: { thinkingBudget },
+        maxOutputTokens: Math.min(options.maxTokens + thinkingHeadroom, GEMINI_OUTPUT_LIMIT),
+        ...(thinkingConfig ? { thinkingConfig } : {}),
         abortSignal: options.signal,
       },
     });
     const text = response.text?.trim();
+    const finishReason = response.candidates?.[0]?.finishReason;
+    if (
+      finishReason === 'SAFETY' ||
+      finishReason === 'BLOCKLIST' ||
+      finishReason === 'PROHIBITED_CONTENT' ||
+      finishReason === 'RECITATION'
+    ) {
+      throw new AiProviderError('refusal', 'Gemini declined this request.', 'gemini');
+    }
     if (!text) {
       throw new AiProviderError('upstream', 'Gemini returned no text.', 'gemini');
     }
-    if (response.candidates?.[0]?.finishReason === 'MAX_TOKENS') {
+    if (finishReason === 'MAX_TOKENS') {
       throw new AiProviderError(
-        'upstream',
+        'truncated',
         'Gemini response was cut off by the token limit. Try a shorter request or a higher maxTokens.',
         'gemini'
       );
@@ -90,7 +125,7 @@ async function generateWithGemini(options: GenerateOptions) {
     return { text, model: config.model, provider: 'gemini' as const };
   } catch (error) {
     if (error instanceof AiProviderError) throw error;
-    if (error instanceof DOMException && error.name === 'AbortError') {
+    if (isAbortError(error)) {
       throw new AiProviderError('timeout', 'Gemini request timed out.', 'gemini');
     }
     if (error instanceof ApiError) {
@@ -102,6 +137,9 @@ async function generateWithGemini(options: GenerateOptions) {
       }
       if (error.status === 408 || error.status >= 500) {
         throw new AiProviderError('connection', error.message, 'gemini', error.status);
+      }
+      if (error.status === 400 || error.status === 404) {
+        throw new AiProviderError('configuration', error.message, 'gemini', error.status);
       }
       throw new AiProviderError('upstream', error.message, 'gemini', error.status);
     }
@@ -142,8 +180,7 @@ async function generateWithAnthropic(options: GenerateOptions) {
     return { text, model: response.model, provider: 'anthropic' as const };
   } catch (error) {
     if (error instanceof AiProviderError) throw error;
-    if (error instanceof Anthropic.APIUserAbortError ||
-        (error instanceof DOMException && error.name === 'AbortError')) {
+    if (error instanceof Anthropic.APIUserAbortError || isAbortError(error)) {
       throw new AiProviderError('timeout', 'Anthropic request timed out.', 'anthropic');
     }
     if (error instanceof Anthropic.AuthenticationError) {

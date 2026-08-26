@@ -55,12 +55,18 @@ function LevelBadge({ level }: { level: Level }) {
 
 function downloadCSV(name: string, rows: (string | number | undefined)[][]) {
   const csv = rows
-    .map((r) => r.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
+    .map((r) => r.map((c) => {
+      let value = String(c ?? '');
+      if (/^[\t\r\n ]*[=+\-@]/.test(value)) value = `'${value}`;
+      return `"${value.replace(/"/g, '""')}"`;
+    }).join(','))
     .join('\n');
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+  a.href = url;
   a.download = name;
   a.click();
+  requestAnimationFrame(() => URL.revokeObjectURL(url));
 }
 
 function SettingsPage() {

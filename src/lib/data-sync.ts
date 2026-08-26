@@ -14,6 +14,8 @@ const REMOTE_COLLECTIONS_KEY = 'ramssolRemoteCollections';
 let syncQueue: Promise<void> = Promise.resolve();
 let initialization: Promise<DataLayerStatus> | null = null;
 let refreshing: Promise<void> | null = null;
+let dataLayerGeneration = 0;
+const requestControllers = new Set<AbortController>();
 
 export type DataLayerStatus = {
   source: DataSource;
@@ -35,6 +37,27 @@ export class DataLayerError extends Error {
   constructor(message: string) {
     super(message);
     this.name = 'DataLayerError';
+  }
+}
+
+class DataLayerCancelledError extends Error {
+  constructor() {
+    super('Data-layer operation was cancelled.');
+    this.name = 'DataLayerCancelledError';
+  }
+}
+
+function assertCurrentGeneration(generation: number) {
+  if (generation !== dataLayerGeneration) throw new DataLayerCancelledError();
+}
+
+async function controlledFetch(input: RequestInfo | URL, init?: RequestInit) {
+  const controller = new AbortController();
+  requestControllers.add(controller);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    requestControllers.delete(controller);
   }
 }
 
@@ -81,11 +104,18 @@ function cacheRemotePayload(payload: RemotePayload) {
   if (!payload.collections || typeof payload.collections !== 'object') {
     throw new DataLayerError('Supabase returned an invalid shared data payload.');
   }
+  if (!payload.profile?.name || !payload.profile.email ||
+      !payload.profile.role || !payload.profile.level) {
+    throw new DataLayerError('Supabase returned an incomplete user profile.');
+  }
   for (const collection of DATA_COLLECTIONS) {
     const items = payload.collections[collection];
     if (!Array.isArray(items)) {
       throw new DataLayerError(`Supabase returned an invalid ${collection} collection.`);
     }
+  }
+  for (const collection of DATA_COLLECTIONS) {
+    const items = payload.collections[collection] as unknown[];
     localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(items));
   }
   cacheProfile(payload.profile);
@@ -99,7 +129,7 @@ function wait(ms: number) {
 }
 
 async function fetchRemotePayload() {
-  const response = await fetch('/api/data?all=1', { cache: 'no-store' });
+  const response = await controlledFetch('/api/data?all=1', { cache: 'no-store' });
   const payload = (await responseJson(response)) as RemotePayload & { error?: string };
   if (!response.ok) {
     if (response.status === 401) throw new DataLayerError('Your session has expired. Please sign in again.');
@@ -114,14 +144,16 @@ async function fetchRemotePayload() {
  * hydration right after signup can 502 even though the data is already
  * there. Retry a couple times before surfacing the error screen.
  */
-async function loadRemotePayload() {
+async function loadRemotePayload(generation = dataLayerGeneration) {
   const attempts = 3;
   for (let attempt = 1; attempt <= attempts; attempt++) {
     try {
       const payload = await fetchRemotePayload();
+      assertCurrentGeneration(generation);
       cacheRemotePayload(payload);
       return;
     } catch (error) {
+      assertCurrentGeneration(generation);
       const retryable = attempt < attempts && !(error instanceof DataLayerError && /session has expired/i.test(error.message));
       if (!retryable) throw error;
       await wait(attempt * 400);
@@ -130,8 +162,10 @@ async function loadRemotePayload() {
 }
 
 async function initialize(): Promise<DataLayerStatus> {
-  const statusResponse = await fetch('/api/data', { cache: 'no-store' });
+  const generation = dataLayerGeneration;
+  const statusResponse = await controlledFetch('/api/data', { cache: 'no-store' });
   const status = await responseJson(statusResponse);
+  assertCurrentGeneration(generation);
   if (!statusResponse.ok ||
       (status.dataSource !== 'seed' && status.dataSource !== 'supabase')) {
     throw new DataLayerError(
@@ -158,18 +192,28 @@ async function initialize(): Promise<DataLayerStatus> {
     throw new DataLayerError(`Supabase mode is selected, but these values are missing: ${missing}.`);
   }
 
-  await loadRemotePayload();
+  await loadRemotePayload(generation);
   return { source, ready: true };
 }
 
 export function initializeDataLayer({ force = false } = {}) {
-  if (force || !initialization) initialization = initialize();
+  if (force || !initialization) {
+    const pending = initialize();
+    initialization = pending;
+    void pending.catch(() => {
+      if (initialization === pending) initialization = null;
+    });
+  }
   return initialization;
 }
 
 export function resetDataLayer() {
+  dataLayerGeneration += 1;
+  requestControllers.forEach((controller) => controller.abort());
+  requestControllers.clear();
   initialization = null;
   refreshing = null;
+  syncQueue = Promise.resolve();
   DATA_COLLECTIONS.forEach((collection) =>
     localStorage.removeItem(STORAGE_KEY_BY_COLLECTION[collection])
   );
@@ -179,13 +223,16 @@ export function resetDataLayer() {
 
 async function refreshRemoteData() {
   if (!refreshing) {
-    refreshing = loadRemotePayload()
+    const generation = dataLayerGeneration;
+    const pending = loadRemotePayload(generation)
       .then(() => {
+        assertCurrentGeneration(generation);
         window.dispatchEvent(new Event('rams:remote-data'));
-      })
-      .finally(() => {
-        refreshing = null;
       });
+    const tracked = pending.finally(() => {
+      if (refreshing === tracked) refreshing = null;
+    });
+    refreshing = tracked;
   }
   return refreshing;
 }
@@ -235,25 +282,30 @@ export function queueDataSync(
   if (!isRemoteCollection(collection)) return;
   const changes = changesBetween(collection, previous, next);
   if (!changes.upserts.length && !changes.deletes.length) return;
+  const generation = dataLayerGeneration;
 
   syncQueue = syncQueue
     .catch(() => undefined)
     .then(async () => {
-      const response = await fetch(`/api/data/${collection}`, {
+      assertCurrentGeneration(generation);
+      const response = await controlledFetch(`/api/data/${collection}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(changes),
       });
       const body = await responseJson(response);
+      assertCurrentGeneration(generation);
       if (!response.ok) {
         throw new DataLayerError(
           typeof body.error === 'string' ? body.error : `Could not sync ${collection}.`
         );
       }
-      await refreshRemoteData();
+      await loadRemotePayload(generation);
+      window.dispatchEvent(new Event('rams:remote-data'));
       emitSync(collection, true);
     })
     .catch((error) => {
+      if (error instanceof DataLayerCancelledError || generation !== dataLayerGeneration) return;
       emitSync(
         collection,
         false,
@@ -275,7 +327,15 @@ export function subscribeToRemoteChanges() {
     channel = channel.on(
       'postgres_changes',
       { event: '*', schema: 'public', table },
-      () => void refreshRemoteData()
+      () => {
+        void refreshRemoteData().catch((error) => {
+          emitSync(
+            table,
+            false,
+            error instanceof Error ? error.message : `Could not refresh ${table}.`
+          );
+        });
+      }
     );
   }
   channel.subscribe();
