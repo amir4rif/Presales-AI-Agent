@@ -236,12 +236,68 @@ export async function readAllSupabaseData(client: Client, userId: string) {
   };
 }
 
-async function upsertProposal(
-  client: Client,
+/**
+ * Batch-write rows to one table in as few statements as possible.
+ * PostgREST's bulk insert/upsert derives its column list from the FIRST
+ * object in the array, so rows with different key sets (e.g. some carry an
+ * explicit `id`, some rely on the column default) must never share a call
+ * or the odd-shaped rows silently lose columns. Group by exact key
+ * signature first, then upsert (has `id`) or insert (no `id`) each group
+ * as a single statement, so each call commits atomically and a bad row
+ * fails before any row in that shape group is written.
+ */
+function groupByShape<Row extends Record<string, unknown>>(rows: Row[]): Row[][] {
+  const groups = new Map<string, Row[]>();
+  for (const row of rows) {
+    const shape = Object.keys(row).sort().join(' ');
+    const group = groups.get(shape);
+    if (group) group.push(row);
+    else groups.set(shape, [row]);
+  }
+  return Array.from(groups.values());
+}
+
+async function bulkWriteProposals(client: Client, rows: Database['public']['Tables']['proposals']['Insert'][]) {
+  for (const group of groupByShape(rows)) {
+    const response = 'id' in group[0]
+      ? await client.from('proposals').upsert(group, { onConflict: 'id' })
+      : await client.from('proposals').insert(group);
+    fail('Could not save proposals', response.error);
+  }
+}
+
+async function bulkWriteDeals(client: Client, rows: Database['public']['Tables']['deals']['Insert'][]) {
+  for (const group of groupByShape(rows)) {
+    const response = 'id' in group[0]
+      ? await client.from('deals').upsert(group, { onConflict: 'id' })
+      : await client.from('deals').insert(group);
+    fail('Could not save deals', response.error);
+  }
+}
+
+async function bulkWriteClosedDeals(client: Client, rows: Database['public']['Tables']['closed_deals']['Insert'][]) {
+  for (const group of groupByShape(rows)) {
+    const response = 'id' in group[0]
+      ? await client.from('closed_deals').upsert(group, { onConflict: 'id' })
+      : await client.from('closed_deals').insert(group);
+    fail('Could not save closed deals', response.error);
+  }
+}
+
+async function bulkWriteProspects(client: Client, rows: Database['public']['Tables']['prospects']['Insert'][]) {
+  for (const group of groupByShape(rows)) {
+    const response = 'id' in group[0]
+      ? await client.from('prospects').upsert(group, { onConflict: 'id' })
+      : await client.from('prospects').insert(group);
+    fail('Could not save prospects', response.error);
+  }
+}
+
+async function buildProposalRow(
   value: unknown,
   userId: string,
   loadProfiles: ProfilesLoader
-) {
+): Promise<Database['public']['Tables']['proposals']['Insert']> {
   const item = record(value);
   const submittedById = await resolveOwner(item, 'submittedBy', 'submittedById', loadProfiles, userId);
   const ownerId = await resolveOwner(item, 'owner', 'ownerId', loadProfiles, userId);
@@ -274,17 +330,14 @@ async function upsertProposal(
   const caseId = str(item.caseId);
   if (id) row.id = id;
   if (caseId) row.case_id = caseId;
-
-  const response = await client.from('proposals').upsert(row, { onConflict: 'id' });
-  fail('Could not save proposal', response.error);
+  return row;
 }
 
-async function upsertDeal(
-  client: Client,
+async function buildDealRow(
   value: unknown,
   userId: string,
   loadProfiles: ProfilesLoader
-) {
+): Promise<Database['public']['Tables']['deals']['Insert']> {
   const item = record(value);
   const id = str(item.id);
   const row: Database['public']['Tables']['deals']['Insert'] = {
@@ -299,22 +352,15 @@ async function upsertDeal(
     status: str(item.status, 'On Track'),
     notes: str(item.notes),
   };
-  if (id) {
-    row.id = id;
-    const response = await client.from('deals').upsert(row, { onConflict: 'id' });
-    fail('Could not save deal', response.error);
-  } else {
-    const response = await client.from('deals').insert(row);
-    fail('Could not create deal', response.error);
-  }
+  if (id) row.id = id;
+  return row;
 }
 
-async function upsertClosedDeal(
-  client: Client,
+async function buildClosedDealRow(
   value: unknown,
   userId: string,
   loadProfiles: ProfilesLoader
-) {
+): Promise<Database['public']['Tables']['closed_deals']['Insert']> {
   const item = record(value);
   const id = str(item.id);
   const row: Database['public']['Tables']['closed_deals']['Insert'] = {
@@ -327,17 +373,14 @@ async function upsertClosedDeal(
     outcome: str(item.outcome, 'Lost'),
     loss_reason: str(item.lossReason),
   };
-  if (id) {
-    row.id = id;
-    const response = await client.from('closed_deals').upsert(row, { onConflict: 'id' });
-    fail('Could not save closed deal', response.error);
-  } else {
-    const response = await client.from('closed_deals').insert(row);
-    fail('Could not create closed deal', response.error);
-  }
+  if (id) row.id = id;
+  return row;
 }
 
-async function upsertProspect(client: Client, value: unknown, userId: string) {
+function buildProspectRow(
+  value: unknown,
+  userId: string
+): Database['public']['Tables']['prospects']['Insert'] {
   const item = record(value);
   const parsedId = Number(item.id);
   const id = Number.isFinite(parsedId) && parsedId > 0 ? Math.trunc(parsedId) : null;
@@ -363,14 +406,8 @@ async function upsertProspect(client: Client, value: unknown, userId: string) {
     ai_research: (item.aiResearch || null) as Json | null,
     watched: bool(item.watched),
   };
-  if (id) {
-    row.id = id;
-    const response = await client.from('prospects').upsert(row, { onConflict: 'id' });
-    fail('Could not save prospect', response.error);
-  } else {
-    const response = await client.from('prospects').insert(row);
-    fail('Could not create prospect', response.error);
-  }
+  if (id) row.id = id;
+  return row;
 }
 
 async function updateProfile(client: Client, value: unknown, loadProfiles: ProfilesLoader) {
@@ -438,12 +475,23 @@ export async function writeSupabaseChanges(
     return profilesPromise;
   };
 
-  for (const value of changes.upserts) {
-    if (collection === 'proposals') await upsertProposal(client, value, userId, loadProfiles);
-    else if (collection === 'deals') await upsertDeal(client, value, userId, loadProfiles);
-    else if (collection === 'closedDeals') await upsertClosedDeal(client, value, userId, loadProfiles);
-    else if (collection === 'prospects') await upsertProspect(client, value, userId);
-    else await updateProfile(client, value, loadProfiles);
+  if (collection === 'team') {
+    for (const value of changes.upserts) await updateProfile(client, value, loadProfiles);
+  } else if (collection === 'proposals') {
+    const rows = [];
+    for (const value of changes.upserts) rows.push(await buildProposalRow(value, userId, loadProfiles));
+    await bulkWriteProposals(client, rows);
+  } else if (collection === 'deals') {
+    const rows = [];
+    for (const value of changes.upserts) rows.push(await buildDealRow(value, userId, loadProfiles));
+    await bulkWriteDeals(client, rows);
+  } else if (collection === 'closedDeals') {
+    const rows = [];
+    for (const value of changes.upserts) rows.push(await buildClosedDealRow(value, userId, loadProfiles));
+    await bulkWriteClosedDeals(client, rows);
+  } else {
+    const rows = changes.upserts.map((value) => buildProspectRow(value, userId));
+    await bulkWriteProspects(client, rows);
   }
 
   await deleteRecords(client, collection, changes.deletes);
