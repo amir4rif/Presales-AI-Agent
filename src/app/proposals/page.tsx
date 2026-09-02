@@ -19,6 +19,7 @@ import {
 } from '@/lib/data';
 import { notify } from '@/lib/notify';
 import { isRemoteDataSource } from '@/lib/data-sync';
+import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
   executive: 'Executive Summary',
@@ -59,6 +60,9 @@ const SUBMIT_STATE: Record<string, { disabled: boolean; label: string }> = {
   'Superseded': { disabled: true, label: 'Superseded Version' },
 };
 const SUBMIT_DEFAULT = { disabled: false, label: 'Submit for Approval' };
+
+const EDITABLE_STATUSES = new Set<ProposalStatus>(['Draft', 'Reject & Revise']);
+const canEditProposal = (status: ProposalStatus) => EDITABLE_STATUSES.has(status);
 
 /* Sort order for the "Rejected first" rule. */
 const STATUS_SORT: Record<string, number> = {
@@ -115,6 +119,7 @@ function ProposalsPage() {
     setMe(currentUser());
     reload();
   }, [reload]);
+  useRemoteDataRefresh(reload);
 
   const editing = editingId ? store.find((p) => p.id === editingId) || null : null;
 
@@ -180,6 +185,8 @@ function ProposalsPage() {
   const persist = useCallback(
     (nextSections: Record<string, string>) => {
       if (!editingId) return;
+      const target = store.find((proposal) => proposal.id === editingId);
+      if (!target || !canEditProposal(target.status)) return;
       const next = store.map((p) =>
         p.id === editingId ? { ...p, sections: { ...p.sections, ...nextSections } } : p
       );
@@ -242,7 +249,7 @@ function ProposalsPage() {
 
   /* ── SUBMIT / RESUBMIT ─────────────────────────────────── */
   function submitForApproval() {
-    if (!editing) return;
+    if (!editing || !canEditProposal(editing.status)) return;
     const today = todayUK();
     const merged = { ...sections };
 
@@ -303,7 +310,7 @@ function ProposalsPage() {
   }
 
   async function generateAIContent() {
-    if (!editing) return;
+    if (!editing || !canEditProposal(editing.status)) return;
     setGenerating(true);
     setSuggestion('Generating…');
     const label = SECTION_LABELS[section] || section;
@@ -339,6 +346,7 @@ function ProposalsPage() {
 
   /* ── RENDER ────────────────────────────────────────────── */
   if (editing) {
+    const canEdit = canEditProposal(editing.status);
     const badge = STATUS_BADGE[editing.status] || STATUS_BADGE.Draft;
     const meta = [
       editing.caseId ? `Case ${editing.caseId}` : '',
@@ -474,7 +482,7 @@ function ProposalsPage() {
               ))}
             </div>
 
-            <div style={{ marginTop: 14, background: 'var(--brand-50)', border: '1px solid var(--brand-100)', borderRadius: 10, padding: '14px 16px' }}>
+            <div className="proposal-ai-card" style={{ marginTop: 14, background: 'var(--brand-50)', border: '1px solid var(--brand-100)', borderRadius: 10, padding: '14px 16px' }}>
               <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--brand-500)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                   <circle cx="12" cy="12" r="10" />
@@ -491,7 +499,7 @@ function ProposalsPage() {
               <button
                 className="btn-primary"
                 style={{ width: '100%', justifyContent: 'center', fontSize: 12, padding: 8 }}
-                disabled={generating}
+                disabled={generating || !canEdit}
                 onClick={generateAIContent}
               >
                 ✨ View Suggestions
@@ -505,17 +513,17 @@ function ProposalsPage() {
                 <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--gray-900)', marginRight: 8 }}>
                   {SECTION_LABELS[section]}
                 </span>
-                <button className="tool-btn" style={{ fontWeight: 600 }}>B</button>
-                <button className="tool-btn" style={{ fontStyle: 'italic' }}>I</button>
-                <button className="tool-btn" style={{ textDecoration: 'underline' }}>U</button>
-                <button className="tool-btn">H2</button>
-                <button className="tool-btn">≡</button>
-                <button className="tool-btn">🔗</button>
+                <button className="tool-btn" style={{ fontWeight: 600 }} disabled={!canEdit}>B</button>
+                <button className="tool-btn" style={{ fontStyle: 'italic' }} disabled={!canEdit}>I</button>
+                <button className="tool-btn" style={{ textDecoration: 'underline' }} disabled={!canEdit}>U</button>
+                <button className="tool-btn" disabled={!canEdit}>H2</button>
+                <button className="tool-btn" disabled={!canEdit}>≡</button>
+                <button className="tool-btn" disabled={!canEdit}>🔗</button>
                 <div style={{ flex: 1 }} />
                 <button
                   className="btn-secondary"
                   style={{ fontSize: 12, padding: '5px 12px' }}
-                  disabled={generating}
+                  disabled={generating || !canEdit}
                   onClick={generateAIContent}
                 >
                   ✨ Generate with AI
@@ -523,14 +531,26 @@ function ProposalsPage() {
               </div>
 
               <div className="editor-body">
+                {!canEdit && (
+                  <p className="editor-lock-notice" id="proposal-editor-lock">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                      <rect x="5" y="11" width="14" height="10" rx="2" />
+                      <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                    </svg>
+                    This version is locked because it has been submitted.
+                  </p>
+                )}
                 <textarea
                   className="editor-textarea"
                   rows={14}
                   value={sections[section] || ''}
+                  readOnly={!canEdit}
+                  aria-readonly={!canEdit}
+                  aria-describedby={!canEdit ? 'proposal-editor-lock' : undefined}
                   onChange={(e) => setSections((s) => ({ ...s, [section]: e.target.value }))}
-                  onBlur={() => persist(sections)}
+                  onBlur={canEdit ? () => persist(sections) : undefined}
                 />
-                {suggestion !== null && (
+                {canEdit && suggestion !== null && (
                   <div className="ai-suggestion-box">
                     <div className="ai-suggestion-label">
                       <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
@@ -543,7 +563,7 @@ function ProposalsPage() {
                     <div className="ai-suggestion-actions">
                       <button
                         className="use-btn"
-                        disabled={generating}
+                        disabled={generating || !canEdit}
                         onClick={() => {
                           const next = { ...sections, [section]: suggestion };
                           setSections(next);
@@ -560,7 +580,9 @@ function ProposalsPage() {
                   </div>
                 )}
               </div>
-              <div className="word-count">Words: {wordCount} · Saved ✓</div>
+              <div className="word-count">
+                Words: {wordCount} · {canEdit ? 'Saved ✓' : 'Read only'}
+              </div>
             </div>
           </div>
         </div>

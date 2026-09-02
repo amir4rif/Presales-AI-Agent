@@ -18,7 +18,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [identity, setIdentity] = useState<{ name: string; role: string; level: Level } | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
   const [dataStatus, setDataStatus] = useState<DataLayerStatus | null>(null);
-  const [dataRevision, setDataRevision] = useState(0);
 
   const bare = BARE_ROUTES.includes(pathname);
 
@@ -76,12 +75,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
     return subscribeToRemoteChanges();
   }, [bare, dataStatus?.source]);
 
-  useEffect(() => {
-    const reload = () => setDataRevision((value) => value + 1);
-    window.addEventListener('rams:remote-data', reload);
-    return () => window.removeEventListener('rams:remote-data', reload);
-  }, []);
-
   if (bare) return <>{children}</>;
   if (bootError) {
     return (
@@ -107,7 +100,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <Sidebar level={identity.level} name={identity.name} role={identity.role} />
       <div className="main">
         <Topbar title={titleFor(pathname)} level={identity.level} />
-        <div className="content" key={dataRevision}>{children}</div>
+        <div className="content">{children}</div>
       </div>
     </>
   );

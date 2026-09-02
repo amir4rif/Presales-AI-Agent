@@ -2,7 +2,11 @@ import { NextResponse } from 'next/server';
 import { isDataCollection } from '@/lib/integrations';
 import { requireApiSession } from '@/lib/server/api-auth';
 import { getSupabaseStatus } from '@/lib/server/config';
-import { AuthorizationError, writeSupabaseChanges } from '@/lib/server/supabase-data';
+import {
+  AuthorizationError,
+  SupabaseDataError,
+  writeSupabaseChanges,
+} from '@/lib/server/supabase-data';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -59,9 +63,18 @@ export async function PUT(
     console.error(`[api/data/${collection}] Supabase persistence failed`, {
       name: error instanceof Error ? error.name : 'UnknownError',
       message: error instanceof Error ? error.message : 'Unknown error',
+      code: error instanceof SupabaseDataError ? error.code : undefined,
+      details: error instanceof SupabaseDataError ? error.details : undefined,
+      hint: error instanceof SupabaseDataError ? error.hint : undefined,
     });
     if (error instanceof AuthorizationError) {
       return json({ error: error.message }, 403);
+    }
+    if (error instanceof SupabaseDataError && error.code === '42501') {
+      const message = collection === 'proposals'
+        ? 'Submitted proposal versions cannot be changed.'
+        : 'You do not have permission to make this change.';
+      return json({ error: message }, 403);
     }
     return json({ error: `Could not persist ${collection} to Supabase.` }, 502);
   }

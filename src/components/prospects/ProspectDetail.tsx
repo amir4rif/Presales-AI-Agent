@@ -4,7 +4,7 @@
    The copilot can answer in chat, or generate a Sales Intelligence
    Report (PDF / editable Word) or an 8-slide Proposal deck (PDF). Intent
    is detected from the message, same as before. */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useToast } from '@/components/Toast';
 import { callClaude, isAiError } from '@/lib/ai';
 import {
@@ -19,6 +19,7 @@ import {
 import { buildProposalHTML, buildReportHTML, type ProposalData, type ReportData } from '@/lib/docTemplates';
 import { STAGES, currentUser, getDeals, saveProspects, type Deal, type Prospect } from '@/lib/data';
 import { getSession } from '@/lib/role';
+import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const PAIN_ICONS = ['🟠', '⚠️', '🔴', '📊', '🌐'];
 
@@ -68,10 +69,13 @@ export default function ProspectDetail({
   const [busy, setBusy] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
 
+  const reloadDeals = useCallback(() => setDeals(getDeals()), []);
+
   useEffect(() => {
-    setDeals(getDeals());
     setNotes(localStorage.getItem(notesStorageKey(p.id)) || '');
   }, [p.id]);
+  useEffect(reloadDeals, [reloadDeals]);
+  useRemoteDataRefresh(reloadDeals);
 
   useEffect(() => {
     if (feedRef.current) feedRef.current.scrollTop = feedRef.current.scrollHeight;

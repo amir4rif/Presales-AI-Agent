@@ -19,6 +19,7 @@ import {
   type ClosedDeal,
   type Deal,
 } from '@/lib/data';
+import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const MOVEMENT_CLASS: Record<string, string> = { Advanced: 'movement-up', Held: 'movement-held', Regressed: 'movement-down' };
 const MOVEMENT_ICON: Record<string, string> = { Advanced: '▲', Held: '—', Regressed: '▼' };
@@ -53,6 +54,11 @@ function PipelinePage() {
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_DEAL);
 
+  const reload = useCallback(() => {
+    setDeals(getDeals());
+    setClosed(getClosedDeals());
+  }, []);
+
   useEffect(() => {
     const lvl = currentLevel();
     const name = currentUser();
@@ -60,8 +66,7 @@ function PipelinePage() {
     setMe(name);
     const list = getReps();
     setReps(list.includes(name) ? list : [name, ...list]);
-    setDeals(getDeals());
-    setClosed(getClosedDeals());
+    reload();
     setForm((f) => ({ ...f, rep: name }));
     /* Stages come from the shared store, with any custom SLA thresholds
        saved by an administrator in Settings → Pipeline & SLA applied. */
@@ -71,7 +76,8 @@ function PipelinePage() {
     } catch {
       setStages(BASE_STAGES);
     }
-  }, []);
+  }, [reload]);
+  useRemoteDataRefresh(reload);
 
   const stageOf = useCallback((d: Deal) => stages[d.stage - 1], [stages]);
 

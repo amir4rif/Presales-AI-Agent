@@ -32,6 +32,7 @@ import {
   type ProposalStatus,
 } from '@/lib/data';
 import { notify } from '@/lib/notify';
+import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
   executive: 'Executive Summary',
@@ -101,6 +102,7 @@ function ApprovalsPage() {
   useEffect(() => {
     reload();
   }, [reload]);
+  useRemoteDataRefresh(reload);
 
   /* Superseded versions are audit-only, and Drafts have not been submitted
      yet. The approvals list shows the current submitted version of each case

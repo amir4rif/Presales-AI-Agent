@@ -20,6 +20,7 @@ import { LEVEL_NAME, ROLE_LEVELS, getSession, levelForRole, setSession, type Lev
 import { useIntegrations } from '@/lib/useIntegrations';
 import { isRemoteDataSource } from '@/lib/data-sync';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const ROLES = Object.keys(ROLE_LEVELS);
 const SLA_KEY = 'ramssolStageSLA';
@@ -114,6 +115,7 @@ function SettingsPage() {
       setNotify(out);
     }
   }, [loadTeam]);
+  useRemoteDataRefresh(loadTeam);
 
   const profileLevel = levelForRole(profile.role);
 

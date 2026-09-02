@@ -20,6 +20,7 @@ import {
   type Deal,
   type Prospect,
 } from '@/lib/data';
+import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const STAGE_OPTIONS = [
   '1 – Prospecting',
@@ -53,6 +54,7 @@ function ProspectsPage() {
     setReps(names);
     setDeal((d) => ({ ...d, rep: me }));
   }, [reload]);
+  useRemoteDataRefresh(reload);
 
   const industries = useMemo(
     () => [...new Set(prospects.map((p) => p.type))].sort(),

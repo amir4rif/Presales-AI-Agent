@@ -1,7 +1,7 @@
 'use client';
 /* Analytics — the two-stage win-rate model (Doc §4) and the AI
    learning loop (Doc §4.10). Level 2 and 3 only. */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import RequireLevel from '@/components/RequireLevel';
 import {
   STAGES,
@@ -12,6 +12,7 @@ import {
   type ClosedDeal,
   type Proposal,
 } from '@/lib/data';
+import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const quarterOf = (dateStr: string) => `Q${Math.ceil(+dateStr.slice(5, 7) / 3)} '${dateStr.slice(2, 4)}`;
 const qSort = (a: string, b: string) => (a.slice(-2) + a[1]).localeCompare(b.slice(-2) + b[1]);
@@ -20,10 +21,15 @@ function AnalyticsPage() {
   const [closed, setClosed] = useState<ClosedDeal[]>([]);
   const [store, setStore] = useState<Proposal[]>([]);
 
-  useEffect(() => {
+  const reload = useCallback(() => {
     setClosed(getClosedDeals());
     setStore(ensureProposalStore());
   }, []);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+  useRemoteDataRefresh(reload);
 
   /* ── STAGE 1: APPROVAL RATE (Doc §4.3) ──────────────────
      One rate per CASE: a case that was revised then approved counts once. */

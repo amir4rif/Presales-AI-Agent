@@ -31,8 +31,30 @@ export class AuthorizationError extends Error {
   }
 }
 
-function fail(context: string, error: { message: string } | null) {
-  if (error) throw new Error(`${context}: ${error.message}`);
+type SupabaseOperationError = {
+  code?: string;
+  details?: string | null;
+  hint?: string | null;
+  message: string;
+};
+
+/** Preserve stable Postgres/PostgREST fields for the API error mapper. */
+export class SupabaseDataError extends Error {
+  readonly code?: string;
+  readonly details: string | null;
+  readonly hint: string | null;
+
+  constructor(context: string, error: SupabaseOperationError) {
+    super(`${context}: ${error.message}`);
+    this.name = 'SupabaseDataError';
+    this.code = error.code;
+    this.details = error.details ?? null;
+    this.hint = error.hint ?? null;
+  }
+}
+
+function fail(context: string, error: SupabaseOperationError | null) {
+  if (error) throw new SupabaseDataError(context, error);
 }
 
 function displayDate(value: string | null | undefined): string {
