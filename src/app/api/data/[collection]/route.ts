@@ -13,6 +13,26 @@ export const dynamic = 'force-dynamic';
 
 const MAX_CHANGES = 250;
 
+const PROPOSAL_WORKFLOW_MESSAGES = [
+  'A proposal can only be created as your own draft or pending version.',
+  'Proposal ownership cannot be changed.',
+  'Only the proposal owner can edit or submit a draft.',
+  'Submitted proposal versions are immutable. Create a new version instead.',
+  'Level 1 users cannot change reviewer-controlled proposal fields.',
+  'This proposal status transition is not permitted.',
+];
+
+function proposalWorkflowMessage(error: SupabaseDataError) {
+  const knownMessage = PROPOSAL_WORKFLOW_MESSAGES.find((message) =>
+    error.message.endsWith(message)
+  );
+  if (knownMessage) return knownMessage;
+  if (process.env.NODE_ENV === 'development') {
+    return error.message.replace(/^[^:]+:\s*/, '');
+  }
+  return 'You do not have permission to make this proposal change.';
+}
+
 function json(body: unknown, status = 200) {
   return NextResponse.json(body, {
     status,
@@ -72,7 +92,7 @@ export async function PUT(
     }
     if (error instanceof SupabaseDataError && error.code === '42501') {
       const message = collection === 'proposals'
-        ? 'Submitted proposal versions cannot be changed.'
+        ? proposalWorkflowMessage(error)
         : 'You do not have permission to make this change.';
       return json({ error: message }, 403);
     }

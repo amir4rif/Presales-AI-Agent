@@ -12,6 +12,7 @@ import type {
 } from '@/lib/data';
 import type { DataCollection } from '@/lib/integrations';
 import type { Database, Json, Tables } from '@/lib/supabase/database.types';
+import { writeProposalRows } from '@/lib/server/proposal-writer';
 
 type Client = SupabaseClient<Database>;
 type ProfileRow = Tables<'profiles'>;
@@ -264,9 +265,7 @@ export async function readAllSupabaseData(client: Client, userId: string) {
  * object in the array, so rows with different key sets (e.g. some carry an
  * explicit `id`, some rely on the column default) must never share a call
  * or the odd-shaped rows silently lose columns. Group by exact key
- * signature first, then upsert (has `id`) or insert (no `id`) each group
- * as a single statement, so each call commits atomically and a bad row
- * fails before any row in that shape group is written.
+ * signature first before batching an upsert or insert for each shape.
  */
 function groupByShape<Row extends Record<string, unknown>>(rows: Row[]): Row[][] {
   const groups = new Map<string, Row[]>();
@@ -277,15 +276,6 @@ function groupByShape<Row extends Record<string, unknown>>(rows: Row[]): Row[][]
     else groups.set(shape, [row]);
   }
   return Array.from(groups.values());
-}
-
-async function bulkWriteProposals(client: Client, rows: Database['public']['Tables']['proposals']['Insert'][]) {
-  for (const group of groupByShape(rows)) {
-    const response = 'id' in group[0]
-      ? await client.from('proposals').upsert(group, { onConflict: 'id' })
-      : await client.from('proposals').insert(group);
-    fail('Could not save proposals', response.error);
-  }
 }
 
 async function bulkWriteDeals(client: Client, rows: Database['public']['Tables']['deals']['Insert'][]) {
@@ -508,7 +498,7 @@ export async function writeSupabaseChanges(
   } else if (collection === 'proposals') {
     const rows = [];
     for (const value of changes.upserts) rows.push(await buildProposalRow(value, userId, loadProfiles));
-    await bulkWriteProposals(client, rows);
+    await writeProposalRows(client, rows, fail);
   } else if (collection === 'deals') {
     const rows = [];
     for (const value of changes.upserts) rows.push(await buildDealRow(value, userId, loadProfiles));

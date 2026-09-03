@@ -3,7 +3,7 @@
    The AI call now goes through lib/ai.ts → /api/generate; there is no
    API-key modal on this page any more because there is no key in the
    browser to enter. */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
 import { useToast } from '@/components/Toast';
@@ -19,6 +19,7 @@ import {
 } from '@/lib/data';
 import { notify } from '@/lib/notify';
 import { isRemoteDataSource } from '@/lib/data-sync';
+import { mergeEditedProposalSections } from '@/lib/proposal-sections';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -72,25 +73,6 @@ const STATUS_SORT: Record<string, number> = {
   'Approved': 3,
 };
 
-const DEFAULT_SECTIONS: Record<string, string> = {
-  executive:
-    'Tzu Chi Foundation requires a comprehensive volunteer management solution to streamline recruitment, deployment, communication, and reporting across its global operations.\n\nOur proposed solution will help Tzu Chi improve volunteer coordination, increase operational efficiency, and enhance impact measurement while supporting multiple languages and regions.',
-  challenges:
-    'Tzu Chi faces several operational challenges:\n\n1. Managing 10,000+ volunteers across 60+ countries with diverse languages\n2. Manual volunteer coordination leading to delays in disaster response\n3. Limited visibility into volunteer availability and skills inventory\n4. Fragmented donor tracking and fund utilization reporting',
-  solution:
-    'Ramssol proposes a cloud-based Volunteer Management System (VMS) that provides:\n\n• Centralized volunteer registry with multilingual support (20+ languages)\n• AI-powered matching of volunteers to deployment needs\n• Real-time coordination and communication platform\n• Integrated donor management with fund tracking dashboards',
-  benefits:
-    'Key benefits for Tzu Chi:\n\n• 60% reduction in volunteer coordination time\n• Real-time visibility across all regional operations\n• Automated compliance reporting for donors and regulators\n• Mobile-first design for field volunteers',
-  implementation:
-    'Phase 1 (Weeks 1-4): System setup, data migration, admin training\nPhase 2 (Weeks 5-8): Pilot with Taiwan and Malaysia chapters\nPhase 3 (Weeks 9-12): Global rollout and optimization\nPhase 4 (Month 4+): Ongoing support and enhancement',
-  commercials:
-    'System License: RM 180,000/year (up to 15,000 active users)\nImplementation: RM 85,000 (one-time)\nTraining: RM 25,000\nSupport: RM 36,000/year (8x5 SLA)\n\nTotal Year 1: RM 326,000',
-  casestudies:
-    'Red Cross Malaysia — Implemented volunteer management for 5,000 volunteers. Result: 45% faster disaster response deployment.\n\nWelfare Department Malaysia — Donor tracking system for 200,000 donors. Result: 98% fund utilization transparency.',
-  nextsteps:
-    '1. Schedule a technical demo (30 mins) with your IT team\n2. Conduct a 2-week proof-of-concept pilot\n3. Finalize commercial terms and SLA\n4. Sign MOU and kick off implementation',
-};
-
 const genId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
 const todayUK = () =>
   new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -105,6 +87,7 @@ function ProposalsPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sections, setSections] = useState<Record<string, string>>({});
+  const editedSectionKeys = useRef<Set<string>>(new Set());
   const [section, setSection] = useState('executive');
 
   const [newOpen, setNewOpen] = useState(false);
@@ -177,18 +160,25 @@ function ProposalsPage() {
     const p = store.find((x) => x.id === id);
     if (!p) return;
     setEditingId(id);
-    setSections({ ...DEFAULT_SECTIONS, ...(p.sections || {}) });
+    setSections({ ...(p.sections || {}) });
+    editedSectionKeys.current.clear();
     setSection('executive');
     setSuggestion(null);
   }
 
   const persist = useCallback(
     (nextSections: Record<string, string>) => {
-      if (!editingId) return;
+      const editedKeys = [...editedSectionKeys.current];
+      editedSectionKeys.current.clear();
+      if (!editingId || !editedKeys.length) return;
       const target = store.find((proposal) => proposal.id === editingId);
       if (!target || !canEditProposal(target.status)) return;
+      const merged = mergeEditedProposalSections(target.sections, nextSections, editedKeys);
+      if (!merged.changed) return;
       const next = store.map((p) =>
-        p.id === editingId ? { ...p, sections: { ...p.sections, ...nextSections } } : p
+        p.id === editingId
+          ? { ...p, sections: merged.sections as Proposal['sections'] }
+          : p
       );
       saveProposals(next);
       setStore(next);
@@ -225,7 +215,7 @@ function ProposalsPage() {
       owner: me,
       generatedDate: new Date().toISOString().slice(0, 10),
       submittedDate: '',
-      status: 'Draft', // Draft is the first state after AI generates
+      status: 'Draft',
       reviewer: '',
       reviewedDate: '',
       reviewNote: '',
@@ -241,9 +231,10 @@ function ProposalsPage() {
     saveProposals(next);
     setStore(next);
     setNewOpen(false);
-    toast('✨ AI drafted a new proposal — review and submit when ready');
+    toast('📝 New proposal draft created — review and submit when ready');
     setEditingId(id);
-    setSections({ ...DEFAULT_SECTIONS, ...created.sections });
+    setSections({ ...created.sections });
+    editedSectionKeys.current.clear();
     setSection('executive');
   }
 
@@ -251,7 +242,12 @@ function ProposalsPage() {
   function submitForApproval() {
     if (!editing || !canEditProposal(editing.status)) return;
     const today = todayUK();
-    const merged = { ...sections };
+    const merged = mergeEditedProposalSections(
+      editing.sections,
+      sections,
+      editedSectionKeys.current
+    ).sections;
+    editedSectionKeys.current.clear();
 
     if (editing.status === 'Reject & Revise') {
       /* Resubmit: the rejected version becomes Superseded (kept for the audit
@@ -547,7 +543,10 @@ function ProposalsPage() {
                   readOnly={!canEdit}
                   aria-readonly={!canEdit}
                   aria-describedby={!canEdit ? 'proposal-editor-lock' : undefined}
-                  onChange={(e) => setSections((s) => ({ ...s, [section]: e.target.value }))}
+                  onChange={(e) => {
+                    editedSectionKeys.current.add(section);
+                    setSections((s) => ({ ...s, [section]: e.target.value }));
+                  }}
                   onBlur={canEdit ? () => persist(sections) : undefined}
                 />
                 {canEdit && suggestion !== null && (
@@ -566,6 +565,7 @@ function ProposalsPage() {
                         disabled={generating || !canEdit}
                         onClick={() => {
                           const next = { ...sections, [section]: suggestion };
+                          editedSectionKeys.current.add(section);
                           setSections(next);
                           persist(next);
                           setSuggestion(null);
@@ -757,7 +757,7 @@ function ProposalsPage() {
         open={newOpen}
         onClose={() => setNewOpen(false)}
         title="New Proposal"
-        sub="Pick an opportunity — the AI drafts a first version, saved as a Draft you submit manually."
+        sub="Pick an opportunity to create an account-specific starter draft. Use Generate with AI on any section you want to expand."
         actions={
           <button className="btn-secondary" onClick={() => setNewOpen(false)}>
             Cancel
