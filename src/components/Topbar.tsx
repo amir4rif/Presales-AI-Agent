@@ -41,9 +41,18 @@ export default function Topbar({ title, level }: { title: string; level: Level }
     };
     sync();
     const unsubscribe = subscribeToNotifications(sync);
+    const onVisibilityChange = () => {
+      if (!document.hidden) sync();
+    };
+    const poll = window.setInterval(sync, 30_000);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       active = false;
       unsubscribe();
+      window.clearInterval(poll);
+      window.removeEventListener('focus', sync);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
 
@@ -97,7 +106,14 @@ export default function Topbar({ title, level }: { title: string; level: Level }
     if (next) {
       const list = notifs.map((n) => ({ ...n, read: true }));
       setNotifs(list);
-      void markAllNotifsRead().catch(() => undefined);
+      // Always hydrate on open. This closes the small startup window where a
+      // Realtime subscription is not yet ready when a notification arrives.
+      void loadNotifs()
+        .then((latest) => {
+          setNotifs(latest.map((notification) => ({ ...notification, read: true })));
+          return markAllNotifsRead();
+        })
+        .catch(() => undefined);
     }
   }
 

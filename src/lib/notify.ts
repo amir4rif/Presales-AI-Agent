@@ -197,7 +197,6 @@ export function subscribeToNotifications(onChange: () => void) {
         event: '*',
         schema: 'public',
         table: 'notifications',
-        filter: `recipient_id=eq.${userId}`,
       },
       onChange
     )
