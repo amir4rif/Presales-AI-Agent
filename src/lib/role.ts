@@ -74,6 +74,11 @@ export function currentUser(): string {
   return 'Lim LG';
 }
 
+/** Stable database identity of the signed-in user, when remotely authenticated. */
+export function currentUserId(): string | undefined {
+  return getSession()?.userId;
+}
+
 /** Access level of the signed-in user (Doc §2). */
 export function currentLevel(): Level {
   const s = getSession();

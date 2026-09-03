@@ -12,6 +12,7 @@ import {
   type ClosedDeal,
   type Proposal,
 } from '@/lib/data';
+import { rejectionReasonStats } from '@/lib/proposal-lifecycle';
 import { calculateTwoStageRates } from '@/lib/stage-rates';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
@@ -85,6 +86,7 @@ function AnalyticsPage() {
 
   /* ── VELOCITY vs SLA ────────────────────────────────────── */
   const maxDays = Math.max(...STAGES.map((s) => Math.max(s.avgDays, s.sla)));
+  const { reasons } = rejectionReasonStats(store);
 
   /* ── BLOCKER FREQUENCY ──────────────────────────────────── */
   const blockers = (() => {
@@ -92,18 +94,14 @@ function AnalyticsPage() {
     closed
       .filter((d) => d.outcome === 'Lost' && d.lossReason)
       .forEach((d) => (counts[d.lossReason] = (counts[d.lossReason] || 0) + 1));
-    store
-      .filter((p) => p.rejectionReason)
-      .forEach((p) => (counts[p.rejectionReason] = (counts[p.rejectionReason] || 0) + 1));
+    Object.entries(reasons).forEach(([reason, count]) => {
+      counts[reason] = (counts[reason] || 0) + count;
+    });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]);
   })();
   const maxBlocker = Math.max(...blockers.map((r) => r[1]), 1);
 
   /* ── AI LEARNING LOOP METRICS (Doc §4.10) ───────────────── */
-  const reasons: Record<string, number> = {};
-  store
-    .filter((p) => p.rejectionReason)
-    .forEach((p) => (reasons[p.rejectionReason] = (reasons[p.rejectionReason] || 0) + 1));
   const topReasons = Object.entries(reasons).sort((a, b) => b[1] - a[1]);
   const totalReject = topReasons.reduce((a, r) => a + r[1], 0);
   const maxReason = Math.max(...topReasons.map((r) => r[1]), 1);

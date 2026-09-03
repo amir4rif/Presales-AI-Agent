@@ -4,6 +4,7 @@ import test from 'node:test';
 import { safeNextPath } from '../src/lib/safe-next.ts';
 import { safeFilenamePart } from '../src/lib/docExport.ts';
 import { buildProposalHTML, buildReportHTML } from '../src/lib/docTemplates.ts';
+import { resolveProfileIdFromWire } from '../src/lib/profile-identity.ts';
 import { mergeEditedProposalSections } from '../src/lib/proposal-sections.ts';
 import { writeProposalRows } from '../src/lib/server/proposal-writer.ts';
 
@@ -144,4 +145,49 @@ test("Level 2 cannot edit or submit another rep's Draft proposal", () => {
     /old\.status = 'Draft' and\s+old\.owner_id = \(select auth\.uid\(\)\) and\s+new\.status in \('Draft', 'Pending Review'\)/
   );
   assert.match(migration, /Only the proposal owner can edit or submit a draft\./);
+});
+
+test('profile-name fallback rejects ambiguity while explicit IDs remain authoritative', async () => {
+  let loads = 0;
+  const loadProfiles = async () => {
+    loads += 1;
+    return [
+      { id: 'profile-a', name: 'Same Name' },
+      { id: 'profile-b', name: ' same name ' },
+    ];
+  };
+
+  assert.equal(
+    await resolveProfileIdFromWire(
+      { owner: 'Same Name', ownerId: 'profile-a' },
+      'owner',
+      'ownerId',
+      loadProfiles,
+      'fallback-id'
+    ),
+    'profile-a'
+  );
+  assert.equal(loads, 0);
+
+  await assert.rejects(
+    resolveProfileIdFromWire(
+      { owner: 'Same Name' },
+      'owner',
+      'ownerId',
+      loadProfiles,
+      'fallback-id'
+    ),
+    /matches multiple profiles; include ownerId/
+  );
+  assert.equal(loads, 1);
+});
+
+test('My Proposals database view keeps Reject & Close cases visible', () => {
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260903040000_keep_closed_proposals_visible.sql', import.meta.url),
+    'utf8'
+  );
+  const whereClause = migration.match(/where[\s\S]*?;/)?.[0] || '';
+  assert.match(migration, /where status <> 'Superseded'/);
+  assert.doesNotMatch(whereClause, /Reject & Close/);
 });

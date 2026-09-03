@@ -9,12 +9,17 @@
    AppShell hydrates their browser cache through /api/data when the
    server selects Lark; the same save functions queue server writes.
 ═══════════════════════════════════════════════════════════ */
-import { currentLevel, currentUser } from './role';
+import { currentLevel, currentUser, currentUserId } from './role';
 import { isRemoteCollection, isRemoteDataSource, queueDataSync } from './data-sync';
 import { STORAGE_KEY_BY_COLLECTION, type DataCollection } from './integrations';
+import {
+  isLiveProposalVersion,
+  rejectionReasonStats,
+  visibleProposalVersionsForOwner,
+} from './proposal-lifecycle';
 import { calculateTwoStageRates } from './stage-rates';
 
-export { currentLevel, currentUser };
+export { currentLevel, currentUser, currentUserId };
 
 /* ── TYPES ─────────────────────────────────────────────── */
 export type Stage = { id: number; name: string; sla: number; avgDays: number; prob: number };
@@ -346,6 +351,18 @@ export const saveProspects = (l: Prospect[]) => write('prospects', l);
 export const getTeam = (): TeamMember[] => read('ramssolTeam', TEAM_SEED.map((m) => ({ ...m })));
 export const saveTeam = (l: TeamMember[]) => write('team', l);
 
+/** Resolve a cached display name only when it identifies exactly one profile. */
+export function profileIdForName(name: string): string | undefined {
+  const normalized = name.trim().toLowerCase();
+  if (!normalized) return undefined;
+  const ids = new Set(
+    getTeam()
+      .filter((profile) => profile.id && profile.name.trim().toLowerCase() === normalized)
+      .map((profile) => profile.id as string)
+  );
+  return ids.size === 1 ? [...ids][0] : undefined;
+}
+
 export const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
 /** Rep list follows the same persona swap, so every dropdown and filter
@@ -361,12 +378,15 @@ export type Stats = ReturnType<typeof stats>;
 
 export function stats(user?: string) {
   const who = user || currentUser();
+  const whoId = user ? profileIdForName(user) : currentUserId();
   const store = ensureProposalStore();
-  const cur = store.filter((p) => p.status !== 'Superseded');
-  const mine = cur.filter((p) => (p.owner || p.submittedBy) === who);
+  const cur = store.filter(isLiveProposalVersion);
+  const mine = visibleProposalVersionsForOwner(cur, who, whoId);
   const deals = getDeals();
   const closed = getClosedDeals();
-  const myDeals = deals.filter((d) => d.rep === who);
+  const myDeals = deals.filter((d) =>
+    whoId && d.ownerId ? d.ownerId === whoId : d.rep === who
+  );
 
   // Both funnel stages use proposal cases. Pending approved outcomes are not
   // decisions and therefore stay out of Stage 2's denominator.
@@ -379,12 +399,8 @@ export function stats(user?: string) {
     return s && d.daysInStage > s.sla;
   });
 
-  // Top rejection reason drives the AI learning loop (Doc §4.10)
-  const reasons: Record<string, number> = {};
-  store.filter((p) => p.rejectionReason).forEach((p) => {
-    reasons[p.rejectionReason] = (reasons[p.rejectionReason] || 0) + 1;
-  });
-  const topReason = Object.entries(reasons).sort((a, b) => b[1] - a[1])[0] || null;
+  // Only live Reject & Revise reasons drive the AI learning loop (Doc §4.10).
+  const { reasons, topReason } = rejectionReasonStats(store);
 
   return {
     user: who, store, cur, mine, deals, closed, myDeals, prospects: getProspects(),

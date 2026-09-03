@@ -11,14 +11,17 @@ import { callClaude } from '@/lib/ai';
 import {
   OPPORTUNITIES,
   currentUser,
+  currentUserId,
   ensureProposalStore,
   fmtRM,
+  profileIdForName,
   saveProposals,
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
 import { notify } from '@/lib/notify';
 import { isRemoteDataSource } from '@/lib/data-sync';
+import { visibleProposalVersionsForOwner } from '@/lib/proposal-lifecycle';
 import { mergeEditedProposalSections } from '@/lib/proposal-sections';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
@@ -68,9 +71,10 @@ const canEditProposal = (status: ProposalStatus) => EDITABLE_STATUSES.has(status
 /* Sort order for the "Rejected first" rule. */
 const STATUS_SORT: Record<string, number> = {
   'Reject & Revise': 0,
-  'Draft': 1,
-  'Pending Review': 2,
-  'Approved': 3,
+  'Reject & Close': 1,
+  'Draft': 2,
+  'Pending Review': 3,
+  'Approved': 4,
 };
 
 const genId = (prefix: string) => `${prefix}-${crypto.randomUUID()}`;
@@ -109,14 +113,8 @@ function ProposalsPage() {
   /* ── LIST ──────────────────────────────────────────────── */
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
-    // My Proposals shows OWN proposals only, current version per case:
-    // Superseded and Reject & Close drop out (Doc §3.8).
-    let out = store.filter(
-      (p) =>
-        (p.owner || p.submittedBy) === me &&
-        p.status !== 'Superseded' &&
-        p.status !== 'Reject & Close'
-    );
+    // My Proposals shows every owned live version. Only Superseded is audit-only.
+    let out = visibleProposalVersionsForOwner(store, me, currentUserId());
     if (statusFilter !== 'all') out = out.filter((p) => p.status === statusFilter);
     if (q) {
       out = out.filter((p) =>
@@ -202,6 +200,7 @@ function ProposalsPage() {
     const o = OPPORTUNITIES.find((x) => x.oppId === oppId);
     if (!o) return;
     const id = genId('PROP');
+    const actorId = currentUserId() || profileIdForName(me);
     const created: Proposal = {
       id,
       // Supabase assigns collision-free case numbers. Seed mode remains fully offline.
@@ -212,7 +211,9 @@ function ProposalsPage() {
       deal: o.deal,
       value: o.value,
       submittedBy: me,
+      submittedById: actorId,
       owner: me,
+      ownerId: actorId,
       generatedDate: new Date().toISOString().slice(0, 10),
       submittedDate: '',
       status: 'Draft',
@@ -666,6 +667,7 @@ function ProposalsPage() {
           <option value="Pending Review">Pending Review</option>
           <option value="Approved">Approved</option>
           <option value="Reject & Revise">Rejected (Revise)</option>
+          <option value="Reject & Close">Rejected (Closed)</option>
         </select>
       </div>
 
@@ -693,6 +695,8 @@ function ProposalsPage() {
             ) : (
               list.map((p) => {
                 const rejected = p.status === 'Reject & Revise';
+                const closed = p.status === 'Reject & Close';
+                const reviewedRejection = rejected || closed;
                 return (
                   <tr key={p.id}>
                     <td>
@@ -706,9 +710,9 @@ function ProposalsPage() {
                       <span className={`status-pill ${pillClass(p.status)}`}>{p.status}</span>
                     </td>
                     <td style={{ fontSize: 12, maxWidth: 220 }}>
-                      {rejected ? (
+                      {reviewedRejection ? (
                         <>
-                          <div style={{ color: '#FB923C', fontWeight: 500 }}>
+                          <div style={{ color: closed ? 'var(--red-700)' : '#FB923C', fontWeight: 500 }}>
                             {p.rejectionReason || '—'}
                           </div>
                           {p.reviewNote && (

@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import {
+  rejectionReasonStats,
+  visibleProposalVersionsForOwner,
+} from '../src/lib/proposal-lifecycle.ts';
 import { calculateTwoStageRates } from '../src/lib/stage-rates.ts';
 
 const proposal = (caseId, status, outcome = undefined, version = 1) => ({
@@ -61,4 +65,32 @@ test('legacy proposals without a Case ID remain separate cases', () => {
   assert.equal(rates.approved, 2);
   assert.equal(rates.decided, 2);
   assert.equal(rates.winRate, 50);
+});
+
+test('learning-loop reasons count only live Reject & Revise proposals', () => {
+  const summary = rejectionReasonStats([
+    { status: 'Reject & Revise', rejectionReason: 'Missing information' },
+    { status: 'Reject & Revise', rejectionReason: 'Missing information' },
+    { status: 'Reject & Revise', rejectionReason: 'Pricing too high' },
+    { status: 'Reject & Close', rejectionReason: 'Compliance issue' },
+    { status: 'Superseded', rejectionReason: 'Missing information' },
+    { status: 'Approved', rejectionReason: 'Legacy stale reason' },
+  ]);
+
+  assert.deepEqual(summary.reasons, {
+    'Missing information': 2,
+    'Pricing too high': 1,
+  });
+  assert.deepEqual(summary.topReason, ['Missing information', 2]);
+});
+
+test('owner proposal list keeps Reject & Close and hides only Superseded versions', () => {
+  const visible = visibleProposalVersionsForOwner([
+    { id: 'draft', owner: 'Rudy', status: 'Draft' },
+    { id: 'closed', owner: 'Renamed Rudy', ownerId: 'profile-rudy', status: 'Reject & Close', rejectionReason: 'Compliance issue' },
+    { id: 'superseded', owner: 'Rudy', ownerId: 'profile-rudy', status: 'Superseded' },
+    { id: 'same-name-other-id', owner: 'Rudy', ownerId: 'profile-other', status: 'Reject & Close' },
+  ], 'Rudy', 'profile-rudy');
+
+  assert.deepEqual(visible.map((proposal) => proposal.id), ['draft', 'closed']);
 });

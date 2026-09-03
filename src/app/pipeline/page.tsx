@@ -10,10 +10,12 @@ import {
   STAGES as BASE_STAGES,
   currentLevel,
   currentUser,
+  currentUserId,
   fmtRM,
   getClosedDeals,
   getDeals,
   getReps,
+  profileIdForName,
   saveClosedDeals,
   saveDeals,
   type ClosedDeal,
@@ -53,6 +55,7 @@ function PipelinePage() {
   const [wrSearch, setWrSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_DEAL);
+  const meId = currentUserId();
 
   const reload = useCallback(() => {
     setDeals(getDeals());
@@ -83,17 +86,23 @@ function PipelinePage() {
 
   /* Level-scoped view of closed deals. */
   const visibleClosed = useMemo(
-    () => (level === 1 ? closed.filter((d) => d.rep === me) : closed),
-    [closed, level, me]
+    () =>
+      level === 1
+        ? closed.filter((d) => (meId && d.ownerId ? d.ownerId === meId : d.rep === me))
+        : closed,
+    [closed, level, me, meId]
   );
 
   const filtered = useMemo(() => {
     // Level 1 → own pipeline only
-    const owner = level === 1 ? me : repFilter;
-    let out = owner && owner !== 'all' ? deals.filter((d) => d.rep === owner) : deals;
+    let out = level === 1
+      ? deals.filter((d) => (meId && d.ownerId ? d.ownerId === meId : d.rep === me))
+      : repFilter !== 'all'
+        ? deals.filter((d) => d.rep === repFilter)
+        : deals;
     if (statusFilter !== 'all') out = out.filter((d) => d.status === statusFilter);
     return out;
-  }, [deals, level, me, repFilter, statusFilter]);
+  }, [deals, level, me, meId, repFilter, statusFilter]);
 
   const tableDeals = useMemo(() => {
     const q = dealSearch.trim().toLowerCase();
@@ -210,6 +219,7 @@ function PipelinePage() {
       const next: ClosedDeal[] = [
         ...closed,
         {
+          ownerId: form.rep === me ? meId || profileIdForName(form.rep) : profileIdForName(form.rep),
           rep: form.rep,
           account: form.account.trim(),
           value,
@@ -230,6 +240,7 @@ function PipelinePage() {
     const next: Deal[] = [
       ...deals,
       {
+        ownerId: form.rep === me ? meId || profileIdForName(form.rep) : profileIdForName(form.rep),
         rep: form.rep,
         account: form.account.trim(),
         stage: Number(form.stage),

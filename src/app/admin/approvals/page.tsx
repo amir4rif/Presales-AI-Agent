@@ -24,14 +24,17 @@ import RequireLevel from '@/components/RequireLevel';
 import { useToast } from '@/components/Toast';
 import {
   currentUser,
+  currentUserId,
   ensureProposalStore,
   fmtRM,
+  profileIdForName,
   saveProposals,
   type DealOutcome,
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
 import { notify } from '@/lib/notify';
+import { rejectionReasonStats } from '@/lib/proposal-lifecycle';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -133,14 +136,9 @@ function ApprovalsPage() {
   ];
 
   const sortedRejectionReasons = useMemo(() => {
-    const counts = new Map<string, number>();
-    store.forEach((proposal) => {
-      if (proposal.rejectionReason) {
-        counts.set(proposal.rejectionReason, (counts.get(proposal.rejectionReason) || 0) + 1);
-      }
-    });
+    const { reasons } = rejectionReasonStats(store);
     return REJECTION_REASONS
-      .map((value, index) => ({ value, index, count: counts.get(value) || 0 }))
+      .map((value, index) => ({ value, index, count: reasons[value] || 0 }))
       .sort((a, b) => b.count - a.count || a.index - b.index)
       .map((item) => item.value);
   }, [store]);
@@ -181,6 +179,7 @@ function ApprovalsPage() {
         reviewNote,
         rejectionReason: isRejected(decision) ? why : '',
         reviewer: who,
+        reviewerId: currentUserId() || profileIdForName(who),
         reviewedDate: today, // decision date
         lastUpdated: today,
       };

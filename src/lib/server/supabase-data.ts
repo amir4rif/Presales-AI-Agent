@@ -11,6 +11,10 @@ import type {
   TeamMember,
 } from '@/lib/data';
 import type { DataCollection } from '@/lib/integrations';
+import {
+  ProfileResolutionError,
+  resolveProfileIdFromWire,
+} from '@/lib/profile-identity';
 import type { Database, Json, Tables } from '@/lib/supabase/database.types';
 import { writeProposalRows } from '@/lib/server/proposal-writer';
 
@@ -113,24 +117,31 @@ function accessLevelForRole(role: string): 1 | 2 | 3 {
   return 1;
 }
 
-function profileMap(profiles: ProfileLookupRow[]) {
-  return new Map(profiles.map((profile) => [profile.full_name.trim().toLowerCase(), profile.id]));
-}
-
-async function resolveOwner(
+async function resolveProfileId(
   item: Record<string, unknown>,
   nameField: string,
   idField: string,
   loadProfiles: ProfilesLoader,
   fallback: string
 ) {
-  const explicit = str(item[idField]);
-  if (explicit) return explicit;
-  const name = str(item[nameField]).trim();
-  if (!name) return fallback;
-  const matched = profileMap(await loadProfiles()).get(name.toLowerCase());
-  if (matched) return matched;
-  throw new AuthorizationError(`Could not resolve "${name}" to an existing user for ${nameField}.`);
+  try {
+    return await resolveProfileIdFromWire(
+      item,
+      nameField,
+      idField,
+      async () =>
+        (await loadProfiles()).map((profile) => ({
+          id: profile.id,
+          name: profile.full_name,
+        })),
+      fallback
+    );
+  } catch (error) {
+    if (error instanceof ProfileResolutionError) {
+      throw new AuthorizationError(error.message);
+    }
+    throw error;
+  }
 }
 
 function proposalToDomain(row: Tables<'proposals'>): Proposal {
@@ -311,11 +322,11 @@ async function buildProposalRow(
   loadProfiles: ProfilesLoader
 ): Promise<Database['public']['Tables']['proposals']['Insert']> {
   const item = record(value);
-  const submittedById = await resolveOwner(item, 'submittedBy', 'submittedById', loadProfiles, userId);
-  const ownerId = await resolveOwner(item, 'owner', 'ownerId', loadProfiles, userId);
+  const submittedById = await resolveProfileId(item, 'submittedBy', 'submittedById', loadProfiles, userId);
+  const ownerId = await resolveProfileId(item, 'owner', 'ownerId', loadProfiles, userId);
   const reviewerName = str(item.reviewer);
   const reviewerId = reviewerName
-    ? await resolveOwner(item, 'reviewer', 'reviewerId', loadProfiles, userId)
+    ? await resolveProfileId(item, 'reviewer', 'reviewerId', loadProfiles, userId)
     : null;
   const row: Database['public']['Tables']['proposals']['Insert'] = {
     company: str(item.company),
@@ -353,7 +364,7 @@ async function buildDealRow(
   const item = record(value);
   const id = str(item.id);
   const row: Database['public']['Tables']['deals']['Insert'] = {
-    owner_id: await resolveOwner(item, 'rep', 'ownerId', loadProfiles, userId),
+    owner_id: await resolveProfileId(item, 'rep', 'ownerId', loadProfiles, userId),
     rep: str(item.rep),
     account: str(item.account),
     stage: Math.min(8, Math.max(1, Math.trunc(num(item.stage, 1)))),
@@ -376,7 +387,7 @@ async function buildClosedDealRow(
   const item = record(value);
   const id = str(item.id);
   const row: Database['public']['Tables']['closed_deals']['Insert'] = {
-    owner_id: await resolveOwner(item, 'rep', 'ownerId', loadProfiles, userId),
+    owner_id: await resolveProfileId(item, 'rep', 'ownerId', loadProfiles, userId),
     rep: str(item.rep),
     account: str(item.account),
     value: Math.max(0, num(item.value)),

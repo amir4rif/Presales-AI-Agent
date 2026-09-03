@@ -11,9 +11,11 @@ import AddProspectModal, { type ProspectForm } from '@/components/prospects/AddP
 import ProspectDetail from '@/components/prospects/ProspectDetail';
 import {
   currentUser,
+  currentUserId,
   getDeals,
   getProspects,
   getReps,
+  profileIdForName,
   saveDeals,
   saveProspects,
   type AIResearch,
@@ -77,9 +79,13 @@ function ProspectsPage() {
       alert('Please enter an account name.');
       return;
     }
+    const repId = deal.rep === currentUser()
+      ? currentUserId() || profileIdForName(deal.rep)
+      : profileIdForName(deal.rep);
     const next: Deal[] = [
       ...getDeals(),
       {
+        ownerId: repId,
         rep: deal.rep,
         account: deal.account.trim(),
         stage: Number(deal.stage),
