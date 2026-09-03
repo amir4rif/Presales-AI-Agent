@@ -18,6 +18,7 @@ import {
 } from '@/lib/docExport';
 import { buildProposalHTML, buildReportHTML, type ProposalData, type ReportData } from '@/lib/docTemplates';
 import { STAGES, currentUser, getDeals, saveProspects, type Deal, type Prospect } from '@/lib/data';
+import { dealsForProspect } from '@/lib/prospect-deals';
 import { getSession } from '@/lib/role';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
@@ -99,9 +100,7 @@ export default function ProspectDetail({
     setTimeout(() => setNotesSaved(''), 1500);
   }
 
-  const relatedDeals = deals.filter((d) =>
-    d.account.toLowerCase().includes(p.name.split(' ')[0].toLowerCase())
-  );
+  const relatedDeals = dealsForProspect(deals, p);
 
   const push = (item: ChatItem) => setChat((c) => [...c, item]);
   const dropTyping = () => setChat((c) => c.filter((i) => i.kind !== 'typing'));

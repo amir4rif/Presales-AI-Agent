@@ -25,7 +25,7 @@ export { currentLevel, currentUser, currentUserId };
 export type Stage = { id: number; name: string; sla: number; avgDays: number; prob: number };
 export type Opportunity = { oppId: string; account: string; deal: string; value: number; industry: string };
 export type ClosedDeal = { id?: string; ownerId?: string; rep: string; account: string; value: number; closeDate: string; source: string; outcome: 'Won' | 'Lost'; lossReason: string };
-export type Deal = { id?: string; ownerId?: string; rep: string; account: string; stage: number; daysInStage: number; daysToClose: number; value: number; movement: string; status: string; notes: string };
+export type Deal = { id?: string; ownerId?: string; prospectId?: number; rep: string; account: string; stage: number; daysInStage: number; daysToClose: number; value: number; movement: string; status: string; notes: string };
 export type TeamMember = { id?: string; name: string; email: string; role: string; level?: 1 | 2 | 3; status: string; lastActive: string };
 export type AIResearch = {
   companyBackground?: string;
@@ -116,19 +116,19 @@ export const CLOSED_DEALS: ClosedDeal[] = [
 
 // Active (open) deals — the live pipeline. Shared by Pipeline + the dashboard.
 export const ACTIVE_DEALS: Deal[] = [
-  { rep: 'Lim LG',        account: 'Tzu Chi Foundation',          stage: 5, daysInStage: 12, daysToClose: 28, value: 2800000, movement: 'Advanced',  status: 'On Track', notes: 'Q3 budget confirmed' },
-  { rep: 'Priya Nair',    account: 'Tzu Chi – Disaster Platform', stage: 6, daysInStage: 18, daysToClose: 15, value: 4200000, movement: 'Held',      status: 'At Risk',  notes: 'Awaiting board approval' },
-  { rep: 'Wei Ling Tan',  account: 'Tzu Chi – Donor System',      stage: 3, daysInStage: 8,  daysToClose: 45, value: 1600000, movement: 'Advanced',  status: 'On Track', notes: '' },
-  { rep: 'Ahmad Razak',   account: 'ABC Bank – Core Upgrade',     stage: 6, daysInStage: 25, daysToClose: 20, value: 3100000, movement: 'Advanced',  status: 'On Track', notes: 'Final pricing submitted' },
-  { rep: 'Siti Rahimah',  account: 'ABC Bank – AI Integration',   stage: 4, daysInStage: 10, daysToClose: 60, value: 2200000, movement: 'Advanced',  status: 'On Track', notes: '' },
-  { rep: 'Lim LG',        account: 'Gov Agency – Cloud Infra',    stage: 2, daysInStage: 5,  daysToClose: 90, value: 2200000, movement: 'Held',      status: 'On Track', notes: 'Pending RFP response' },
-  { rep: 'Rajan Pillai',  account: 'Healthcare – Data Platform',  stage: 5, daysInStage: 22, daysToClose: 18, value: 3100000, movement: 'Regressed', status: 'At Risk',  notes: 'Champion changed' },
-  { rep: 'Lim LG',        account: 'Healthcare – Data Analytics', stage: 3, daysInStage: 12, daysToClose: 50, value: 2000000, movement: 'Advanced',  status: 'On Track', notes: '' },
+  { prospectId: 1, rep: 'Lim LG',        account: 'Tzu Chi Foundation',          stage: 5, daysInStage: 12, daysToClose: 28, value: 2800000, movement: 'Advanced',  status: 'On Track', notes: 'Q3 budget confirmed' },
+  { prospectId: 1, rep: 'Priya Nair',    account: 'Tzu Chi – Disaster Platform', stage: 6, daysInStage: 18, daysToClose: 15, value: 4200000, movement: 'Held',      status: 'At Risk',  notes: 'Awaiting board approval' },
+  { prospectId: 1, rep: 'Wei Ling Tan',  account: 'Tzu Chi – Donor System',      stage: 3, daysInStage: 8,  daysToClose: 45, value: 1600000, movement: 'Advanced',  status: 'On Track', notes: '' },
+  { prospectId: 2, rep: 'Ahmad Razak',   account: 'ABC Bank – Core Upgrade',     stage: 6, daysInStage: 25, daysToClose: 20, value: 3100000, movement: 'Advanced',  status: 'On Track', notes: 'Final pricing submitted' },
+  { prospectId: 2, rep: 'Siti Rahimah',  account: 'ABC Bank – AI Integration',   stage: 4, daysInStage: 10, daysToClose: 60, value: 2200000, movement: 'Advanced',  status: 'On Track', notes: '' },
+  { prospectId: 3, rep: 'Lim LG',        account: 'Gov Agency – Cloud Infra',    stage: 2, daysInStage: 5,  daysToClose: 90, value: 2200000, movement: 'Held',      status: 'On Track', notes: 'Pending RFP response' },
+  { prospectId: 4, rep: 'Rajan Pillai',  account: 'Healthcare – Data Platform',  stage: 5, daysInStage: 22, daysToClose: 18, value: 3100000, movement: 'Regressed', status: 'At Risk',  notes: 'Champion changed' },
+  { prospectId: 4, rep: 'Lim LG',        account: 'Healthcare – Data Analytics', stage: 3, daysInStage: 12, daysToClose: 50, value: 2000000, movement: 'Advanced',  status: 'On Track', notes: '' },
   { rep: 'Siti Rahimah',  account: 'Education Portal',            stage: 7, daysInStage: 8,  daysToClose: 10, value: 1800000, movement: 'Advanced',  status: 'On Track', notes: 'Contract being signed' },
   { rep: 'Faizal Hassan', account: 'Logistics Co – WMS',          stage: 5, daysInStage: 9,  daysToClose: 30, value: 1900000, movement: 'Advanced',  status: 'On Track', notes: '' },
   { rep: 'Rajan Pillai',  account: 'NGO – Website Revamp',        stage: 4, daysInStage: 6,  daysToClose: 40, value: 1200000, movement: 'Advanced',  status: 'On Track', notes: '' },
   { rep: 'Faizal Hassan', account: 'Telco – Security Solution',   stage: 6, daysInStage: 30, daysToClose: 12, value: 2600000, movement: 'Held',      status: 'Stalled',  notes: 'POC failed, re-scoping' },
-  { rep: 'Ahmad Razak',   account: 'Manufacturing Co – ERP',      stage: 2, daysInStage: 4,  daysToClose: 80, value: 3000000, movement: 'Advanced',  status: 'On Track', notes: '' },
+  { prospectId: 5, rep: 'Ahmad Razak',   account: 'Manufacturing Co – ERP',      stage: 2, daysInStage: 4,  daysToClose: 80, value: 3000000, movement: 'Advanced',  status: 'On Track', notes: '' },
 ];
 
 // User directory — the doc's named users (Doc §1/§2).

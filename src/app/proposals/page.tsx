@@ -19,7 +19,6 @@ import {
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
-import { notify } from '@/lib/notify';
 import { isRemoteDataSource } from '@/lib/data-sync';
 import { visibleProposalVersionsForOwner } from '@/lib/proposal-lifecycle';
 import { mergeEditedProposalSections } from '@/lib/proposal-sections';
@@ -276,11 +275,6 @@ function ProposalsPage() {
       setStore(next);
       setEditingId(newVersion.id);
       toast(`📤 Resubmitted (v${newVersion.version}) for review`);
-      notify(
-        'pending',
-        'Proposal resubmitted for review',
-        `${newVersion.company} — v${newVersion.version} (${newVersion.caseId})`
-      );
       return;
     }
 
@@ -299,11 +293,6 @@ function ProposalsPage() {
     saveProposals(next);
     setStore(next);
     toast('📤 Sent to Admin for review');
-    notify(
-      'pending',
-      'Proposal submitted for review',
-      `${editing.company} — ${fmtRM(editing.value)} (${editing.caseId || ''})`
-    );
   }
 
   async function generateAIContent() {

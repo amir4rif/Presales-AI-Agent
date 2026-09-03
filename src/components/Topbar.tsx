@@ -5,7 +5,16 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { navLinks } from '@/lib/nav';
 import type { Level } from '@/lib/role';
-import { NOTIF_ICONS, getNotifs, saveNotifs, timeAgo, type Notif } from '@/lib/notify';
+import {
+  NOTIF_ICONS,
+  clearNotifs,
+  getNotifs,
+  loadNotifs,
+  markAllNotifsRead,
+  subscribeToNotifications,
+  timeAgo,
+  type Notif,
+} from '@/lib/notify';
 import { getProposals, getProspects } from '@/lib/data';
 
 type Hit = { icon: string; name: string; kind: string; href: string };
@@ -20,10 +29,22 @@ export default function Topbar({ title, level }: { title: string; level: Level }
   const bellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const sync = () => setNotifs(getNotifs());
+    let active = true;
+    const sync = () => {
+      void loadNotifs()
+        .then((next) => {
+          if (active) setNotifs(next);
+        })
+        .catch(() => {
+          if (active) setNotifs(getNotifs());
+        });
+    };
     sync();
-    window.addEventListener('rams:notif', sync);
-    return () => window.removeEventListener('rams:notif', sync);
+    const unsubscribe = subscribeToNotifications(sync);
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -74,9 +95,9 @@ export default function Topbar({ title, level }: { title: string; level: Level }
     const next = !openPanel;
     setOpenPanel(next);
     if (next) {
-      const list = getNotifs().map((n) => ({ ...n, read: true }));
-      saveNotifs(list);
+      const list = notifs.map((n) => ({ ...n, read: true }));
       setNotifs(list);
+      void markAllNotifsRead().catch(() => undefined);
     }
   }
 
@@ -137,8 +158,8 @@ export default function Topbar({ title, level }: { title: string; level: Level }
             <button
               className="nh-clear"
               onClick={() => {
-                saveNotifs([]);
                 setNotifs([]);
+                void clearNotifs().catch(() => undefined);
               }}
             >
               Clear all

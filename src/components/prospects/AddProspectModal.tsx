@@ -297,7 +297,8 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
   }
 
   function submit() {
-    if (!f.name) {
+    const companyName = f.name.trim();
+    if (!companyName) {
       alert('Please enter a Company Name.');
       return;
     }
@@ -307,7 +308,7 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
 
     const prospect: Prospect = {
       id: Date.now(),
-      name: f.name,
+      name: companyName,
       type: ind,
       country: f.location || 'Malaysia',
       website: f.website || '—',

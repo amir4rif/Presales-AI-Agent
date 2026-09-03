@@ -6,7 +6,9 @@ import { safeFilenamePart } from '../src/lib/docExport.ts';
 import { buildProposalHTML, buildReportHTML } from '../src/lib/docTemplates.ts';
 import { resolveProfileIdFromWire } from '../src/lib/profile-identity.ts';
 import { mergeEditedProposalSections } from '../src/lib/proposal-sections.ts';
+import { dealsForProspect } from '../src/lib/prospect-deals.ts';
 import { writeProposalRows } from '../src/lib/server/proposal-writer.ts';
+import { scopedStorageKey } from '../src/lib/user-storage.ts';
 
 test('post-auth redirects stay on the application origin', () => {
   assert.equal(safeNextPath('/prospects?view=mine'), '/prospects?view=mine');
@@ -190,4 +192,79 @@ test('My Proposals database view keeps Reject & Close cases visible', () => {
   const whereClause = migration.match(/where[\s\S]*?;/)?.[0] || '';
   assert.match(migration, /where status <> 'Superseded'/);
   assert.doesNotMatch(whereClause, /Reject & Close/);
+});
+
+test('notification browser storage is scoped to a stable user identity', () => {
+  const first = scopedStorageKey('ramssolNotifCenter', 'user-a');
+  const second = scopedStorageKey('ramssolNotifCenter', 'user-b');
+  assert.notEqual(first, second);
+  assert.equal(first, 'ramssolNotifCenter:user-a');
+  assert.equal(
+    scopedStorageKey('ramssolNotify', 'person@example.com'),
+    'ramssolNotify:person%40example.com'
+  );
+});
+
+test('proposal notifications are durable, recipient-scoped, and trigger-driven', () => {
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260903050000_deliver_recipient_notifications.sql', import.meta.url),
+    'utf8'
+  );
+  const proposalsPage = readFileSync(
+    new URL('../src/app/proposals/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const approvalsPage = readFileSync(
+    new URL('../src/app/admin/approvals/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(migration, /alter table public\.notifications enable row level security/);
+  assert.match(migration, /recipient_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /profile\.level >= 2/);
+  assert.match(migration, /new\.owner_id is distinct from actor/);
+  assert.match(migration, /after insert or update of status on public\.proposals/);
+  assert.doesNotMatch(migration, /grant\s+insert[^;]*notifications\s+to authenticated/i);
+  assert.doesNotMatch(proposalsPage, /\bnotify\s*\(/);
+  assert.doesNotMatch(approvalsPage, /\bnotify\s*\(/);
+});
+
+test('related deals use a prospect id, or an exact full-name legacy fallback', () => {
+  const prospects = [
+    { id: 1, name: ' Petronas ' },
+    { id: 2, name: 'Healthcare Partners Bhd' },
+  ];
+  const deals = [
+    { prospectId: 1, account: 'Petronas transformation' },
+    { prospectId: 2, account: 'Petronas' },
+    { account: 'Petronas' },
+    { account: 'Healthcare Holdings' },
+    { account: ' Healthcare Partners Bhd ' },
+  ];
+
+  assert.deepEqual(dealsForProspect(deals, prospects[0]), [deals[0], deals[2]]);
+  assert.deepEqual(dealsForProspect(deals, prospects[1]), [deals[1], deals[4]]);
+  assert.deepEqual(dealsForProspect(deals, { id: 3, name: '   ' }), []);
+});
+
+test('Add Deal resets all modal fields and persists the prospect relationship', () => {
+  const page = readFileSync(new URL('../src/app/prospects/page.tsx', import.meta.url), 'utf8');
+  assert.match(page, /function emptyDealForm\(\)[\s\S]*stage: '1'/);
+  assert.match(page, /function close\(\)\s*{\s*setDeal\(emptyDealForm\(\)\);\s*onClose\(\);/);
+  assert.match(page, /key={open\.id}/);
+  assert.match(page, /prospectId: prospect\.id/);
+});
+
+test('prospect names are trimmed at both the client and database boundaries', () => {
+  const modal = readFileSync(
+    new URL('../src/components/prospects/AddProspectModal.tsx', import.meta.url),
+    'utf8'
+  );
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260903051000_link_deals_to_prospects.sql', import.meta.url),
+    'utf8'
+  );
+  assert.match(modal, /const companyName = f\.name\.trim\(\)/);
+  assert.match(migration, /new\.name := btrim\(new\.name\)/);
+  assert.match(migration, /add column prospect_id bigint references public\.prospects\(id\)/);
 });

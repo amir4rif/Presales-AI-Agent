@@ -43,7 +43,6 @@ function ProspectsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [dealOpen, setDealOpen] = useState(false);
   const [reps, setReps] = useState<string[]>([]);
-  const [deal, setDeal] = useState({ rep: '', account: '', stage: '1', value: '', days: '', notes: '' });
 
   const reload = useCallback(() => setProspects(getProspects()), []);
 
@@ -54,7 +53,6 @@ function ProspectsPage() {
     const list = getReps();
     const names = list.includes(me) ? list : [me, ...list];
     setReps(names);
-    setDeal((d) => ({ ...d, rep: me }));
   }, [reload]);
   useRemoteDataRefresh(reload);
 
@@ -74,32 +72,12 @@ function ProspectsPage() {
 
   }
 
-  function addDeal() {
-    if (!deal.account.trim()) {
-      alert('Please enter an account name.');
-      return;
-    }
-    const repId = deal.rep === currentUser()
-      ? currentUserId() || profileIdForName(deal.rep)
-      : profileIdForName(deal.rep);
+  function addDeal(deal: Deal) {
     const next: Deal[] = [
       ...getDeals(),
-      {
-        ownerId: repId,
-        rep: deal.rep,
-        account: deal.account.trim(),
-        stage: Number(deal.stage),
-        daysInStage: Number(deal.days) || 1,
-        daysToClose: 90,
-        value: Number(deal.value) || 0,
-        movement: 'Advanced',
-        status: 'On Track',
-        notes: deal.notes.trim(),
-      },
+      deal,
     ];
     saveDeals(next); // keep Pipeline + dashboards in sync
-    setDealOpen(false);
-    setDeal((d) => ({ ...d, account: '', value: '', days: '', notes: '' }));
     toast('✅ Deal added to the pipeline');
   }
 
@@ -114,11 +92,11 @@ function ProspectsPage() {
           onNewDeal={() => setDealOpen(true)}
         />
         <AddDealModal
+          key={open.id}
           open={dealOpen}
           onClose={() => setDealOpen(false)}
           reps={reps}
-          deal={deal}
-          setDeal={setDeal}
+          prospect={open}
           onSubmit={addDeal}
         />
       </>
@@ -194,50 +172,79 @@ function ProspectsPage() {
       </div>
 
       <AddProspectModal open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAdd} />
-      <AddDealModal
-        open={dealOpen}
-        onClose={() => setDealOpen(false)}
-        reps={reps}
-        deal={deal}
-        setDeal={setDeal}
-        onSubmit={addDeal}
-      />
     </>
   );
 }
 
 type DealForm = { rep: string; account: string; stage: string; value: string; days: string; notes: string };
 
+function emptyDealForm(): DealForm {
+  return { rep: currentUser(), account: '', stage: '1', value: '', days: '', notes: '' };
+}
+
 function AddDealModal({
   open,
   onClose,
   reps,
-  deal,
-  setDeal,
+  prospect,
   onSubmit,
 }: {
   open: boolean;
   onClose: () => void;
   reps: string[];
-  deal: DealForm;
-  setDeal: React.Dispatch<React.SetStateAction<DealForm>>;
-  onSubmit: () => void;
+  prospect: Prospect;
+  onSubmit: (deal: Deal) => void;
 }) {
+  const [deal, setDeal] = useState<DealForm>(emptyDealForm);
+
+  useEffect(() => {
+    if (open) setDeal(emptyDealForm());
+  }, [open, prospect.id]);
+
   const set = (k: keyof DealForm) => (e: { target: { value: string } }) =>
     setDeal((d) => ({ ...d, [k]: e.target.value }));
+
+  function close() {
+    setDeal(emptyDealForm());
+    onClose();
+  }
+
+  function submit() {
+    if (!deal.account.trim()) {
+      alert('Please enter an account name.');
+      return;
+    }
+    const repId = deal.rep === currentUser()
+      ? currentUserId() || profileIdForName(deal.rep)
+      : profileIdForName(deal.rep);
+    onSubmit({
+      ownerId: repId,
+      prospectId: prospect.id,
+      rep: deal.rep,
+      account: deal.account.trim(),
+      stage: Number(deal.stage),
+      daysInStage: Number(deal.days) || 1,
+      daysToClose: 90,
+      value: Number(deal.value) || 0,
+      movement: 'Advanced',
+      status: 'On Track',
+      notes: deal.notes.trim(),
+    });
+    close();
+  }
 
   return (
     <Modal
       open={open}
-      onClose={onClose}
+      onClose={close}
       title="Add New Deal"
       sub="Add an active deal to the pipeline."
       actions={
         <>
-          <button className="btn-secondary" onClick={onClose}>
+          <button className="btn-secondary" onClick={close}>
             Cancel
           </button>
-          <button className="btn-primary" onClick={onSubmit}>
+          <button className="btn-primary" onClick={submit}>
             Add Deal
           </button>
         </>

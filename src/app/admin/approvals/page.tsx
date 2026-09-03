@@ -33,7 +33,6 @@ import {
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
-import { notify } from '@/lib/notify';
 import { rejectionReasonStats } from '@/lib/proposal-lifecycle';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
@@ -231,15 +230,6 @@ function ApprovalsPage() {
           : 'closed';
     toast(`${icon} ${p.deal} ${label}`, decision !== 'Approved');
 
-    if (decision === 'Approved') {
-      notify('approve', 'Proposal approved', `${p.company} — ready for client pitch`);
-    } else {
-      notify(
-        'reject',
-        `Proposal ${decision === 'Reject & Revise' ? 'sent back for revision' : 'rejected & closed'}`,
-        `${p.company} — Reason: ${p.rejectionReason || '—'}`
-      );
-    }
     closeReview();
   }
 
@@ -249,7 +239,6 @@ function ApprovalsPage() {
     if (!confirm(`Approve "${target.deal}"?`)) return;
     const p = applyDecision(id, 'Approved', '', target.reviewNote);
     toast(`✅ ${p.deal} approved`);
-    notify('approve', 'Proposal approved', `${p.company} — ready for client pitch`);
   }
 
   /* v10 — FEATURE 3: outcome tracking on an approved proposal. */

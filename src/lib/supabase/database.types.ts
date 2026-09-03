@@ -49,6 +49,7 @@ type ProfileRow = {
 type DealRow = {
   id: string;
   owner_id: string;
+  prospect_id: number | null;
   rep: string;
   account: string;
   stage: number;
@@ -102,6 +103,18 @@ type ProspectRow = {
   updated_at: string;
 };
 
+type NotificationRow = {
+  id: string;
+  recipient_id: string;
+  actor_id: string | null;
+  proposal_id: string;
+  event_type: string;
+  title: string;
+  body: string;
+  read_at: string | null;
+  created_at: string;
+};
+
 type Insert<Row> = Partial<Row>;
 type Update<Row> = Partial<Row>;
 
@@ -136,6 +149,12 @@ export type Database = {
         Row: ProspectRow;
         Insert: Insert<ProspectRow> & Pick<ProspectRow, 'name'>;
         Update: Update<ProspectRow>;
+        Relationships: [];
+      };
+      notifications: {
+        Row: NotificationRow;
+        Insert: Insert<NotificationRow> & Pick<NotificationRow, 'recipient_id' | 'proposal_id' | 'event_type' | 'title'>;
+        Update: Pick<NotificationRow, 'read_at'>;
         Relationships: [];
       };
     };

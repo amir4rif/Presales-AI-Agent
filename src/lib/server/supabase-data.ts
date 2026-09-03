@@ -175,6 +175,7 @@ function dealToDomain(row: Tables<'deals'>): Deal {
   return {
     id: row.id,
     ownerId: row.owner_id,
+    prospectId: row.prospect_id ?? undefined,
     rep: row.rep,
     account: row.account,
     stage: row.stage,
@@ -375,6 +376,8 @@ async function buildDealRow(
     status: str(item.status, 'On Track'),
     notes: str(item.notes),
   };
+  const prospectId = Number(item.prospectId);
+  if (Number.isSafeInteger(prospectId) && prospectId > 0) row.prospect_id = prospectId;
   if (id) row.id = id;
   return row;
 }
@@ -409,7 +412,7 @@ function buildProspectRow(
   const id = Number.isFinite(parsedId) && parsedId > 0 ? Math.trunc(parsedId) : null;
   const row: Database['public']['Tables']['prospects']['Insert'] = {
     owner_id: str(item.ownerId, userId),
-    name: str(item.name),
+    name: str(item.name).trim(),
     type: str(item.type),
     country: str(item.country),
     website: str(item.website),

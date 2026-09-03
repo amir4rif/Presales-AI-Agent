@@ -21,18 +21,16 @@ import { useIntegrations } from '@/lib/useIntegrations';
 import { isRemoteDataSource } from '@/lib/data-sync';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
+import {
+  NOTIFICATION_RULES,
+  getNotificationRules,
+  saveNotificationRules,
+  type NotificationRules,
+  type NotifType,
+} from '@/lib/notify';
 
 const ROLES = Object.keys(ROLE_LEVELS);
 const SLA_KEY = 'ramssolStageSLA';
-const NOTIFY_KEY = 'ramssolNotify';
-
-const NOTIFY_RULES = [
-  { id: 'reject', label: 'Notify sales rep when a proposal is rejected', def: true },
-  { id: 'approve', label: 'Notify sales rep when a proposal is approved', def: true },
-  { id: 'stalled', label: 'Alert owner when a deal passes its stage SLA', def: true },
-  { id: 'pending', label: 'Notify admin when a new proposal awaits review', def: true },
-  { id: 'weekly', label: 'Weekly pipeline & win-rate summary email', def: false },
-];
 
 const TABS = [
   { id: 'profile', label: 'My Profile' },
@@ -86,7 +84,11 @@ function SettingsPage() {
   const [sla, setSla] = useState<Record<number, number>>({});
   const [slaStatus, setSlaStatus] = useState<string | null>(null);
 
-  const [notify, setNotify] = useState<Record<string, boolean>>({});
+  const [notify, setNotify] = useState<NotificationRules>({
+    approve: true,
+    reject: true,
+    pending: true,
+  });
   const [notifyStatus, setNotifyStatus] = useState<string | null>(null);
 
   const loadTeam = useCallback(() => setTeam(getTeam()), []);
@@ -104,16 +106,7 @@ function SettingsPage() {
     } catch {
       setSla({});
     }
-    try {
-      const saved = JSON.parse(localStorage.getItem(NOTIFY_KEY) || 'null') || {};
-      const out: Record<string, boolean> = {};
-      NOTIFY_RULES.forEach((r) => (out[r.id] = saved[r.id] !== undefined ? saved[r.id] : r.def));
-      setNotify(out);
-    } catch {
-      const out: Record<string, boolean> = {};
-      NOTIFY_RULES.forEach((r) => (out[r.id] = r.def));
-      setNotify(out);
-    }
+    setNotify(getNotificationRules());
   }, [loadTeam]);
   useRemoteDataRefresh(loadTeam);
 
@@ -227,10 +220,10 @@ function SettingsPage() {
     setTimeout(() => setSlaStatus(null), 2000);
   }
 
-  function toggleNotify(id: string, value: boolean) {
+  function toggleNotify(id: NotifType, value: boolean) {
     const next = { ...notify, [id]: value };
     setNotify(next);
-    localStorage.setItem(NOTIFY_KEY, JSON.stringify(next));
+    saveNotificationRules(next);
     setNotifyStatus('✅ Notification rules saved.');
     setTimeout(() => setNotifyStatus(null), 1800);
   }
@@ -603,8 +596,11 @@ function SettingsPage() {
               <div className="card-header">
                 <span className="card-title">Notification Rules</span>
               </div>
+              <div style={{ marginBottom: 14, fontSize: 12, color: 'var(--text-muted)' }}>
+                These preferences apply only to this signed-in account. Every listed event has live recipient delivery.
+              </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {NOTIFY_RULES.map((r) => (
+                {NOTIFICATION_RULES.map((r) => (
                   <label
                     key={r.id}
                     style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
