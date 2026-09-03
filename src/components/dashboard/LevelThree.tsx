@@ -140,7 +140,7 @@ export default function LevelThree({ s }: { s: Stats }) {
         items={[
           { l: 'End-to-End Win Rate', v: `${s.endToEnd}%`, sub: 'Approval × post-approval', c: 'kpi-up' },
           { l: 'Stage 1 · Approval', v: `${s.approvalRate}%`, sub: `${s.approved} of ${s.approved + s.revise} judged`, c: 'kpi-up' },
-          { l: 'Stage 2 · Post-Appr.', v: `${s.winRate}%`, sub: `${s.won} won / ${s.won + s.lost} pitched`, c: 'kpi-up' },
+          { l: 'Stage 2 · Post-Appr.', v: `${s.winRate}%`, sub: `${s.won} won / ${s.won + s.lost} decided`, c: 'kpi-up' },
           { l: 'Total Pipeline', v: fmtRM(s.pipelineValue), sub: `${s.deals.length} open deals` },
           { l: 'Total Won', v: fmtRM(s.wonValue), sub: 'Closed-won, all periods', c: 'kpi-up' },
         ]}

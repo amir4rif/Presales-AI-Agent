@@ -12,6 +12,7 @@ import {
   type ClosedDeal,
   type Proposal,
 } from '@/lib/data';
+import { calculateTwoStageRates } from '@/lib/stage-rates';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const quarterOf = (dateStr: string) => `Q${Math.ceil(+dateStr.slice(5, 7) / 3)} '${dateStr.slice(2, 4)}`;
@@ -31,41 +32,30 @@ function AnalyticsPage() {
   }, [reload]);
   useRemoteDataRefresh(reload);
 
-  /* ── STAGE 1: APPROVAL RATE (Doc §4.3) ──────────────────
-     One rate per CASE: a case that was revised then approved counts once. */
-  const s1 = (() => {
-    const cases: Record<string, { approved?: boolean; closed?: boolean; revise?: boolean; pending?: boolean }> = {};
-    store.forEach((p) => {
-      const c = cases[p.caseId] || (cases[p.caseId] = {});
-      if (p.status === 'Approved') c.approved = true;
-      else if (p.status === 'Reject & Close') c.closed = true;
-      else if (p.status === 'Reject & Revise') c.revise = true;
-      else if (p.status === 'Pending Review' || p.status === 'Draft') c.pending = true;
-    });
-    let approved = 0, revise = 0, killed = 0;
-    Object.values(cases).forEach((c) => {
-      if (c.approved) approved++;
-      else if (c.closed) killed++; // killed — excluded from Approval Rate
-      else if (c.revise) revise++; // fixable rejection still in the loop
-    });
-    const judged = approved + revise; // quality-judged (excludes killed + pending)
-    return { approved, revise, closed: killed, judged, rate: pct(approved, judged) };
-  })();
+  // One shared, case-level cohort feeds both stages. Stage 2 reads outcomes
+  // only from approved proposals and excludes Pending outcomes.
+  const stageRates = calculateTwoStageRates(store);
+  const s1 = {
+    approved: stageRates.approved,
+    revise: stageRates.revise,
+    closed: stageRates.killed,
+    judged: stageRates.judged,
+    rate: stageRates.approvalRate,
+  };
+  const s2 = {
+    won: stageRates.won,
+    lost: stageRates.lost,
+    total: stageRates.decided,
+    rate: stageRates.winRate,
+  };
 
-  /* ── STAGE 2: POST-APPROVAL WIN RATE (Doc §4.4) ─────────── */
-  const s2 = (() => {
-    const won = closed.filter((d) => d.outcome === 'Won').length;
-    const lost = closed.filter((d) => d.outcome === 'Lost').length;
-    return { won, lost, total: won + lost, rate: pct(won, won + lost) };
-  })();
-
-  const endToEnd = Math.round((s1.rate / 100) * (s2.rate / 100) * 100); // combines both stages (Doc §4.5)
+  const endToEnd = stageRates.endToEnd;
   const wonValue = closed.filter((d) => d.outcome === 'Won').reduce((a, d) => a + d.value, 0);
 
   const kpis = [
     { label: 'End-to-End Win Rate', value: `${endToEnd}%`, sub: 'Approval × Post-approval', cls: 'gold' },
     { label: 'Stage 1 · Approval Rate', value: `${s1.rate}%`, sub: `${s1.approved} approved / ${s1.judged} judged`, cls: 'kpi-up' },
-    { label: 'Stage 2 · Post-Approval Win', value: `${s2.rate}%`, sub: `${s2.won} won / ${s2.total} pitched`, cls: 'kpi-up' },
+    { label: 'Stage 2 · Post-Approval Win', value: `${s2.rate}%`, sub: `${s2.won} won / ${s2.total} decided`, cls: 'kpi-up' },
     { label: 'Total Won Value', value: fmtRM(wonValue), sub: 'Closed-won, all periods', cls: '' },
   ];
 

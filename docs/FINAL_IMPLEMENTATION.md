@@ -32,6 +32,8 @@ Use this checklist only after the correct Supabase project, Gemini key, and Verc
 - Anonymous requests to `/api/data?all=1` return `401` in Supabase mode.
 - Level 1 can read only owned proposals, deals, closed deals, prospects, and their own profile.
 - Level 2 and Level 3 can read team data.
+- On `deals`, `closed_deals`, and `prospects`, a Level 2 Sales Manager may create team rows and edit rows owned by any rep, but may not change an existing row's `owner_id` or its denormalized `rep` ownership label. A Level 2 may delete only rows they own.
+- Level 3 administrators have full control over those three tables, including reassignment and deletion.
 - Level 1 cannot approve, Reject & Close, or alter reviewer-controlled fields with a direct API call.
 - A proposal cannot be deleted, including through a direct API call.
 - Two users editing different rows do not overwrite each other.
@@ -44,7 +46,7 @@ Use this checklist only after the correct Supabase project, Gemini key, and Verc
 3. Level 2 rejects it with a reason.
 4. Level 1 creates a new version; confirm the old version becomes Superseded and remains queryable.
 5. Level 2 approves the new version.
-6. Confirm Dashboard, Analytics, Proposals, and Approvals agree.
+6. Set Won/Lost outcomes on approved proposals and confirm Dashboard, Analytics, Proposals, and Approvals agree. Pending outcomes must not enter the Stage 2 denominator.
 7. Exercise Gemini and confirm a forced/rate-limited `429` displays a useful message.
 8. If SerpApi is configured, confirm research shows source links and its key never reaches the browser.
 

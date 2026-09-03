@@ -12,6 +12,7 @@
 import { currentLevel, currentUser } from './role';
 import { isRemoteCollection, isRemoteDataSource, queueDataSync } from './data-sync';
 import { STORAGE_KEY_BY_COLLECTION, type DataCollection } from './integrations';
+import { calculateTwoStageRates } from './stage-rates';
 
 export { currentLevel, currentUser };
 
@@ -78,7 +79,7 @@ export const OPPORTUNITIES: Opportunity[] = [
   { oppId: 'OPP-2026-0106', account: 'Taylor’s Education', deal: 'Taylor’s – Student Lifecycle LMS',  value: 1700000, industry: 'Education' },
 ];
 
-// Closed deals — data source for Stage-2 / End-to-End Win Rate (Doc §4.13).
+// Company-wide closed-deal history for pipeline analysis (Doc §4.13).
 export const CLOSED_DEALS: ClosedDeal[] = [
   // Q3 2025
   { rep: 'Ahmad Razak',   account: 'Sunway Group – HCM',           value: 2400000, closeDate: '2025-08-12', source: 'Inbound',  outcome: 'Won',  lossReason: '' },
@@ -367,25 +368,11 @@ export function stats(user?: string) {
   const closed = getClosedDeals();
   const myDeals = deals.filter((d) => d.rep === who);
 
-  const won = closed.filter((d) => d.outcome === 'Won');
-  const lost = closed.filter((d) => d.outcome === 'Lost');
-  const winRate = pct(won.length, closed.length);
-
-  // Stage 1 — Approval Rate, judged per CASE (Doc §4.3)
-  const cases: Record<string, { approved?: boolean; killed?: boolean; revise?: boolean }> = {};
-  store.forEach((p) => {
-    const c = cases[p.caseId] || (cases[p.caseId] = {});
-    if (p.status === 'Approved') c.approved = true;
-    else if (p.status === 'Reject & Close') c.killed = true;
-    else if (p.status === 'Reject & Revise') c.revise = true;
-  });
-  let approved = 0, revise = 0, killed = 0;
-  Object.values(cases).forEach((c) => {
-    if (c.approved) approved++;
-    else if (c.killed) killed++;
-    else if (c.revise) revise++;
-  });
-  const approvalRate = pct(approved, approved + revise);
+  // Both funnel stages use proposal cases. Pending approved outcomes are not
+  // decisions and therefore stay out of Stage 2's denominator.
+  const stageRates = calculateTwoStageRates(store);
+  const closedWon = closed.filter((d) => d.outcome === 'Won');
+  const closedLost = closed.filter((d) => d.outcome === 'Lost');
 
   const stalled = deals.filter((d) => {
     const s = STAGES[d.stage - 1];
@@ -406,11 +393,9 @@ export function stats(user?: string) {
     myDrafts:   mine.filter((p) => p.status === 'Draft').length,
     myRevise:   mine.filter((p) => p.status === 'Reject & Revise').length,
     myApproved: mine.filter((p) => p.status === 'Approved').length,
-    approved, revise, killed, approvalRate, winRate,
-    endToEnd: Math.round((approvalRate / 100) * winRate),
-    won: won.length, lost: lost.length,
-    wonValue:  won.reduce((a, d) => a + d.value, 0),
-    lostValue: lost.reduce((a, d) => a + d.value, 0),
+    ...stageRates,
+    wonValue:  closedWon.reduce((a, d) => a + d.value, 0),
+    lostValue: closedLost.reduce((a, d) => a + d.value, 0),
     pipelineValue:   deals.reduce((a, d) => a + d.value, 0),
     myPipelineValue: myDeals.reduce((a, d) => a + d.value, 0),
     weighted: deals.reduce((a, d) => a + d.value * (STAGES[d.stage - 1]?.prob || 0), 0),

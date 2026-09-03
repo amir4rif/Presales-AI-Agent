@@ -62,7 +62,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
           <div className="hero-stats">
             <div className="hero-stat"><div className="hs-num gold">{s.pending}</div><div className="hs-lbl">Awaiting review</div></div>
             <div className="hero-stat"><div className="hs-num">{s.approvalRate}%</div><div className="hs-lbl">Approval rate</div></div>
-            <div className="hero-stat"><div className="hs-num">{s.winRate}%</div><div className="hs-lbl">Team win rate</div></div>
+            <div className="hero-stat"><div className="hs-num">{s.winRate}%</div><div className="hs-lbl">Post-approval win</div></div>
             <div className="hero-stat"><div className="hs-num">{s.stalled.length}</div><div className="hs-lbl">Stalled deals</div></div>
           </div>
         </div>
@@ -82,7 +82,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
         items={[
           { l: 'Pending Review', v: s.pending, sub: 'Awaiting a decision', c: s.pending ? 'kpi-warn' : '' },
           { l: 'Approval Rate', v: `${s.approvalRate}%`, sub: 'Stage 1 · quality-judged', c: 'kpi-up' },
-          { l: 'Team Win Rate', v: `${s.winRate}%`, sub: `${s.won}W / ${s.lost}L`, c: 'kpi-up' },
+          { l: 'Post-Approval Win', v: `${s.winRate}%`, sub: `${s.won}W / ${s.won + s.lost} decided`, c: 'kpi-up' },
           { l: 'Team Pipeline', v: fmtRM(s.pipelineValue), sub: `${s.deals.length} open deals` },
           { l: 'Weighted', v: fmtRM(s.weighted), sub: 'Probability-adjusted' },
           { l: 'Stalled Deals', v: s.stalled.length, sub: 'Past stage SLA', c: s.stalled.length ? 'kpi-danger' : '' },
