@@ -23,7 +23,7 @@ Use this checklist only after the correct Supabase project, Gemini key, and Verc
 
 - Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 - Add `GEMINI_API_KEY`; keep `AI_PROVIDER=gemini`.
-- Optionally add `SERPAPI_API_KEY` for sourced prospect research.
+- Add `RESEARCH_GEMINI_API_KEY` from a separate Gemini/Cloud project when sourced prospect research should be enabled; a second key in the generation project still shares that project's quota.
 - Keep all secret/provider keys server-only.
 - Run `npm run check:env:strict`; the command is offline and never prints values.
 
@@ -35,7 +35,8 @@ Use this checklist only after the correct Supabase project, Gemini key, and Verc
 - On `deals`, `closed_deals`, and `prospects`, a Level 2 Sales Manager may create team rows and edit rows owned by any rep, but may not change an existing row's `owner_id` or its denormalized `rep` ownership label. A Level 2 may delete only rows they own.
 - Level 3 administrators have full control over those three tables, including reassignment and deletion.
 - Level 1 cannot approve, Reject & Close, or alter reviewer-controlled fields with a direct API call.
-- A proposal cannot be deleted, including through a direct API call.
+- A rep can delete only their own Draft proposal. Another rep's Draft and every submitted, approved, rejected, closed, or superseded proposal remain undeletable through direct API calls.
+- Delete a Draft version 2, confirm version 1 remains in history, then create version 2 again to confirm the unique `(case_id, version)` slot was released.
 - Two users editing different rows do not overwrite each other.
 - A submitted proposal appears for the reviewer without a page refresh.
 
@@ -48,7 +49,7 @@ Use this checklist only after the correct Supabase project, Gemini key, and Verc
 5. Level 2 approves the new version.
 6. Set Won/Lost outcomes on approved proposals and confirm Dashboard, Analytics, Proposals, and Approvals agree. Pending outcomes must not enter the Stage 2 denominator.
 7. Exercise Gemini and confirm a forced/rate-limited `429` displays a useful message.
-8. If SerpApi is configured, confirm research shows source links and its key never reaches the browser.
+8. If grounded research is configured, confirm it shows a real summary, working source links, and Google's Search Suggestions; confirm `RESEARCH_GEMINI_API_KEY` never reaches the browser.
 
 ## 6. Deploy to Vercel
 

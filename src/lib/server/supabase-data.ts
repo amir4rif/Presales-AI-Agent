@@ -459,9 +459,6 @@ async function updateProfile(client: Client, value: unknown, loadProfiles: Profi
 
 async function deleteRecords(client: Client, collection: DataCollection, values: unknown[]) {
   if (!values.length) return;
-  if (collection === 'proposals') {
-    throw new AuthorizationError('Proposal versions are permanent and cannot be deleted.');
-  }
   if (collection === 'team') {
     throw new AuthorizationError('Authentication users cannot be deleted through the shared data route.');
   }
@@ -480,7 +477,10 @@ async function deleteRecords(client: Client, collection: DataCollection, values:
   if (ids.length !== values.length) {
     throw new AuthorizationError(`Every deleted ${collection} record needs its database id.`);
   }
-  if (table === 'deals') {
+  if (table === 'proposals') {
+    const response = await client.from('proposals').delete().in('id', ids);
+    fail('Could not delete proposals', response.error);
+  } else if (table === 'deals') {
     const response = await client.from('deals').delete().in('id', ids);
     fail('Could not delete deals', response.error);
   } else {

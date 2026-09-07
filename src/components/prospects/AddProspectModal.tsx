@@ -9,7 +9,7 @@ import { useToast } from '@/components/Toast';
 import { callClaude, isAiError } from '@/lib/ai';
 import { parseJsonReply } from '@/lib/docExport';
 import type { AIResearch, Prospect } from '@/lib/data';
-import { researchCompany } from '@/lib/research';
+import { researchCompany, type ResearchResult } from '@/lib/research';
 
 const INDUSTRIES = ['Banking & Finance', 'Healthcare', 'Government', 'Education', 'Manufacturing', 'Retail & FMCG', 'NGO / Non-profit', 'Technology', 'Logistics & Supply Chain', 'Telecommunications', 'Property & Construction', 'Oil & Gas', 'Other'];
 const EMP_SIZES = ['1 – 50', '51 – 200', '201 – 500', '501 – 1,000', '1,001 – 5,000', '5,001 – 10,000', '10,000+'];
@@ -24,6 +24,11 @@ const EMPTY = {
   currSystem: '', currModule: '',
 };
 type Form = typeof EMPTY;
+type GroundedWebResearch = {
+  summary: string;
+  sources: NonNullable<ResearchResult['sources']>;
+  searchEntryPointHtml?: string;
+};
 
 /** Match a free-text AI answer to one of our fixed options. */
 function matchOption(options: string[], text?: string) {
@@ -50,6 +55,8 @@ export default function AddProspectModal({
   const [autofilling, setAutofilling] = useState(false);
   const [researching, setResearching] = useState(false);
   const [research, setResearch] = useState<AIResearch | null>(null);
+  const [groundedWeb, setGroundedWeb] = useState<GroundedWebResearch | null>(null);
+  const [groundingError, setGroundingError] = useState<string | null>(null);
   const [researchError, setResearchError] = useState<string | null>(null);
   const [products, setProducts] = useState<string | null>(null);
   const [outline, setOutline] = useState<string | null>(null);
@@ -62,6 +69,8 @@ export default function AddProspectModal({
   function reset() {
     setF(EMPTY);
     setResearch(null);
+    setGroundedWeb(null);
+    setGroundingError(null);
     setResearchError(null);
     setProducts(null);
     setOutline(null);
@@ -145,6 +154,8 @@ Field rules:
       return;
     }
     setResearching(true);
+    setGroundedWeb(null);
+    setGroundingError(null);
     setResearchError(null);
 
     const system = `You are an expert AI Sales Intelligence Agent for Ramssol Group, a Malaysian B2B technology company specialising in enterprise software:
@@ -160,8 +171,18 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no extra text.`;
     const web = await researchCompany(
       `${f.name} ${f.website || ''} company profile revenue employees technology`,
       f.location || 'Malaysia'
-    );
-    if (web.error) toast(`⚠️ Prospect research failed — ${web.error}`, true);
+    ) as ResearchResult & { searchEntryPointHtml?: string };
+    if (web.error) {
+      setGroundingError(web.error);
+      toast(`⚠️ Web grounding unavailable — ${web.error}`, true);
+    }
+    if (web.configured && web.summary) {
+      setGroundedWeb({
+        summary: web.summary,
+        sources: web.sources || [],
+        searchEntryPointHtml: web.searchEntryPointHtml,
+      });
+    }
     const verifiedContext = web.configured && web.summary
       ? `\nVerified web research (use this as the factual source of truth):\n${web.summary}\nSources: ${JSON.stringify(web.sources || [])}\n`
       : '\nNo verified web research is available for this run. Clearly label financial and headcount values as estimates.\n';
@@ -206,7 +227,10 @@ Return ONLY this JSON structure (no markdown, no backticks):
       toast(message, true);
       return;
     }
-    setResearch({ ...parsed, ...(web.sources?.length ? { sources: web.sources } : {}) });
+    // The grounded result and Google's Search Suggestions are intentionally
+    // transient. They are shown above but are not copied into the prospect
+    // record, which avoids turning prospect storage into a search-result cache.
+    setResearch(parsed);
     setProducts(null);
     setOutline(null);
   }
@@ -525,6 +549,59 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
         <div role="alert" style={{ fontSize: 12, color: 'var(--red-700)', textAlign: 'center', marginTop: 8 }}>
           {researchError}
         </div>
+      )}
+      {groundingError && (
+        <div className="grounding-warning" role="status">
+          <strong>Web grounding unavailable.</strong> {groundingError} The analysis below uses
+          estimates where verified public facts are unavailable.
+        </div>
+      )}
+
+      {groundedWeb && (
+        <section className="ai-results grounded-results visible" aria-label="Grounded web research">
+          <div className="ai-results-header">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="var(--brand-500)"
+              strokeWidth={2}
+              width={15}
+              height={15}
+              aria-hidden="true"
+            >
+              <circle cx="11" cy="11" r="7" />
+              <path d="m20 20-4-4" />
+            </svg>
+            <span className="ai-results-header-title">Grounded Web Research</span>
+            <span className="grounded-provider">Google Search</span>
+          </div>
+          <div className="ai-results-body">
+            <div className="grounded-summary">{groundedWeb.summary}</div>
+
+            {groundedWeb.searchEntryPointHtml ? (
+              <div
+                className="google-search-entry-point"
+                aria-label="Google Search suggestions"
+                // Google supplies this compliant HTML/CSS and requires it to
+                // be rendered without modification beside the grounded result.
+                dangerouslySetInnerHTML={{ __html: groundedWeb.searchEntryPointHtml }}
+              />
+            ) : null}
+
+            {groundedWeb.sources.length ? (
+              <div className="grounded-sources">
+                <div className="ai-card-lbl">Sources</div>
+                <div className="grounded-source-links">
+                  {groundedWeb.sources.map((source) => (
+                    <a key={source.url} href={source.url} target="_blank" rel="noreferrer">
+                      {source.title}
+                    </a>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </section>
       )}
 
       {research && (

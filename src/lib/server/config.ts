@@ -124,8 +124,11 @@ export function getSupabaseStatus() {
 
 export function getResearchConfig() {
   return {
-    apiKey: env('SERPAPI_API_KEY'),
-    timeoutMs: positiveInt('SERPAPI_TIMEOUT_MS', 30_000, 90_000),
+    // Deliberately separate from proposal generation. For quota isolation this
+    // key must belong to a separate Cloud project; Gemini quotas are per project.
+    apiKey: env('RESEARCH_GEMINI_API_KEY'),
+    model: env('GEMINI_MODEL') || DEFAULT_GEMINI_MODEL,
+    timeoutMs: positiveInt('RESEARCH_GEMINI_TIMEOUT_MS', 90_000, 300_000),
   };
 }
 
@@ -133,8 +136,9 @@ export function getResearchStatus() {
   const config = getResearchConfig();
   return {
     configured: Boolean(config.apiKey),
-    provider: 'SerpApi Brave AI Mode' as const,
-    missing: config.apiKey ? [] : ['SERPAPI_API_KEY'],
+    provider: 'Gemini with Google Search grounding' as const,
+    model: config.model,
+    missing: config.apiKey ? [] : ['RESEARCH_GEMINI_API_KEY'],
   };
 }
 export function getLarkConfig() {

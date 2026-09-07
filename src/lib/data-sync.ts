@@ -266,9 +266,7 @@ function changesBetween(collection: DataCollection, previous: unknown[], next: u
     const old = before.get(itemKey(collection, item));
     return !old || JSON.stringify(old) !== JSON.stringify(item);
   });
-  const deletes = collection === 'proposals'
-    ? []
-    : previous.filter((item) => !after.has(itemKey(collection, item)));
+  const deletes = previous.filter((item) => !after.has(itemKey(collection, item)));
   return { upserts, deletes };
 }
 

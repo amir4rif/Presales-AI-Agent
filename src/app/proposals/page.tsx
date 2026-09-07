@@ -141,10 +141,6 @@ function ProposalsPage() {
       toast('⚠️ Only drafts can be deleted', true);
       return;
     }
-    if (isRemoteDataSource()) {
-      toast('Proposal versions are permanent in Supabase, including drafts.', true);
-      return;
-    }
     if (!confirm(`Delete draft proposal for "${p.company}"? This cannot be undone.`)) return;
     const next = store.filter((x) => x.id !== id);
     saveProposals(next);

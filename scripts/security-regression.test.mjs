@@ -149,6 +149,53 @@ test("Level 2 cannot edit or submit another rep's Draft proposal", () => {
   assert.match(migration, /Only the proposal owner can edit or submit a draft\./);
 });
 
+test('proposal deletion is owner-only, Draft-only, and reaches the database policy', () => {
+  const migration = readFileSync(
+    new URL(
+      '../supabase/migrations/20260907011834_allow_proposal_owner_draft_delete.sql',
+      import.meta.url
+    ),
+    'utf8'
+  );
+  const serverData = readFileSync(new URL('../src/lib/server/supabase-data.ts', import.meta.url), 'utf8');
+  const dataSync = readFileSync(new URL('../src/lib/data-sync.ts', import.meta.url), 'utf8');
+  const proposalsPage = readFileSync(new URL('../src/app/proposals/page.tsx', import.meta.url), 'utf8');
+
+  assert.match(migration, /create policy "proposals_delete_own_draft"/);
+  assert.match(
+    migration,
+    /using \(owner_id = \(select auth\.uid\(\)\) and status = 'Draft'\)/
+  );
+  assert.match(migration, /grant delete on public\.proposals to authenticated/);
+  assert.match(serverData, /from\('proposals'\)\.delete\(\)\.in\('id', ids\)/);
+  assert.doesNotMatch(serverData, /Proposal versions are permanent and cannot be deleted/);
+  assert.doesNotMatch(dataSync, /const deletes = collection === 'proposals'/);
+  assert.match(proposalsPage, /p\.status === 'Draft'[\s\S]*deleteProposal\(p\.id\)/);
+  assert.match(proposalsPage, /confirm\(`Delete draft proposal/);
+  assert.doesNotMatch(proposalsPage, /permanent in Supabase, including drafts/);
+});
+
+test('prospect research uses a separate Gemini key and Google Search grounding', () => {
+  const route = readFileSync(new URL('../src/app/api/research/route.ts', import.meta.url), 'utf8');
+  const config = readFileSync(new URL('../src/lib/server/config.ts', import.meta.url), 'utf8');
+  const envExample = readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
+  const envCheck = readFileSync(new URL('../scripts/check-env.mjs', import.meta.url), 'utf8');
+  const prospectModal = readFileSync(
+    new URL('../src/components/prospects/AddProspectModal.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(route, /new GoogleGenAI/);
+  assert.match(route, /tools: \[\{ googleSearch: \{\} \}\]/);
+  assert.match(route, /grounding\?\.groundingChunks/);
+  assert.match(route, /Google did not return the required Search Suggestions/);
+  assert.match(config, /env\('RESEARCH_GEMINI_API_KEY'\)/);
+  assert.match(envExample, /RESEARCH_GEMINI_API_KEY=/);
+  assert.match(envCheck, /RESEARCH_GEMINI_API_KEY/);
+  assert.match(prospectModal, /dangerouslySetInnerHTML=\{\{ __html: groundedWeb\.searchEntryPointHtml \}\}/);
+  assert.match(prospectModal, /setResearch\(parsed\)/);
+});
+
 test('profile-name fallback rejects ambiguity while explicit IDs remain authoritative', async () => {
   let loads = 0;
   const loadProfiles = async () => {

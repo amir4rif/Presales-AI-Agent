@@ -25,7 +25,7 @@ const supabaseMissing = [
   'NEXT_PUBLIC_SUPABASE_URL',
   'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY',
 ].filter((name) => !present(name));
-const researchMissing = ['SERPAPI_API_KEY'].filter((name) => !present(name));
+const researchMissing = ['RESEARCH_GEMINI_API_KEY'].filter((name) => !present(name));
 const larkMissing = ['LARK_APP_ID', 'LARK_APP_SECRET', 'LARK_APP_TOKEN', 'LARK_TABLE_ID'].filter(
   (name) => !present(name)
 );
@@ -34,7 +34,7 @@ console.log('Offline integration readiness (values are never printed)');
 console.log(`Data source: ${source === 'supabase' ? 'supabase' : 'seed'}`);
 line(`AI (${provider})`, aiMissing);
 line('Supabase', supabaseMissing);
-line('SerpApi research (optional)', researchMissing);
+line('Gemini grounded research (optional, separate key)', researchMissing);
 line('Lark archive (inactive)', larkMissing);
 
 if (!process.env.DATA_SOURCE && process.env.NEXT_PUBLIC_DATA_SOURCE) {
