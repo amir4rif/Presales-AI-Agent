@@ -16,6 +16,7 @@ import {
   type Notif,
 } from '@/lib/notify';
 import { getProposals, getProspects } from '@/lib/data';
+import { latestLiveProposalVersions } from '@/lib/proposal-lifecycle';
 
 type Hit = { icon: string; name: string; kind: string; href: string };
 
@@ -81,8 +82,7 @@ export default function Topbar({ title, level }: { title: string; level: Level }
     const proposals = getProposals();
     const prospects = getProspects();
 
-    proposals
-      .filter((p) => p.status !== 'Superseded')
+    latestLiveProposalVersions(proposals)
       .forEach((p) => {
         if ([p.company, p.deal, p.caseId].some((x) => (x || '').toLowerCase().includes(v))) {
           out.push({ icon: '📝', name: `${p.company} — ${p.status}`, kind: 'Proposal', href: '/proposals' });

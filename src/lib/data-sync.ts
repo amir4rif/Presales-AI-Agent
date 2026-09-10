@@ -6,6 +6,8 @@ import {
   type DataCollection,
   type DataSource,
 } from './integrations';
+import { changesBetween, type DataChangeOptions } from './data-changes';
+import { LatestRequestCoordinator, SerialTaskCoordinator } from './latest-request';
 import { setSession } from './role';
 import { createSupabaseBrowserClient } from './supabase/client';
 
@@ -13,9 +15,42 @@ const SOURCE_KEY = 'ramssolDataSource';
 const REMOTE_COLLECTIONS_KEY = 'ramssolRemoteCollections';
 let syncQueue: Promise<void> = Promise.resolve();
 let initialization: Promise<DataLayerStatus> | null = null;
+let initializationRequest = 0;
 let refreshing: Promise<void> | null = null;
 let dataLayerGeneration = 0;
+let hydrationCoordinator = new LatestRequestCoordinator();
+let proposalTransactionCoordinator = new SerialTaskCoordinator();
 const requestControllers = new Set<AbortController>();
+const canonicalCollections: Partial<Record<DataCollection, unknown[]>> = {};
+
+/** Last collection payload confirmed by Supabase, never the optimistic cache. */
+export function confirmedCollectionSnapshot<T>(collection: DataCollection): readonly T[] | null {
+  const snapshot = canonicalCollections[collection];
+  return Array.isArray(snapshot) ? snapshot as T[] : null;
+}
+
+/** Wait for every mutation already queued, including rollback or hydration. */
+export async function waitForPendingDataSync() {
+  while (true) {
+    const pending = syncQueue;
+    await pending;
+    if (pending === syncQueue) return;
+  }
+}
+
+/**
+ * Serialize the full proposal operation, including the initial sync drain and
+ * confirmed read. This closes the gap a bare "wait, then write" would leave.
+ */
+export function runProposalDataTransaction<T>(transaction: () => Promise<T> | T) {
+  const generation = dataLayerGeneration;
+  return proposalTransactionCoordinator.run(async () => {
+    assertCurrentGeneration(generation);
+    await waitForPendingDataSync();
+    assertCurrentGeneration(generation);
+    return transaction();
+  });
+}
 
 export type DataLayerStatus = {
   source: DataSource;
@@ -47,8 +82,20 @@ class DataLayerCancelledError extends Error {
   }
 }
 
+class DataLayerSupersededError extends Error {
+  constructor() {
+    super('A newer data-layer request superseded this one.');
+    this.name = 'DataLayerSupersededError';
+  }
+}
+
 function assertCurrentGeneration(generation: number) {
   if (generation !== dataLayerGeneration) throw new DataLayerCancelledError();
+}
+
+function assertCurrentInitialization(generation: number, request: number) {
+  assertCurrentGeneration(generation);
+  if (request !== initializationRequest) throw new DataLayerSupersededError();
 }
 
 async function controlledFetch(input: RequestInfo | URL, init?: RequestInit) {
@@ -116,6 +163,7 @@ function cacheRemotePayload(payload: RemotePayload) {
   }
   for (const collection of DATA_COLLECTIONS) {
     const items = payload.collections[collection] as unknown[];
+    canonicalCollections[collection] = items;
     localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(items));
   }
   cacheProfile(payload.profile);
@@ -145,27 +193,43 @@ async function fetchRemotePayload() {
  * there. Retry a couple times before surfacing the error screen.
  */
 async function loadRemotePayload(generation = dataLayerGeneration) {
-  const attempts = 3;
-  for (let attempt = 1; attempt <= attempts; attempt++) {
-    try {
-      const payload = await fetchRemotePayload();
+  // Capture the coordinator so resetDataLayer can replace it without turning
+  // an aborted old-generation request into a successful supersession.
+  const coordinator = hydrationCoordinator;
+  await coordinator.run(
+    async (isLatest) => {
+      const attempts = 3;
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        if (!isLatest()) throw new DataLayerSupersededError();
+        try {
+          const payload = await fetchRemotePayload();
+          assertCurrentGeneration(generation);
+          return payload;
+        } catch (error) {
+          assertCurrentGeneration(generation);
+          // Do not retry a response that can no longer become canonical.
+          if (!isLatest()) throw error;
+          const retryable = attempt < attempts &&
+            !(error instanceof DataLayerError && /session has expired/i.test(error.message));
+          if (!retryable) throw error;
+          await wait(attempt * 400);
+        }
+      }
+      throw new DataLayerError('Could not load shared data from Supabase.');
+    },
+    (payload) => {
       assertCurrentGeneration(generation);
       cacheRemotePayload(payload);
-      return;
-    } catch (error) {
-      assertCurrentGeneration(generation);
-      const retryable = attempt < attempts && !(error instanceof DataLayerError && /session has expired/i.test(error.message));
-      if (!retryable) throw error;
-      await wait(attempt * 400);
     }
-  }
+  );
+  assertCurrentGeneration(generation);
 }
 
-async function initialize(): Promise<DataLayerStatus> {
+async function initialize(request: number): Promise<DataLayerStatus> {
   const generation = dataLayerGeneration;
   const statusResponse = await controlledFetch('/api/data', { cache: 'no-store' });
   const status = await responseJson(statusResponse);
-  assertCurrentGeneration(generation);
+  assertCurrentInitialization(generation, request);
   if (!statusResponse.ok ||
       (status.dataSource !== 'seed' && status.dataSource !== 'supabase')) {
     throw new DataLayerError(
@@ -184,6 +248,7 @@ async function initialize(): Promise<DataLayerStatus> {
     }
     localStorage.setItem(SOURCE_KEY, 'seed');
     localStorage.setItem(REMOTE_COLLECTIONS_KEY, '[]');
+    DATA_COLLECTIONS.forEach((collection) => delete canonicalCollections[collection]);
     return { source, ready: true };
   }
 
@@ -193,12 +258,20 @@ async function initialize(): Promise<DataLayerStatus> {
   }
 
   await loadRemotePayload(generation);
+  assertCurrentInitialization(generation, request);
   return { source, ready: true };
 }
 
 export function initializeDataLayer({ force = false } = {}) {
   if (force || !initialization) {
-    const pending = initialize();
+    const request = ++initializationRequest;
+    const pending: Promise<DataLayerStatus> = initialize(request).catch((error) => {
+      if (error instanceof DataLayerSupersededError) {
+        const newer = initialization;
+        if (newer && newer !== pending) return newer;
+      }
+      throw error;
+    });
     initialization = pending;
     void pending.catch(() => {
       if (initialization === pending) initialization = null;
@@ -209,11 +282,17 @@ export function initializeDataLayer({ force = false } = {}) {
 
 export function resetDataLayer() {
   dataLayerGeneration += 1;
+  initializationRequest += 1;
+  // Isolate the next signed-in generation. The old coordinator still
+  // propagates cancellation to the callers that belong to the old session.
+  hydrationCoordinator = new LatestRequestCoordinator();
+  proposalTransactionCoordinator = new SerialTaskCoordinator();
   requestControllers.forEach((controller) => controller.abort());
   requestControllers.clear();
   initialization = null;
   refreshing = null;
   syncQueue = Promise.resolve();
+  DATA_COLLECTIONS.forEach((collection) => delete canonicalCollections[collection]);
   DATA_COLLECTIONS.forEach((collection) =>
     localStorage.removeItem(STORAGE_KEY_BY_COLLECTION[collection])
   );
@@ -228,7 +307,11 @@ async function refreshRemoteData() {
       .then(() => {
         assertCurrentGeneration(generation);
         window.dispatchEvent(new Event('rams:remote-data'));
-      });
+      })
+      // Realtime hydration is a best-effort background refresh. A mutation's
+      // post-write hydration owns its error, so reporting here as well could
+      // turn one failure into duplicate/misleading "Data sync failed" toasts.
+      .catch(() => undefined);
     const tracked = pending.finally(() => {
       if (refreshing === tracked) refreshing = null;
     });
@@ -243,46 +326,28 @@ function emitSync(collection: DataCollection, ok: boolean, message?: string) {
   );
 }
 
-function itemRecord(value: unknown) {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : null;
-}
-
-function itemKey(collection: DataCollection, value: unknown): string {
-  const item = itemRecord(value);
-  if (!item) return '';
-  if (collection === 'proposals' || collection === 'prospects') return String(item.id || '');
-  if (collection === 'team') return String(item.id || item.email || '');
-  if (item.id) return String(item.id);
-  if (collection === 'deals') return JSON.stringify([item.rep, item.account]);
-  return JSON.stringify([item.rep, item.account, item.closeDate]);
-}
-
-function changesBetween(collection: DataCollection, previous: unknown[], next: unknown[]) {
-  const before = new Map(previous.map((item) => [itemKey(collection, item), item]));
-  const after = new Map(next.map((item) => [itemKey(collection, item), item]));
-  const upserts = next.filter((item) => {
-    const old = before.get(itemKey(collection, item));
-    return !old || JSON.stringify(old) !== JSON.stringify(item);
-  });
-  const deletes = previous.filter((item) => !after.has(itemKey(collection, item)));
-  return { upserts, deletes };
+function restoreCanonicalCollection(collection: DataCollection) {
+  const canonical = canonicalCollections[collection];
+  if (!canonical) return;
+  localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(canonical));
+  window.dispatchEvent(new Event('rams:data-changed'));
+  window.dispatchEvent(new Event('rams:remote-data'));
 }
 
 /** Persist only changed records; a missing row never replaces a collection. */
 export function queueDataSync(
   collection: DataCollection,
   previous: unknown[],
-  next: unknown[]
+  next: unknown[],
+  options: DataChangeOptions = {}
 ) {
-  if (typeof window === 'undefined' || !isRemoteDataSource()) return;
-  if (!isRemoteCollection(collection)) return;
-  const changes = changesBetween(collection, previous, next);
-  if (!changes.upserts.length && !changes.deletes.length) return;
+  if (typeof window === 'undefined' || !isRemoteDataSource()) return Promise.resolve(true);
+  if (!isRemoteCollection(collection)) return Promise.resolve(true);
+  const changes = changesBetween(collection, previous, next, options);
+  if (!changes.upserts.length && !changes.deletes.length) return Promise.resolve(true);
   const generation = dataLayerGeneration;
 
-  syncQueue = syncQueue
+  const operation = syncQueue
     .catch(() => undefined)
     .then(async () => {
       assertCurrentGeneration(generation);
@@ -298,18 +363,36 @@ export function queueDataSync(
           typeof body.error === 'string' ? body.error : `Could not sync ${collection}.`
         );
       }
+      // Always start a post-mutation read. Reusing `refreshing` here could
+      // accidentally accept a realtime GET that began before this PUT.
       await loadRemotePayload(generation);
+      assertCurrentGeneration(generation);
       window.dispatchEvent(new Event('rams:remote-data'));
       emitSync(collection, true);
-    })
+    });
+
+  syncQueue = operation
     .catch((error) => {
       if (error instanceof DataLayerCancelledError || generation !== dataLayerGeneration) return;
-      emitSync(
-        collection,
-        false,
-        error instanceof Error ? error.message : `Could not sync ${collection}.`
-      );
+      // An optimistic cache write must not survive a rejected remote mutation.
+      // The last payload confirmed by Supabase remains correct across queued
+      // writes, unlike an individual operation's `previous` snapshot.
+      restoreCanonicalCollection(collection);
+      if (!options.suppressSyncError) {
+        emitSync(
+          collection,
+          false,
+          error instanceof Error ? error.message : `Could not sync ${collection}.`
+        );
+      }
     });
+
+  // Callers that present a success message can wait for the real remote write.
+  // This promise always resolves, so legacy fire-and-forget saves stay safe.
+  return operation.then(
+    () => true,
+    () => false
+  );
 }
 
 /* Only tables people edit concurrently need live pushes: proposals (shared review)
@@ -326,13 +409,7 @@ export function subscribeToRemoteChanges() {
       'postgres_changes',
       { event: '*', schema: 'public', table },
       () => {
-        void refreshRemoteData().catch((error) => {
-          emitSync(
-            table,
-            false,
-            error instanceof Error ? error.message : `Could not refresh ${table}.`
-          );
-        });
+        void refreshRemoteData();
       }
     );
   }

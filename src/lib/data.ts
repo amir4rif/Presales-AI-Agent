@@ -13,10 +13,11 @@ import { currentLevel, currentUser, currentUserId } from './role';
 import { isRemoteCollection, isRemoteDataSource, queueDataSync } from './data-sync';
 import { STORAGE_KEY_BY_COLLECTION, type DataCollection } from './integrations';
 import {
-  isLiveProposalVersion,
+  latestLiveProposalVersions,
   rejectionReasonStats,
   visibleProposalVersionsForOwner,
 } from './proposal-lifecycle';
+import { mergeProposalSnapshot, type DataChangeOptions } from './data-changes';
 import { calculateTwoStageRates } from './stage-rates';
 
 export { currentLevel, currentUser, currentUserId };
@@ -54,6 +55,8 @@ export type Proposal = {
   status: ProposalStatus; reviewer: string; reviewedDate: string;
   ownerId?: string; submittedById?: string; reviewerId?: string;
   rejectionReason: string; reviewNote: string; lastUpdated: string;
+  /** Lossless server concurrency token; never display or synthesize it. */
+  updatedAt?: string;
   sections: { executive: string; solution: string; commercials: string };
   /* Post-approval outcome (v10). Only meaningful once status is Approved. */
   outcome?: DealOutcome;
@@ -301,12 +304,19 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
-function write(collection: DataCollection, value: unknown[]) {
-  if (!canStore()) return;
+function write(
+  collection: DataCollection,
+  value: unknown[],
+  options: DataChangeOptions = {}
+) {
+  if (!canStore()) return Promise.resolve(false);
   const previous = read<unknown[]>(STORAGE_KEY_BY_COLLECTION[collection], []);
-  localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(value));
+  const cacheValue = collection === 'proposals'
+    ? mergeProposalSnapshot(previous, value, options.proposalDeleteIds)
+    : value;
+  localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(cacheValue));
   window.dispatchEvent(new Event('rams:data-changed'));
-  queueDataSync(collection, previous, value);
+  return queueDataSync(collection, previous, cacheValue, options);
 }
 
 /* ── PROPOSALS ─────────────────────────────────────────── */
@@ -320,8 +330,14 @@ export function getProposals(): Proposal[] {
   }
 }
 
-export function saveProposals(list: Proposal[]) {
-  write('proposals', list);
+export function saveProposals(
+  list: Proposal[],
+  options: { deletedIds?: readonly string[]; suppressSyncError?: boolean } = {}
+) {
+  return write('proposals', list, {
+    proposalDeleteIds: options.deletedIds,
+    suppressSyncError: options.suppressSyncError,
+  });
 }
 
 /** Seed the Proposal Store once, then always return the live store. */
@@ -380,7 +396,7 @@ export function stats(user?: string) {
   const who = user || currentUser();
   const whoId = user ? profileIdForName(user) : currentUserId();
   const store = ensureProposalStore();
-  const cur = store.filter(isLiveProposalVersion);
+  const cur = latestLiveProposalVersions(store);
   const mine = visibleProposalVersionsForOwner(cur, who, whoId);
   const deals = getDeals();
   const closed = getClosedDeals();

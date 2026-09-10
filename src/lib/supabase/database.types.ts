@@ -172,7 +172,23 @@ export type Database = {
         Relationships: [];
       };
     };
-    Functions: Record<string, never>;
+    Functions: {
+      resubmit_proposal: {
+        Args: {
+          p_expected_updated_at: string;
+          p_predecessor_id: string;
+          p_new_id: string;
+          p_sections: Json;
+        };
+        Returns: ProposalRow;
+        SetofOptions: {
+          from: '*';
+          to: 'proposals';
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

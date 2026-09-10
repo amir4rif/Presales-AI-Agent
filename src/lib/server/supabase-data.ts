@@ -16,11 +16,14 @@ import {
   resolveProfileIdFromWire,
 } from '@/lib/profile-identity';
 import type { Database, Json, Tables } from '@/lib/supabase/database.types';
-import { writeProposalRows } from '@/lib/server/proposal-writer';
+import {
+  deleteDraftProposalRows,
+  writeProposalRows,
+} from '@/lib/server/proposal-writer';
 
 type Client = SupabaseClient<Database>;
 type ProfileRow = Tables<'profiles'>;
-type ProfileLookupRow = Pick<ProfileRow, 'id' | 'full_name' | 'email'>;
+type ProfileLookupRow = Pick<ProfileRow, 'id' | 'full_name' | 'email' | 'status'>;
 type ProfilesLoader = () => Promise<ProfileLookupRow[]>;
 
 export type DataChangeSet = {
@@ -166,6 +169,7 @@ function proposalToDomain(row: Tables<'proposals'>): Proposal {
     rejectionReason: row.rejection_reason,
     reviewNote: row.review_note,
     lastUpdated: displayDate(row.updated_at),
+    updatedAt: row.updated_at,
     sections: (row.sections || {}) as Proposal['sections'],
     outcome: (row.outcome || undefined) as Proposal['outcome'],
   };
@@ -325,10 +329,18 @@ async function buildProposalRow(
   const item = record(value);
   const submittedById = await resolveProfileId(item, 'submittedBy', 'submittedById', loadProfiles, userId);
   const ownerId = await resolveProfileId(item, 'owner', 'ownerId', loadProfiles, userId);
-  const reviewerName = str(item.reviewer);
-  const reviewerId = reviewerName
-    ? await resolveProfileId(item, 'reviewer', 'reviewerId', loadProfiles, userId)
+  const status = str(item.status, 'Draft');
+  const isReviewDecision = ['Approved', 'Reject & Revise', 'Reject & Close'].includes(status);
+  const actorProfile = isReviewDecision
+    ? (await loadProfiles()).find((profile) => profile.id === userId && profile.status === 'active')
     : null;
+  if (isReviewDecision && !actorProfile) {
+    throw new AuthorizationError('The signed-in reviewer has no active application profile.');
+  }
+  // Audit identity comes from the authenticated session, never from fields a
+  // browser can forge. The database trigger independently enforces the same.
+  const reviewerName = actorProfile?.full_name || '';
+  const reviewerId = actorProfile?.id || null;
   const row: Database['public']['Tables']['proposals']['Insert'] = {
     company: str(item.company),
     deal: str(item.deal),
@@ -341,7 +353,7 @@ async function buildProposalRow(
     owner: str(item.owner),
     generated_on: isoDate(item.generatedDate, new Date().toISOString().slice(0, 10)),
     submitted_at: isoTimestamp(item.submittedDate),
-    status: str(item.status, 'Draft'),
+    status,
     reviewer_id: reviewerId,
     reviewer: reviewerName,
     reviewed_at: isoTimestamp(item.reviewedDate),
@@ -352,8 +364,12 @@ async function buildProposalRow(
   };
   const id = str(item.id);
   const caseId = str(item.caseId);
+  const updatedAt = str(item.updatedAt);
   if (id) row.id = id;
   if (caseId) row.case_id = caseId;
+  // This is an expected-version token only. proposal-writer removes it from
+  // INSERT/UPDATE payloads and uses it in the existing-row CAS predicate.
+  if (updatedAt) row.updated_at = updatedAt;
   return row;
 }
 
@@ -473,19 +489,53 @@ async function deleteRecords(client: Client, collection: DataCollection, values:
     return;
   }
 
+  if (table === 'proposals') {
+    const rows = values.map((value) => ({
+      id: str(record(value).id),
+      updated_at: str(record(value).updatedAt),
+    }));
+    if (rows.some((row) => !row.id || !row.updated_at)) {
+      throw new AuthorizationError(
+        'Only current draft proposals can be deleted. Refresh the latest data and try again.'
+      );
+    }
+    await deleteDraftProposalRows(client, rows, fail);
+    return;
+  }
+
   const ids = values.map((value) => str(record(value).id)).filter(Boolean);
   if (ids.length !== values.length) {
     throw new AuthorizationError(`Every deleted ${collection} record needs its database id.`);
   }
-  if (table === 'proposals') {
-    const response = await client.from('proposals').delete().in('id', ids);
-    fail('Could not delete proposals', response.error);
-  } else if (table === 'deals') {
+  if (table === 'deals') {
     const response = await client.from('deals').delete().in('id', ids);
     fail('Could not delete deals', response.error);
   } else {
     const response = await client.from('closed_deals').delete().in('id', ids);
     fail('Could not delete closed deals', response.error);
+  }
+}
+
+function assertProposalChangeShape(changes: DataChangeSet) {
+  const { upserts, deletes } = changes;
+  const logicalChangeError = () => {
+    throw new AuthorizationError('A proposal request must contain exactly one logical change.');
+  };
+
+  if ((upserts.length && deletes.length) || deletes.length > 1 || upserts.length > 2) {
+    logicalChangeError();
+  }
+  if (upserts.length !== 2) return;
+
+  const values = upserts.map(record);
+  const predecessor = values.find((value) => str(value.status) === 'Superseded');
+  const replacement = values.find((value) => str(value.status) === 'Pending Review');
+  if (!predecessor || !replacement ||
+      !str(predecessor.id) || !str(replacement.id) ||
+      str(predecessor.id) === str(replacement.id) ||
+      !str(predecessor.caseId) || str(predecessor.caseId) !== str(replacement.caseId) ||
+      Math.trunc(num(replacement.version)) !== Math.trunc(num(predecessor.version)) + 1) {
+    logicalChangeError();
   }
 }
 
@@ -495,11 +545,13 @@ export async function writeSupabaseChanges(
   collection: DataCollection,
   changes: DataChangeSet
 ) {
+  if (collection === 'proposals') assertProposalChangeShape(changes);
+
   let profilesPromise: Promise<ProfileLookupRow[]> | null = null;
   const loadProfiles: ProfilesLoader = () => {
     if (!profilesPromise) {
       profilesPromise = (async () => {
-        const response = await client.from('profiles').select('id, full_name, email');
+        const response = await client.from('profiles').select('id, full_name, email, status');
         fail('Could not resolve team ownership', response.error);
         return response.data || [];
       })();

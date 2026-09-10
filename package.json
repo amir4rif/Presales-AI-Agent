@@ -13,10 +13,11 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test:analytics": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/stage-rates.test.mjs",
+    "test:data-sync": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/data-sync-order.test.mjs",
     "test:security": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --experimental-strip-types --test scripts/security-regression.test.mjs",
     "check:env": "node scripts/check-env.mjs",
     "check:env:strict": "node scripts/check-env.mjs --strict",
-    "check": "npm run check:env && npm run lint && npm run typecheck && npm run test:analytics && npm run test:security && npm run build"
+    "check": "npm run check:env && npm run lint && npm run typecheck && npm run test:analytics && npm run test:data-sync && npm run test:security && npm run build"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.116.0",

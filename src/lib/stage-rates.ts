@@ -1,3 +1,5 @@
+import { latestLiveProposalVersions } from './proposal-lifecycle.ts';
+
 export type ProposalStageRecord = {
   id?: string;
   caseId: string;
@@ -22,7 +24,7 @@ const pct = (numerator: number, denominator: number) =>
 export function calculateTwoStageRates(proposals: readonly ProposalStageRecord[]) {
   const cases = new Map<string, CaseState>();
 
-  proposals.forEach((proposal, index) => {
+  latestLiveProposalVersions([...proposals]).forEach((proposal, index) => {
     // A missing legacy Case ID must not collapse unrelated proposals together.
     const key = proposal.caseId || `proposal:${proposal.id || index}`;
     const state = cases.get(key) || { killed: false, revise: false };

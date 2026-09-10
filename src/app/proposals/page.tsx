@@ -19,9 +19,24 @@ import {
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
-import { isRemoteDataSource } from '@/lib/data-sync';
+import {
+  confirmedCollectionSnapshot,
+  initializeDataLayer,
+  isRemoteDataSource,
+  runProposalDataTransaction,
+} from '@/lib/data-sync';
 import { visibleProposalVersionsForOwner } from '@/lib/proposal-lifecycle';
-import { mergeEditedProposalSections } from '@/lib/proposal-sections';
+import {
+  conflictingProposalSectionKeys,
+  mergeEditedProposalSections,
+  rebaseProposalEditorSections,
+  remainingProposalSectionEditRevisions,
+} from '@/lib/proposal-sections';
+import {
+  clearProposalRevisionWorkingCopy,
+  loadProposalRevisionWorkingCopy,
+  saveProposalRevisionWorkingCopy,
+} from '@/lib/proposal-working-copy';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -35,6 +50,7 @@ const SECTION_LABELS: Record<string, string> = {
   nextsteps: 'Next Steps',
 };
 const SECTION_KEYS = Object.keys(SECTION_LABELS);
+const SECTION_KEY_SET = new Set(SECTION_KEYS);
 
 const PILL_CLASS: Record<string, string> = {
   'Approved': 'pill-approved',
@@ -90,16 +106,139 @@ function ProposalsPage() {
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sections, setSections] = useState<Record<string, string>>({});
-  const editedSectionKeys = useRef<Set<string>>(new Set());
+  const editorSectionsRef = useRef<Record<string, string>>({});
+  const editedSectionRevisions = useRef<Map<string, number>>(new Map());
+  const nextSectionEditRevision = useRef(0);
+  const editorProposalIdRef = useRef<string | null>(null);
+  const editorCanonicalSectionsRef = useRef<Record<string, string>>({});
+  const editorCanonicalUpdatedAtRef = useRef<string | undefined>(undefined);
+  const pendingDraftAcknowledgementRef = useRef<{
+    proposalId: string;
+    sections: Record<string, string>;
+  } | null>(null);
+  const sectionConflictKeysRef = useRef<Set<string>>(new Set());
+  const [sectionConflictKeys, setSectionConflictKeys] = useState<string[]>([]);
+  const workingCopyWriterIdRef = useRef('');
   const [section, setSection] = useState('executive');
 
   const [newOpen, setNewOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [historyCase, setHistoryCase] = useState<string | null>(null);
   const [suggestion, setSuggestion] = useState<string | null>(null);
+  const suggestionRequestRef = useRef(0);
   const [generating, setGenerating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
+  const [leavingEditor, setLeavingEditor] = useState(false);
+  const leavingEditorRef = useRef(false);
+  const [listSaving, setListSaving] = useState(false);
+  const listSavingRef = useRef(false);
+  const draftPersistRef = useRef<Promise<boolean> | null>(null);
+
+  const markSectionEdited = useCallback((key: string, value: string) => {
+    const matchesCanonical = (editorCanonicalSectionsRef.current[key] || '') === value;
+    const pendingWrite = pendingDraftAcknowledgementRef.current;
+    const pendingWriteForSection =
+      pendingWrite?.proposalId === editorProposalIdRef.current &&
+      Object.prototype.hasOwnProperty.call(pendingWrite.sections, key);
+    const undoesPendingWrite = pendingWriteForSection &&
+      (pendingWrite.sections[key] || '') !== value;
+
+    if (matchesCanonical && sectionConflictKeysRef.current.delete(key)) {
+      setSectionConflictKeys([...sectionConflictKeysRef.current]);
+    }
+    if (matchesCanonical && !undoesPendingWrite) {
+      editedSectionRevisions.current.delete(key);
+      return;
+    }
+    editedSectionRevisions.current.set(key, ++nextSectionEditRevision.current);
+  }, []);
+
+  const clearSectionEdits = useCallback(() => {
+    editedSectionRevisions.current.clear();
+  }, []);
+
+  const clearSectionConflicts = useCallback(() => {
+    sectionConflictKeysRef.current.clear();
+    setSectionConflictKeys([]);
+  }, []);
+
+  const clearPersistedSectionEdits = useCallback((persisted: ReadonlyMap<string, number>) => {
+    editedSectionRevisions.current = remainingProposalSectionEditRevisions(
+      editedSectionRevisions.current,
+      persisted
+    );
+    sectionConflictKeysRef.current = new Set(
+      [...sectionConflictKeysRef.current].filter((key) =>
+        editedSectionRevisions.current.has(key)
+      )
+    );
+    setSectionConflictKeys([...sectionConflictKeysRef.current]);
+  }, []);
+
+  const workingCopyWriterId = useCallback(() => {
+    if (!workingCopyWriterIdRef.current) {
+      workingCopyWriterIdRef.current = crypto.randomUUID();
+    }
+    return workingCopyWriterIdRef.current;
+  }, []);
+
+  const confirmSectionConflictOverwrite = useCallback(() => {
+    const conflicts = [...sectionConflictKeysRef.current];
+    if (!conflicts.length) return true;
+    const labels = conflicts.map((key) => SECTION_LABELS[key] || key).join(', ');
+    const confirmed = confirm(
+      `This draft changed elsewhere in: ${labels}. Choose OK to keep and save your version over those newer section changes, or Cancel to keep editing without saving.`
+    );
+    if (confirmed) clearSectionConflicts();
+    return confirmed;
+  }, [clearSectionConflicts]);
+
+  const registerCanonicalSectionConflicts = useCallback((proposal: Proposal) => {
+    const sameProposal = editorProposalIdRef.current === proposal.id;
+    const dirtyKeys = [...editedSectionRevisions.current.keys()];
+    const canonicalSections = { ...(proposal.sections || {}) } as Record<string, string>;
+    let nextConflicts = sameProposal
+      ? new Set(
+          [...sectionConflictKeysRef.current].filter((key) =>
+            dirtyKeys.includes(key) &&
+            (canonicalSections[key] || '') !== (editorSectionsRef.current[key] || '')
+          )
+        )
+      : new Set<string>();
+    if (
+      sameProposal && canEditProposal(proposal.status) &&
+      editorCanonicalUpdatedAtRef.current && proposal.updatedAt &&
+      editorCanonicalUpdatedAtRef.current !== proposal.updatedAt
+    ) {
+      const acknowledgement = pendingDraftAcknowledgementRef.current;
+      const acknowledgedSections = acknowledgement?.proposalId === proposal.id
+        ? acknowledgement.sections
+        : undefined;
+      const conflicts = conflictingProposalSectionKeys(
+        editorCanonicalSectionsRef.current,
+        canonicalSections,
+        dirtyKeys,
+        acknowledgedSections,
+        editorSectionsRef.current
+      );
+      if (conflicts.length) {
+        nextConflicts = new Set([...nextConflicts, ...conflicts]);
+      }
+    }
+    sectionConflictKeysRef.current = nextConflicts;
+    setSectionConflictKeys([...nextConflicts]);
+    editorCanonicalSectionsRef.current = canonicalSections;
+    editorCanonicalUpdatedAtRef.current = proposal.updatedAt;
+  }, []);
 
   const reload = useCallback(() => setStore(ensureProposalStore()), []);
+  const reconcileWithRemote = useCallback(async () => {
+    if (isRemoteDataSource()) {
+      await initializeDataLayer({ force: true }).catch(() => undefined);
+    }
+    reload();
+  }, [reload]);
 
   useEffect(() => {
     setMe(currentUser());
@@ -108,6 +247,71 @@ function ProposalsPage() {
   useRemoteDataRefresh(reload);
 
   const editing = editingId ? store.find((p) => p.id === editingId) || null : null;
+  const confirmedEditing = editing && isRemoteDataSource()
+    ? confirmedCollectionSnapshot<Proposal>('proposals')?.find((p) => p.id === editing.id) || null
+    : null;
+  const canonicalEditing = confirmedEditing || editing;
+  const canonicalEditingId = canonicalEditing?.id || null;
+  const canonicalEditingSections = canonicalEditing?.sections;
+  const canonicalEditingStatus = canonicalEditing?.status;
+  const canonicalEditingUpdatedAt = canonicalEditing?.updatedAt;
+
+  useEffect(() => {
+    editorSectionsRef.current = sections;
+  }, [sections]);
+
+  useEffect(() => {
+    if (!canonicalEditingId || !canonicalEditingStatus) {
+      editorProposalIdRef.current = null;
+      editorCanonicalSectionsRef.current = {};
+      editorCanonicalUpdatedAtRef.current = undefined;
+      clearSectionConflicts();
+      return;
+    }
+
+    const sameProposal = editorProposalIdRef.current === canonicalEditingId;
+    const editable = canEditProposal(canonicalEditingStatus);
+    const canonicalSections = { ...(canonicalEditingSections || {}) };
+    registerCanonicalSectionConflicts(canonicalEditing);
+    const rebased = rebaseProposalEditorSections(
+      canonicalSections,
+      editorSectionsRef.current,
+      editedSectionRevisions.current.keys(),
+      { sameProposal, editable }
+    );
+    editorProposalIdRef.current = canonicalEditingId;
+    editorSectionsRef.current = rebased.sections;
+    if (!rebased.editedKeys.length) {
+      clearSectionEdits();
+      clearSectionConflicts();
+    }
+    setSections(rebased.sections);
+    if (!editable) {
+      suggestionRequestRef.current += 1;
+      setGenerating(false);
+      setSuggestion(null);
+    }
+  }, [
+    canonicalEditingId,
+    canonicalEditingSections,
+    canonicalEditingStatus,
+    canonicalEditingUpdatedAt,
+    clearSectionConflicts,
+    clearSectionEdits,
+    canonicalEditing,
+    registerCanonicalSectionConflicts,
+  ]);
+
+  useEffect(() => {
+    if (!canonicalEditingStatus || !canEditProposal(canonicalEditingStatus)) return;
+    const confirmRevisionDiscard = (event: BeforeUnloadEvent) => {
+      if (!editedSectionRevisions.current.size) return;
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', confirmRevisionDiscard);
+    return () => window.removeEventListener('beforeunload', confirmRevisionDiscard);
+  }, [canonicalEditingId, canonicalEditingStatus]);
 
   /* ── LIST ──────────────────────────────────────────────── */
   const list = useMemo(() => {
@@ -134,7 +338,8 @@ function ProposalsPage() {
   const caseVersionCount = (caseId: string) => store.filter((p) => p.caseId === caseId).length;
 
   /* Delete allowed only while Draft (Doc §3.8). */
-  function deleteProposal(id: string) {
+  async function deleteProposal(id: string) {
+    if (listSavingRef.current) return;
     const p = store.find((x) => x.id === id);
     if (!p) return;
     if (p.status !== 'Draft') {
@@ -142,56 +347,300 @@ function ProposalsPage() {
       return;
     }
     if (!confirm(`Delete draft proposal for "${p.company}"? This cannot be undone.`)) return;
-    const next = store.filter((x) => x.id !== id);
-    saveProposals(next);
-    setStore(next);
-    toast('🗑️ Draft deleted');
+    listSavingRef.current = true;
+    setListSaving(true);
+    try {
+      await runProposalDataTransaction(async () => {
+        const current = ensureProposalStore().find((proposal) => proposal.id === id);
+        if (!current || current.status !== 'Draft') {
+          await reconcileWithRemote();
+          toast('⚠️ This draft changed elsewhere. The latest version is now shown.', true);
+          return;
+        }
+        const next = ensureProposalStore().filter((x) => x.id !== id);
+        const persisted = await saveProposals(next, { deletedIds: [id] });
+        if (!persisted) {
+          await reconcileWithRemote();
+          return;
+        }
+        reload();
+        toast('🗑️ Draft deleted');
+      });
+    } finally {
+      listSavingRef.current = false;
+      setListSaving(false);
+    }
   }
 
   /* ── EDITOR ────────────────────────────────────────────── */
-  function openEditor(id: string) {
-    const p = store.find((x) => x.id === id);
-    if (!p) return;
-    setEditingId(id);
-    setSections({ ...(p.sections || {}) });
-    editedSectionKeys.current.clear();
-    setSection('executive');
-    setSuggestion(null);
+  async function openEditor(id: string) {
+    if (listSavingRef.current) return;
+    listSavingRef.current = true;
+    setListSaving(true);
+    try {
+      // Never open against another component's optimistic proposal cache.
+      // Its complete proposal transaction must first confirm or roll back.
+      await runProposalDataTransaction(() => {
+        const latestStore = ensureProposalStore();
+        const p = latestStore.find((x) => x.id === id);
+        setStore(latestStore);
+        if (!p) return;
+        const confirmed = isRemoteDataSource()
+          ? confirmedCollectionSnapshot<Proposal>('proposals')?.find((x) => x.id === id) || p
+          : p;
+        editorProposalIdRef.current = id;
+        const canonicalSections = { ...(confirmed.sections || {}) } as Record<string, string>;
+        editorCanonicalSectionsRef.current = canonicalSections;
+        editorCanonicalUpdatedAtRef.current = confirmed.updatedAt;
+        clearSectionEdits();
+        clearSectionConflicts();
+        const restored = canEditProposal(p.status)
+          ? loadProposalRevisionWorkingCopy(
+              window.sessionStorage,
+              currentUserId() || currentUser(),
+              p.id,
+              confirmed.updatedAt,
+              canonicalSections,
+              SECTION_KEY_SET
+            )
+          : null;
+        const editorSections = { ...canonicalSections, ...(restored?.sections || {}) };
+        for (const key of restored?.editedKeys || []) {
+          editedSectionRevisions.current.set(key, ++nextSectionEditRevision.current);
+        }
+        sectionConflictKeysRef.current = new Set(restored?.conflictKeys || []);
+        setSectionConflictKeys([...sectionConflictKeysRef.current]);
+        editorSectionsRef.current = editorSections;
+        if (restored) {
+          saveProposalRevisionWorkingCopy(
+            window.sessionStorage,
+            currentUserId() || currentUser(),
+            p.id,
+            workingCopyWriterId(),
+            restored.canonicalUpdatedAt,
+            restored.canonicalSections,
+            editorSections,
+            editedSectionRevisions.current.keys(),
+            sectionConflictKeysRef.current
+          );
+        }
+        setSections(editorSections);
+        setEditingId(id);
+        setSection('executive');
+        suggestionRequestRef.current += 1;
+        setSuggestion(null);
+      });
+    } finally {
+      listSavingRef.current = false;
+      setListSaving(false);
+    }
   }
 
+  const retainRevisionWorkingCopyFor = useCallback((
+    canonical: Proposal,
+    nextSections: Record<string, string>,
+    requireOwnership = false
+  ) => {
+    if (!canEditProposal(canonical.status)) return;
+    const sameEditor = editorProposalIdRef.current === canonical.id;
+    // The working copy must remember the snapshot the user actually saw.
+    // localStorage can already contain a newer realtime payload before React's
+    // rebase effect has registered it as a conflict.
+    const baselineSections = sameEditor
+      ? editorCanonicalSectionsRef.current
+      : ({ ...(canonical.sections || {}) } as Record<string, string>);
+    const baselineUpdatedAt = sameEditor
+      ? editorCanonicalUpdatedAtRef.current
+      : canonical.updatedAt;
+    const writerId = workingCopyWriterId();
+    saveProposalRevisionWorkingCopy(
+      window.sessionStorage,
+      currentUserId() || currentUser(),
+      canonical.id,
+      writerId,
+      baselineUpdatedAt,
+      baselineSections,
+      nextSections,
+      editedSectionRevisions.current.keys(),
+      sectionConflictKeysRef.current,
+      requireOwnership ? { expectedWriterId: writerId } : undefined
+    );
+  }, [workingCopyWriterId]);
+
+  const retainRevisionWorkingCopy = useCallback((nextSections: Record<string, string>) => {
+    if (!editingId) return;
+    const cached = ensureProposalStore().find((proposal) => proposal.id === editingId);
+    const canonical = isRemoteDataSource()
+      ? confirmedCollectionSnapshot<Proposal>('proposals')?.find(
+          (proposal) => proposal.id === editingId
+        ) || cached
+      : cached;
+    if (!canonical) return;
+    retainRevisionWorkingCopyFor(canonical, nextSections);
+  }, [editingId, retainRevisionWorkingCopyFor]);
+
   const persist = useCallback(
-    (nextSections: Record<string, string>) => {
-      const editedKeys = [...editedSectionKeys.current];
-      editedSectionKeys.current.clear();
-      if (!editingId || !editedKeys.length) return;
-      const target = store.find((proposal) => proposal.id === editingId);
-      if (!target || !canEditProposal(target.status)) return;
-      const merged = mergeEditedProposalSections(target.sections, nextSections, editedKeys);
-      if (!merged.changed) return;
-      const next = store.map((p) =>
-        p.id === editingId
-          ? { ...p, sections: merged.sections as Proposal['sections'] }
-          : p
-      );
-      saveProposals(next);
-      setStore(next);
+    (): Promise<boolean> => {
+      if (!editingId) return Promise.resolve(true);
+      const editorId = editingId;
+      const cachedTarget = ensureProposalStore().find((proposal) => proposal.id === editorId);
+      const initialTarget = isRemoteDataSource()
+        ? confirmedCollectionSnapshot<Proposal>('proposals')?.find(
+            (proposal) => proposal.id === editorId
+          ) || cachedTarget
+        : cachedTarget;
+      // A reviewed version is immutable. Its editor is a working copy whose
+      // changes belong only to the replacement created during resubmission.
+      if (!initialTarget || initialTarget.status !== 'Draft') {
+        return draftPersistRef.current || Promise.resolve(true);
+      }
+      if (!editedSectionRevisions.current.size) {
+        return draftPersistRef.current || Promise.resolve(true);
+      }
+      const previousOperation = draftPersistRef.current;
+      const operation = runProposalDataTransaction(async () => {
+        if (previousOperation && !(await previousOperation)) return false;
+        // The global reservation has drained earlier writes before this point,
+        // so matching text now comes from a confirmed cache.
+        const effectiveEdits = new Map(editedSectionRevisions.current);
+        if (!effectiveEdits.size) return true;
+        const capturedSections = { ...editorSectionsRef.current };
+        // Read after the preceding save and hydration complete. This ensures
+        // every update carries Supabase's newest lossless updated_at token.
+        const canonicalStore = ensureProposalStore();
+        const target = canonicalStore.find((proposal) => proposal.id === editorId);
+        if (!target || target.status !== 'Draft') {
+          await reconcileWithRemote();
+          return false;
+        }
+        // localStorage is updated before React necessarily paints a realtime
+        // response. Detect against that freshest snapshot at the write point.
+        registerCanonicalSectionConflicts(target);
+        if (!confirmSectionConflictOverwrite()) return false;
+        const merged = mergeEditedProposalSections(
+          target.sections,
+          capturedSections,
+          effectiveEdits.keys()
+        );
+        if (!merged.changed) {
+          clearPersistedSectionEdits(effectiveEdits);
+          retainRevisionWorkingCopyFor(target, editorSectionsRef.current, true);
+          return true;
+        }
+        const next = canonicalStore.map((proposal) =>
+          proposal.id === editorId
+            ? { ...proposal, sections: merged.sections as Proposal['sections'] }
+            : proposal
+        );
+        const acknowledgement = {
+          proposalId: editorId,
+          sections: Object.fromEntries(
+            [...effectiveEdits.keys()].map((key) => [key, merged.sections[key] || ''])
+          ),
+        };
+        pendingDraftAcknowledgementRef.current = acknowledgement;
+        let persisted = false;
+        let confirmed: Proposal | undefined;
+        try {
+          persisted = await saveProposals(next, { suppressSyncError: true });
+          if (persisted) {
+            confirmed = ensureProposalStore().find((proposal) => proposal.id === editorId);
+            if (confirmed) {
+              registerCanonicalSectionConflicts(confirmed);
+            }
+          }
+        } finally {
+          if (pendingDraftAcknowledgementRef.current === acknowledgement) {
+            pendingDraftAcknowledgementRef.current = null;
+          }
+        }
+        if (!persisted) {
+          await reconcileWithRemote();
+          return false;
+        }
+        clearPersistedSectionEdits(effectiveEdits);
+        if (confirmed) {
+          retainRevisionWorkingCopyFor(confirmed, editorSectionsRef.current, true);
+        }
+        reload();
+        return true;
+      }).catch(() => false);
+      draftPersistRef.current = operation;
+      void operation.then((persisted) => {
+        if (!persisted && draftPersistRef.current === operation) {
+          toast('⚠️ Draft not saved. Your edits are still here — try again.', true);
+        }
+      });
+      void operation.finally(() => {
+        if (draftPersistRef.current === operation) draftPersistRef.current = null;
+      });
+      return operation;
     },
-    [editingId, store]
+    [
+      clearPersistedSectionEdits,
+      confirmSectionConflictOverwrite,
+      editingId,
+      reconcileWithRemote,
+      registerCanonicalSectionConflicts,
+      retainRevisionWorkingCopyFor,
+      reload,
+      toast,
+    ]
   );
 
-  function backToList() {
-    if (editingId) persist(sections);
-    setEditingId(null);
-    setSuggestion(null);
-    reload();
+  async function backToList() {
+    if (submittingRef.current || leavingEditorRef.current) return;
+    if (
+      editing?.status === 'Reject & Revise' &&
+      editedSectionRevisions.current.size > 0 &&
+      !confirm('Discard your revision changes? They have not been submitted.')
+    ) {
+      return;
+    }
+    leavingEditorRef.current = true;
+    setLeavingEditor(true);
+    try {
+      if (editingId) {
+        do {
+          const persisted = await persist();
+          if (!persisted) return;
+        } while (
+          editedSectionRevisions.current.size > 0 &&
+          ensureProposalStore().some((proposal) =>
+            proposal.id === editingId && proposal.status === 'Draft'
+          )
+        );
+      }
+      clearSectionEdits();
+      clearSectionConflicts();
+      if (editing && canEditProposal(editing.status)) {
+        clearProposalRevisionWorkingCopy(
+          window.sessionStorage,
+          currentUserId() || currentUser(),
+          editing.id,
+          workingCopyWriterId()
+        );
+      }
+      editorProposalIdRef.current = null;
+      setEditingId(null);
+      suggestionRequestRef.current += 1;
+      setSuggestion(null);
+      reload();
+    } finally {
+      leavingEditorRef.current = false;
+      setLeavingEditor(false);
+    }
   }
 
   function switchSection(next: string) {
     setSection(next);
+    suggestionRequestRef.current += 1;
+    setGenerating(false);
     setSuggestion(null);
   }
 
-  function createFromOpportunity(oppId: string) {
+  async function createFromOpportunity(oppId: string) {
+    if (listSavingRef.current) return;
     const o = OPPORTUNITIES.find((x) => x.oppId === oppId);
     if (!o) return;
     const id = genId('PROP');
@@ -223,76 +672,168 @@ function ProposalsPage() {
         commercials: `Indicative investment: ${fmtRM(o.value)} (Year 1). Final commercials to be confirmed after scoping.`,
       },
     };
-    const next = [...store, created];
-    saveProposals(next);
-    setStore(next);
-    setNewOpen(false);
-    toast('📝 New proposal draft created — review and submit when ready');
-    setEditingId(id);
-    setSections({ ...created.sections });
-    editedSectionKeys.current.clear();
-    setSection('executive');
+    listSavingRef.current = true;
+    setListSaving(true);
+    try {
+      await runProposalDataTransaction(async () => {
+        const next = [...ensureProposalStore(), created];
+        const persisted = await saveProposals(next);
+        if (!persisted) {
+          await reconcileWithRemote();
+          return;
+        }
+        const canonical = ensureProposalStore().find((proposal) => proposal.id === id) || created;
+        reload();
+        setNewOpen(false);
+        toast('📝 New proposal draft created — review and submit when ready');
+        editorProposalIdRef.current = canonical.id;
+        setEditingId(canonical.id);
+        const canonicalSections = { ...canonical.sections };
+        editorSectionsRef.current = canonicalSections;
+        editorCanonicalSectionsRef.current = canonicalSections;
+        editorCanonicalUpdatedAtRef.current = canonical.updatedAt;
+        setSections(canonicalSections);
+        clearSectionEdits();
+        clearSectionConflicts();
+        setSection('executive');
+      });
+    } finally {
+      listSavingRef.current = false;
+      setListSaving(false);
+    }
   }
 
   /* ── SUBMIT / RESUBMIT ─────────────────────────────────── */
-  function submitForApproval() {
-    if (!editing || !canEditProposal(editing.status)) return;
-    const today = todayUK();
-    const merged = mergeEditedProposalSections(
-      editing.sections,
-      sections,
-      editedSectionKeys.current
-    ).sections;
-    editedSectionKeys.current.clear();
+  async function submitForApproval() {
+    if (
+      !editing || !canEditProposal(editing.status) ||
+      submittingRef.current || leavingEditorRef.current
+    ) return;
+    submittingRef.current = true;
+    setSubmitting(true);
+    const pendingDraftSave = draftPersistRef.current;
 
-    if (editing.status === 'Reject & Revise') {
-      /* Resubmit: the rejected version becomes Superseded (kept for the audit
-         trail) and a NEW version of the same case goes back for review
-         (Doc §4.9). */
-      const newVersion: Proposal = {
-        ...editing,
-        id: genId('PROP'),
-        version: (editing.version || 1) + 1,
-        status: 'Pending Review',
-        generatedDate: new Date().toISOString().slice(0, 10),
-        submittedDate: today,
-        lastUpdated: today,
-        reviewer: '',
-        reviewedDate: '',
-        reviewNote: '',
-        rejectionReason: '',
-        sections: merged as Proposal['sections'],
-      };
-      const next = store.map((p) =>
-        p.id === editing.id ? { ...p, status: 'Superseded' as ProposalStatus, lastUpdated: today } : p
-      );
-      next.push(newVersion);
-      saveProposals(next);
-      setStore(next);
-      setEditingId(newVersion.id);
-      toast(`📤 Resubmitted (v${newVersion.version}) for review`);
-      return;
+    try {
+      // Reserve submission before awaiting an autosave so a remounted editor
+      // cannot slip between that save and this status transition.
+      await runProposalDataTransaction(async () => {
+        if (pendingDraftSave && !(await pendingDraftSave)) return;
+        const submittedSections = { ...editorSectionsRef.current };
+
+        const currentStore = ensureProposalStore();
+        const currentEditing = currentStore.find((proposal) => proposal.id === editing.id);
+        if (!currentEditing || !canEditProposal(currentEditing.status)) {
+          await reconcileWithRemote();
+          toast('⚠️ This proposal changed elsewhere. Review the latest version and try again.', true);
+          return;
+        }
+        registerCanonicalSectionConflicts(currentEditing);
+        if (!confirmSectionConflictOverwrite()) return;
+        const today = todayUK();
+        const merged = mergeEditedProposalSections(
+          currentEditing.sections,
+          submittedSections,
+          editedSectionRevisions.current.keys()
+        ).sections;
+
+        if (currentEditing.status === 'Reject & Revise') {
+        /* Resubmit: the rejected version becomes Superseded (kept for the audit
+           trail) and a NEW version of the same case goes back for review
+           (Doc §4.9). Supabase persists this pair through one atomic RPC. */
+        const newVersion: Proposal = {
+          ...currentEditing,
+          id: genId('PROP'),
+          version: (currentEditing.version || 1) + 1,
+          status: 'Pending Review',
+          generatedDate: new Date().toISOString().slice(0, 10),
+          submittedDate: today,
+          lastUpdated: today,
+          reviewer: '',
+          reviewerId: undefined,
+          reviewedDate: '',
+          reviewNote: '',
+          rejectionReason: '',
+          outcome: undefined,
+          sections: merged as Proposal['sections'],
+        };
+        const next = currentStore.map((p) =>
+          p.id === currentEditing.id
+            ? { ...p, status: 'Superseded' as ProposalStatus, lastUpdated: today }
+            : p
+        );
+        next.push(newVersion);
+        const persisted = await saveProposals(next);
+        if (!persisted) {
+          await reconcileWithRemote();
+          return;
+        }
+        const canonical = ensureProposalStore().find((proposal) => proposal.id === newVersion.id)
+          || newVersion;
+        clearSectionEdits();
+        clearSectionConflicts();
+        clearProposalRevisionWorkingCopy(
+          window.sessionStorage,
+          currentUserId() || currentUser(),
+          currentEditing.id,
+          workingCopyWriterId()
+        );
+        reload();
+        editorProposalIdRef.current = canonical.id;
+        setEditingId(canonical.id);
+        const canonicalSections = { ...canonical.sections };
+        editorSectionsRef.current = canonicalSections;
+        editorCanonicalSectionsRef.current = canonicalSections;
+        editorCanonicalUpdatedAtRef.current = canonical.updatedAt;
+        setSections(canonicalSections);
+        toast(`📤 Resubmitted (v${canonical.version}) for review`);
+          return;
+        }
+
+        // First submit of a Draft: Draft → Pending Review.
+        const next = currentStore.map((p) =>
+          p.id === currentEditing.id
+            ? {
+                ...p,
+                status: 'Pending Review' as ProposalStatus,
+                submittedDate: today,
+                lastUpdated: today,
+                sections: merged as Proposal['sections'],
+              }
+            : p
+        );
+        const persisted = await saveProposals(next);
+        if (!persisted) {
+          await reconcileWithRemote();
+          return;
+        }
+        const canonical = ensureProposalStore().find((proposal) => proposal.id === currentEditing.id)
+          || next.find((proposal) => proposal.id === currentEditing.id)
+          || currentEditing;
+        clearSectionEdits();
+        clearSectionConflicts();
+        clearProposalRevisionWorkingCopy(
+          window.sessionStorage,
+          currentUserId() || currentUser(),
+          currentEditing.id,
+          workingCopyWriterId()
+        );
+        reload();
+        const canonicalSections = { ...canonical.sections };
+        editorSectionsRef.current = canonicalSections;
+        editorCanonicalSectionsRef.current = canonicalSections;
+        editorCanonicalUpdatedAtRef.current = canonical.updatedAt;
+        setSections(canonicalSections);
+        toast('📤 Sent to Admin for review');
+      });
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
     }
-
-    // First submit of a Draft: Draft → Pending Review.
-    const next = store.map((p) =>
-      p.id === editing.id
-        ? {
-            ...p,
-            status: 'Pending Review' as ProposalStatus,
-            submittedDate: today,
-            lastUpdated: today,
-            sections: merged as Proposal['sections'],
-          }
-        : p
-    );
-    saveProposals(next);
-    setStore(next);
-    toast('📤 Sent to Admin for review');
   }
 
   async function generateAIContent() {
-    if (!editing || !canEditProposal(editing.status)) return;
+    if (!editing || !canEditProposal(editing.status) || submittingRef.current) return;
+    const request = ++suggestionRequestRef.current;
     setGenerating(true);
     setSuggestion('Generating…');
     const label = SECTION_LABELS[section] || section;
@@ -300,6 +841,7 @@ function ProposalsPage() {
       'You are a professional proposal writer for Ramssol Group, a Malaysian technology solutions company. Write compelling, specific proposal content. Be concise and professional.';
     const msg = `Write the "${label}" section of a proposal for: ${dealTitle(editing)}. Keep it under 150 words, professional and persuasive.`;
     const text = await callClaude([{ role: 'user', content: msg }], system);
+    if (suggestionRequestRef.current !== request) return;
     setSuggestion(text);
     setGenerating(false);
   }
@@ -328,7 +870,9 @@ function ProposalsPage() {
 
   /* ── RENDER ────────────────────────────────────────────── */
   if (editing) {
-    const canEdit = canEditProposal(editing.status);
+    const statusAllowsEdit = canEditProposal(editing.status);
+    const editorBusy = submitting || leavingEditor;
+    const canEdit = statusAllowsEdit && !editorBusy;
     const badge = STATUS_BADGE[editing.status] || STATUS_BADGE.Draft;
     const meta = [
       editing.caseId ? `Case ${editing.caseId}` : '',
@@ -366,7 +910,7 @@ function ProposalsPage() {
 
     return (
       <>
-        <button className="back-btn" onClick={backToList}>
+        <button className="back-btn" disabled={editorBusy} onClick={backToList}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
             <polyline points="15 18 9 12 15 6" />
           </svg>
@@ -376,15 +920,15 @@ function ProposalsPage() {
         <div className="page-header">
           <div className="page-title">Proposal Generator</div>
           <div className="editor-actions">
-            <button className="btn-secondary" onClick={() => setPreviewOpen(true)}>
+            <button className="btn-secondary" disabled={editorBusy} onClick={() => setPreviewOpen(true)}>
               Preview
             </button>
             <button
               className="btn-secondary"
-              disabled={submitState.disabled}
+              disabled={submitState.disabled || editorBusy}
               style={{
-                opacity: submitState.disabled ? 0.4 : 1,
-                cursor: submitState.disabled ? 'not-allowed' : 'pointer',
+                opacity: submitState.disabled || editorBusy ? 0.4 : 1,
+                cursor: submitState.disabled || editorBusy ? 'not-allowed' : 'pointer',
               }}
               onClick={submitForApproval}
             >
@@ -392,9 +936,9 @@ function ProposalsPage() {
                 <path d="M22 2L11 13" />
                 <path d="M22 2l-7 20-4-9-9-4 20-7z" />
               </svg>
-              <span>{submitState.label}</span>
+              <span>{submitting ? 'Submitting…' : submitState.label}</span>
             </button>
-            <button className="btn-primary" onClick={exportProposal}>
+            <button className="btn-primary" disabled={editorBusy} onClick={exportProposal}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="7 10 12 15 17 10" />
@@ -419,6 +963,13 @@ function ProposalsPage() {
         {banner && (
           <div className={`rejection-banner ${banner.cls}`} style={{ whiteSpace: 'pre-wrap' }}>
             {banner.text}
+          </div>
+        )}
+        {sectionConflictKeys.length > 0 && (
+          <div className="rejection-banner revise" role="alert">
+            ⚠ This draft changed elsewhere in sections you are editing:{' '}
+            {sectionConflictKeys.map((key) => SECTION_LABELS[key] || key).join(', ')}.
+            {' '}Your text is preserved; the next save will ask before replacing those newer changes.
           </div>
         )}
 
@@ -448,6 +999,7 @@ function ProposalsPage() {
                 <button
                   key={key}
                   className={`proposal-step${section === key ? ' active' : ''}`}
+                  disabled={editorBusy}
                   onClick={() => switchSection(key)}
                 >
                   {i === 0 ? (
@@ -519,7 +1071,9 @@ function ProposalsPage() {
                       <rect x="5" y="11" width="14" height="10" rx="2" />
                       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
                     </svg>
-                    This version is locked because it has been submitted.
+                    {submitting
+                      ? 'Submission in progress — editing is temporarily paused.'
+                      : 'This version is locked because it has been submitted.'}
                   </p>
                 )}
                 <textarea
@@ -530,10 +1084,16 @@ function ProposalsPage() {
                   aria-readonly={!canEdit}
                   aria-describedby={!canEdit ? 'proposal-editor-lock' : undefined}
                   onChange={(e) => {
-                    editedSectionKeys.current.add(section);
-                    setSections((s) => ({ ...s, [section]: e.target.value }));
+                    const next = {
+                      ...editorSectionsRef.current,
+                      [section]: e.target.value,
+                    };
+                    markSectionEdited(section, e.target.value);
+                    editorSectionsRef.current = next;
+                    setSections(next);
+                    retainRevisionWorkingCopy(next);
                   }}
-                  onBlur={canEdit ? () => persist(sections) : undefined}
+                  onBlur={canEdit ? () => void persist() : undefined}
                 />
                 {canEdit && suggestion !== null && (
                   <div className="ai-suggestion-box">
@@ -550,16 +1110,21 @@ function ProposalsPage() {
                         className="use-btn"
                         disabled={generating || !canEdit}
                         onClick={() => {
-                          const next = { ...sections, [section]: suggestion };
-                          editedSectionKeys.current.add(section);
+                          const next = {
+                            ...editorSectionsRef.current,
+                            [section]: suggestion,
+                          };
+                          markSectionEdited(section, suggestion);
+                          editorSectionsRef.current = next;
                           setSections(next);
-                          persist(next);
+                          retainRevisionWorkingCopy(next);
+                          void persist();
                           setSuggestion(null);
                         }}
                       >
                         Use This
                       </button>
-                      <button className="discard-btn" onClick={() => setSuggestion(null)}>
+                      <button className="discard-btn" disabled={editorBusy} onClick={() => setSuggestion(null)}>
                         Discard
                       </button>
                     </div>
@@ -567,7 +1132,9 @@ function ProposalsPage() {
                 )}
               </div>
               <div className="word-count">
-                Words: {wordCount} · {canEdit ? 'Saved ✓' : 'Read only'}
+                Words: {wordCount} · {editing.status === 'Reject & Revise'
+                  ? 'Changes are kept in this tab until you resubmit'
+                  : submitting ? 'Submitting…' : canEdit ? 'Draft autosave enabled' : 'Read only'}
               </div>
             </div>
           </div>
@@ -588,6 +1155,7 @@ function ProposalsPage() {
               {!submitState.disabled && (
                 <button
                   className="btn-primary"
+                  disabled={editorBusy}
                   onClick={() => {
                     setPreviewOpen(false);
                     submitForApproval();
@@ -622,7 +1190,7 @@ function ProposalsPage() {
     <>
       <div className="page-header">
         <div className="page-title">My Proposals</div>
-        <button className="btn-primary" onClick={() => setNewOpen(true)}>
+        <button className="btn-primary" disabled={listSaving} onClick={() => setNewOpen(true)}>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -717,17 +1285,18 @@ function ProposalsPage() {
                       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <button
                           className={`row-btn${rejected ? ' resubmit' : ''}`}
+                          disabled={listSaving}
                           onClick={() => openEditor(p.id)}
                         >
                           {rejected ? 'Edit & Resubmit' : p.status === 'Draft' ? 'Edit' : 'View'}
                         </button>
                         {caseVersionCount(p.caseId) > 1 && (
-                          <button className="row-btn ghost" onClick={() => setHistoryCase(p.caseId)}>
+                          <button className="row-btn ghost" disabled={listSaving} onClick={() => setHistoryCase(p.caseId)}>
                             History
                           </button>
                         )}
                         {p.status === 'Draft' && (
-                          <button className="row-btn danger" onClick={() => deleteProposal(p.id)}>
+                          <button className="row-btn danger" disabled={listSaving} onClick={() => deleteProposal(p.id)}>
                             Delete
                           </button>
                         )}
@@ -744,18 +1313,23 @@ function ProposalsPage() {
       {/* NEW PROPOSAL — pick an opportunity (Doc §3.8) */}
       <Modal
         open={newOpen}
-        onClose={() => setNewOpen(false)}
+        onClose={listSaving ? () => undefined : () => setNewOpen(false)}
         title="New Proposal"
         sub="Pick an opportunity to create an account-specific starter draft. Use Generate with AI on any section you want to expand."
         actions={
-          <button className="btn-secondary" onClick={() => setNewOpen(false)}>
+          <button className="btn-secondary" disabled={listSaving} onClick={() => setNewOpen(false)}>
             Cancel
           </button>
         }
       >
         <div className="opp-pick">
           {oppPool.map((o) => (
-            <button className="opp-item" key={o.oppId} onClick={() => createFromOpportunity(o.oppId)}>
+            <button
+              className="opp-item"
+              key={o.oppId}
+              disabled={listSaving}
+              onClick={() => createFromOpportunity(o.oppId)}
+            >
               <div className="oi-deal">{o.deal}</div>
               <div className="oi-meta">
                 {o.account} · {o.industry} · {fmtRM(o.value)} · {o.oppId}

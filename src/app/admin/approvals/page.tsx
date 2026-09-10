@@ -18,7 +18,7 @@
       dropped it, but the proposals page displays it.
 
    Reject & Close remains limited to genuinely unfixable reasons. */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
 import { useToast } from '@/components/Toast';
@@ -33,7 +33,12 @@ import {
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
-import { rejectionReasonStats } from '@/lib/proposal-lifecycle';
+import {
+  initializeDataLayer,
+  isRemoteDataSource,
+  runProposalDataTransaction,
+} from '@/lib/data-sync';
+import { latestLiveProposalVersions, rejectionReasonStats } from '@/lib/proposal-lifecycle';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -99,8 +104,16 @@ function ApprovalsPage() {
   const [reasonError, setReasonError] = useState('');
   const [pendingDecision, setPendingDecision] = useState<ProposalStatus | null>(null);
   const [outcomeSaved, setOutcomeSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   const reload = useCallback(() => setStore(ensureProposalStore()), []);
+  const reconcileWithRemote = useCallback(async () => {
+    if (isRemoteDataSource()) {
+      await initializeDataLayer({ force: true }).catch(() => undefined);
+    }
+    reload();
+  }, [reload]);
   useEffect(() => {
     reload();
   }, [reload]);
@@ -110,7 +123,7 @@ function ApprovalsPage() {
      yet. The approvals list shows the current submitted version of each case
      (Doc §3.8: "1 row = 1 case"). */
   const list = useMemo(
-    () => store.filter((p) => p.status !== 'Superseded' && p.status !== 'Draft'),
+    () => latestLiveProposalVersions(store).filter((p) => p.status !== 'Draft'),
     [store]
   );
 
@@ -167,38 +180,58 @@ function ApprovalsPage() {
     setPendingDecision(null);
   }
 
-  function applyDecision(id: string, decision: ProposalStatus, why: string, reviewNote: string) {
-    const who = currentUser(); // reviewer captured automatically (Doc §4.9)
-    const today = todayStr();
-    const next = store.map((p) => {
-      if (p.id !== id) return p;
-      const updated: Proposal = {
-        ...p,
-        status: decision,
-        reviewNote,
-        rejectionReason: isRejected(decision) ? why : '',
-        reviewer: who,
-        reviewerId: currentUserId() || profileIdForName(who),
-        reviewedDate: today, // decision date
-        lastUpdated: today,
-      };
-      if (decision === 'Approved') {
-        // v10: an approved proposal starts outcome tracking. IDs are filled
-        // in only when absent — an existing Case ID ties versions together.
-        updated.outcome = updated.outcome || 'Pending';
-        updated.caseId = updated.caseId || generateCaseId();
-        updated.opportunityId = updated.opportunityId || generateOppId();
+  async function applyDecision(
+    id: string,
+    decision: ProposalStatus,
+    why: string,
+    reviewNote: string
+  ) {
+    return runProposalDataTransaction(async () => {
+      const who = currentUser(); // reviewer captured automatically (Doc §4.9)
+      const today = todayStr();
+      const currentStore = ensureProposalStore();
+      const target = currentStore.find((proposal) => proposal.id === id);
+      if (!target || target.status !== 'Pending Review') {
+        await reconcileWithRemote();
+        toast('⚠️ This proposal was already changed elsewhere. The latest status is now shown.', true);
+        return null;
       }
-      return updated;
+      const next = currentStore.map((p) => {
+        if (p.id !== id) return p;
+        const updated: Proposal = {
+          ...p,
+          status: decision,
+          reviewNote,
+          rejectionReason: isRejected(decision) ? why : '',
+          reviewer: who,
+          reviewerId: currentUserId() || profileIdForName(who),
+          reviewedDate: today, // decision date
+          lastUpdated: today,
+        };
+        if (decision === 'Approved') {
+          // v10: an approved proposal starts outcome tracking. IDs are filled
+          // in only when absent — an existing Case ID ties versions together.
+          updated.outcome = updated.outcome || 'Pending';
+          if (!updated.caseId && !isRemoteDataSource()) {
+            updated.caseId = generateCaseId();
+          }
+          updated.opportunityId = updated.opportunityId || generateOppId();
+        }
+        return updated;
+      });
+      const persisted = await saveProposals(next);
+      if (!persisted) {
+        await reconcileWithRemote();
+        return null;
+      }
+      reload();
+      return next.find((p) => p.id === id)!;
     });
-    saveProposals(next);
-    setStore(next);
-    return next.find((p) => p.id === id)!;
   }
 
   /* v10: nothing commits until the reviewer confirms. */
   function requestConfirm(decision: ProposalStatus) {
-    if (!reviewing) return;
+    if (!reviewing || savingRef.current) return;
     if (isRejected(decision) && !reason) {
       setReasonError('Please select a rejection reason.');
       return;
@@ -211,44 +244,86 @@ function ApprovalsPage() {
     setPendingDecision(decision);
   }
 
-  function executeConfirmed() {
-    if (!pendingDecision || !reviewing) return;
+  async function executeConfirmed() {
+    if (!pendingDecision || !reviewing || savingRef.current) return;
     if (pendingDecision === 'Reject & Close' && !CLOSE_REASONS.has(reason)) {
       setPendingDecision(null);
       setReasonError('This reason is fixable. Use Reject & Revise instead.');
       return;
     }
     const decision = pendingDecision;
-    const p = applyDecision(reviewing.id, decision, reason, note.trim());
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const p = await applyDecision(reviewing.id, decision, reason, note.trim());
+      if (!p) {
+        setPendingDecision(null);
+        return;
+      }
 
-    const icon = decision === 'Approved' ? '✅' : decision === 'Reject & Revise' ? '↩' : '✕';
-    const label =
-      decision === 'Approved'
-        ? 'approved'
-        : decision === 'Reject & Revise'
-          ? 'sent back for revision'
-          : 'closed';
-    toast(`${icon} ${p.deal} ${label}`, decision !== 'Approved');
+      const icon = decision === 'Approved' ? '✅' : decision === 'Reject & Revise' ? '↩' : '✕';
+      const label =
+        decision === 'Approved'
+          ? 'approved'
+          : decision === 'Reject & Revise'
+            ? 'sent back for revision'
+            : 'closed';
+      toast(`${icon} ${p.deal} ${label}`, decision !== 'Approved');
 
-    closeReview();
+      closeReview();
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
-  function quickApprove(id: string) {
-    const target = store.find((p) => p.id === id);
+  async function quickApprove(id: string) {
+    if (savingRef.current) return;
+    const target = ensureProposalStore().find((p) => p.id === id);
     if (!target) return;
     if (!confirm(`Approve "${target.deal}"?`)) return;
-    const p = applyDecision(id, 'Approved', '', target.reviewNote);
-    toast(`✅ ${p.deal} approved`);
+    savingRef.current = true;
+    setSaving(true);
+    try {
+      const p = await applyDecision(id, 'Approved', '', target.reviewNote);
+      if (p) toast(`✅ ${p.deal} approved`);
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
   /* v10 — FEATURE 3: outcome tracking on an approved proposal. */
-  function saveOutcome(outcome: DealOutcome) {
-    if (!reviewing) return;
-    const next = store.map((p) => (p.id === reviewing.id ? { ...p, outcome } : p));
-    saveProposals(next);
-    setStore(next);
-    setOutcomeSaved(true);
-    setTimeout(() => setOutcomeSaved(false), 1500);
+  async function saveOutcome(outcome: DealOutcome) {
+    if (!reviewing || savingRef.current) return;
+    savingRef.current = true;
+    setSaving(true);
+    setOutcomeSaved(false);
+    try {
+      await runProposalDataTransaction(async () => {
+        const currentStore = ensureProposalStore();
+        const target = currentStore.find((proposal) => proposal.id === reviewing.id);
+        if (!target || target.status !== 'Approved') {
+          await reconcileWithRemote();
+          toast('⚠️ This proposal changed elsewhere. The latest status is now shown.', true);
+          return;
+        }
+        const next = currentStore.map((p) =>
+          p.id === reviewing.id ? { ...p, outcome } : p
+        );
+        const persisted = await saveProposals(next);
+        if (!persisted) {
+          await reconcileWithRemote();
+          return;
+        }
+        reload();
+        setOutcomeSaved(true);
+        setTimeout(() => setOutcomeSaved(false), 1500);
+      });
+    } finally {
+      savingRef.current = false;
+      setSaving(false);
+    }
   }
 
   const pastNote = (() => {
@@ -371,11 +446,11 @@ function ApprovalsPage() {
                   </td>
                   <td>
                     <div className="row-actions">
-                      <button className="row-btn" onClick={() => openReview(p.id)}>
+                      <button className="row-btn" disabled={saving} onClick={() => openReview(p.id)}>
                         Review
                       </button>
                       {p.status === 'Pending Review' && (
-                        <button className="row-btn approve" onClick={() => quickApprove(p.id)}>
+                        <button className="row-btn approve" disabled={saving} onClick={() => quickApprove(p.id)}>
                           Approve
                         </button>
                       )}
@@ -391,7 +466,7 @@ function ApprovalsPage() {
       {/* REVIEW MODAL */}
       <Modal
         open={!!reviewing}
-        onClose={closeReview}
+        onClose={saving ? () => undefined : closeReview}
         style={{ maxWidth: 640, maxHeight: '86vh', overflowY: 'auto' }}
         title={
           reviewing ? reviewing.deal + (reviewing.version > 1 ? ` (v${reviewing.version})` : '') : ''
@@ -408,12 +483,13 @@ function ApprovalsPage() {
           /* v10: the action row is replaced by the confirm strip mid-decision. */
           isPending && !pendingDecision ? (
             <>
-              <button className="btn-secondary" onClick={closeReview}>
+              <button className="btn-secondary" disabled={saving} onClick={closeReview}>
                 Close
               </button>
               <div className="reject-actions">
                 <button
                   className="row-btn revise-btn lg"
+                  disabled={saving}
                   title="Fixable — goes back to sales rep for revision"
                   onClick={() => requestConfirm('Reject & Revise')}
                 >
@@ -421,7 +497,7 @@ function ApprovalsPage() {
                 </button>
                 <button
                   className="row-btn reject lg"
-                  disabled={!CLOSE_REASONS.has(reason)}
+                  disabled={saving || !CLOSE_REASONS.has(reason)}
                   title={CLOSE_REASONS.has(reason)
                     ? 'Unfixable — case ends, counted as loss'
                     : 'Available only for compliance, out-of-scope, or wrong-product-fit reasons'}
@@ -430,7 +506,7 @@ function ApprovalsPage() {
                   ✕ Reject &amp; Close
                 </button>
               </div>
-              <button className="btn-primary" onClick={() => requestConfirm('Approved')}>
+              <button className="btn-primary" disabled={saving} onClick={() => requestConfirm('Approved')}>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
@@ -438,7 +514,7 @@ function ApprovalsPage() {
               </button>
             </>
           ) : !isPending ? (
-            <button className="btn-secondary" onClick={closeReview}>
+            <button className="btn-secondary" disabled={saving} onClick={closeReview}>
               Close
             </button>
           ) : null
@@ -507,6 +583,7 @@ function ApprovalsPage() {
                   </label>
                   <select
                     value={reviewing.outcome || 'Pending'}
+                    disabled={saving}
                     onChange={(e) => saveOutcome(e.target.value as DealOutcome)}
                   >
                     <option value="Pending">Pending</option>
@@ -535,6 +612,7 @@ function ApprovalsPage() {
                   </label>
                   <select
                     value={reason}
+                    disabled={saving}
                     onChange={(e) => {
                       setReason(e.target.value);
                       setReasonError('');
@@ -564,6 +642,7 @@ function ApprovalsPage() {
                   </label>
                   <textarea
                     value={note}
+                    disabled={saving}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="e.g. Pricing looks strong, approved as-is. — or — Please revise commercials before resubmitting."
                   />
@@ -577,11 +656,12 @@ function ApprovalsPage() {
                 <div className="cs-msg">{confirmCopy.msg}</div>
                 {confirmCopy.warn && <div className="cs-warn">{confirmCopy.warn}</div>}
                 <div className="cs-actions">
-                  <button className="btn-secondary" onClick={() => setPendingDecision(null)}>
+                  <button className="btn-secondary" disabled={saving} onClick={() => setPendingDecision(null)}>
                     Cancel
                   </button>
                   <button
                     className="btn-primary"
+                    disabled={saving}
                     style={
                       confirmCopy.bg
                         ? { background: confirmCopy.bg, borderColor: confirmCopy.bg }
@@ -589,7 +669,7 @@ function ApprovalsPage() {
                     }
                     onClick={executeConfirmed}
                   >
-                    {confirmCopy.cta}
+                    {saving ? 'Saving…' : confirmCopy.cta}
                   </button>
                 </div>
               </div>

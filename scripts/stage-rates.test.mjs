@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  latestLiveProposalVersions,
   rejectionReasonStats,
   visibleProposalVersionsForOwner,
 } from '../src/lib/proposal-lifecycle.ts';
@@ -84,6 +85,38 @@ test('learning-loop reasons count only live Reject & Revise proposals', () => {
   assert.deepEqual(summary.topReason, ['Missing information', 2]);
 });
 
+test('stale older live versions do not affect learning reasons or funnel rates', () => {
+  const stalePair = [
+    {
+      id: 'v1',
+      caseId: 'CASE-STALE',
+      version: 1,
+      status: 'Reject & Revise',
+      rejectionReason: 'Missing information',
+    },
+    {
+      id: 'v2',
+      caseId: 'CASE-STALE',
+      version: 2,
+      status: 'Pending Review',
+    },
+  ];
+
+  assert.deepEqual(rejectionReasonStats(stalePair), { reasons: {}, topReason: null });
+  assert.deepEqual(calculateTwoStageRates(stalePair), {
+    approved: 0,
+    revise: 0,
+    killed: 0,
+    judged: 0,
+    won: 0,
+    lost: 0,
+    decided: 0,
+    approvalRate: 0,
+    winRate: 0,
+    endToEnd: 0,
+  });
+});
+
 test('owner proposal list keeps Reject & Close and hides only Superseded versions', () => {
   const visible = visibleProposalVersionsForOwner([
     { id: 'draft', owner: 'Rudy', status: 'Draft' },
@@ -93,4 +126,26 @@ test('owner proposal list keeps Reject & Close and hides only Superseded version
   ], 'Rudy', 'profile-rudy');
 
   assert.deepEqual(visible.map((proposal) => proposal.id), ['draft', 'closed']);
+});
+
+test('owner proposal list defensively shows only the newest live row per case', () => {
+  const visible = visibleProposalVersionsForOwner([
+    { id: 'v1', caseId: 'CASE-94', version: 1, owner: 'Rudy', status: 'Reject & Revise' },
+    { id: 'v2', caseId: 'CASE-94', version: 2, owner: 'Rudy', status: 'Pending Review' },
+    { id: 'legacy-a', caseId: '', version: 1, owner: 'Rudy', status: 'Draft' },
+    { id: 'legacy-b', caseId: '', version: 1, owner: 'Rudy', status: 'Draft' },
+  ], 'Rudy');
+
+  assert.deepEqual(visible.map((proposal) => proposal.id), ['v2', 'legacy-a', 'legacy-b']);
+});
+
+test('shared proposal surfaces also collapse stale duplicate live rows', () => {
+  const visible = latestLiveProposalVersions([
+    { id: 'case-a-v1', caseId: 'CASE-A', version: 1, status: 'Reject & Revise' },
+    { id: 'case-b-v1', caseId: 'CASE-B', version: 1, status: 'Approved' },
+    { id: 'case-a-v2', caseId: 'CASE-A', version: 2, status: 'Pending Review' },
+    { id: 'case-c-old', caseId: 'CASE-C', version: 1, status: 'Superseded' },
+  ]);
+
+  assert.deepEqual(visible.map((proposal) => proposal.id), ['case-a-v2', 'case-b-v1']);
 });
