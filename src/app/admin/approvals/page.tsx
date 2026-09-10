@@ -355,7 +355,7 @@ function ApprovalsPage() {
     }
     return {
       msg: `Reject and close this case for reason: ${reason}?`,
-      warn: 'This will end the case permanently and count as a loss. It cannot be undone.',
+      warn: 'This will end the case permanently. It cannot be undone.',
       cta: '✕ Confirm Reject & Close',
       bg: 'var(--red-700)',
     };

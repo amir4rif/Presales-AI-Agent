@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   latestLiveProposalVersions,
@@ -148,4 +149,39 @@ test('shared proposal surfaces also collapse stale duplicate live rows', () => {
   ]);
 
   assert.deepEqual(visible.map((proposal) => proposal.id), ['case-a-v2', 'case-b-v1']);
+});
+
+test('revision-queue and Reject & Close copy describe the live behavior accurately', () => {
+  const analyticsPage = readFileSync(
+    new URL('../src/app/analytics/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const levelThreeDashboard = readFileSync(
+    new URL('../src/components/dashboard/LevelThree.tsx', import.meta.url),
+    'utf8'
+  );
+  const approvalsPage = readFileSync(
+    new URL('../src/app/admin/approvals/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  for (const surface of [analyticsPage, levelThreeDashboard]) {
+    assert.match(surface, /What Needs Fixing Now/);
+    assert.match(
+      surface,
+      /A live view of proposals sent back to sales\. Resolved cases drop off this list\./
+    );
+    assert.match(surface, /Open for revision vs closed/);
+    assert.match(surface, /Nothing waiting for revision\./);
+  }
+
+  assert.doesNotMatch(analyticsPage, />AI Learning Loop</);
+  assert.doesNotMatch(analyticsPage, /No rejections recorded yet/);
+  assert.doesNotMatch(levelThreeDashboard, /title="AI Learning Loop"/);
+  assert.doesNotMatch(levelThreeDashboard, /None yet|Nothing sent back yet|Fixable vs dead-end/);
+  assert.match(
+    approvalsPage,
+    /This will end the case permanently\. It cannot be undone\./
+  );
+  assert.doesNotMatch(approvalsPage, /count as a loss/);
 });
