@@ -85,6 +85,7 @@ type ProspectRow = {
   country: string;
   website: string;
   added_on: string;
+  status: string;
   tags: string[];
   employees: string;
   opportunities: number;

@@ -205,6 +205,9 @@ body { display: flex; min-height: 100vh; }
 .btn-primary svg { width: 14px; height: 14px; }
 .btn-secondary { display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.03); color: var(--text-secondary); border: 1px solid var(--hairline); border-radius: 9px; padding: 8px 15px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: var(--font); transition: all 0.15s; }
 .btn-secondary:hover { background: rgba(0,212,180,0.08); border-color: rgba(0,212,180,0.45); color: var(--text-primary); }
+.btn-danger { display: inline-flex; align-items: center; gap: 7px; background: var(--red-50); color: var(--red-700); border: 1px solid var(--red-700); border-radius: 9px; padding: 8px 15px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: var(--font); transition: background .15s, color .15s, border-color .15s; }
+.btn-danger:hover:not(:disabled) { background: var(--red-500); border-color: var(--red-500); color: #fff; }
+.btn-primary:disabled, .btn-secondary:disabled, .btn-danger:disabled { opacity: .5; cursor: not-allowed; transform: none; filter: none; }
 
 /* ── QUICK ACTION CARDS (index.html home) ────────────────── */
 .quick-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(230px, 100%), 1fr)); gap: 14px; margin-top: 28px; }
@@ -283,7 +286,9 @@ body { display: flex; min-height: 100vh; }
 .form-label { font-size: 12.5px; font-weight: 500; color: var(--text-primary); }
 .form-input { padding: 9px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; font-family: var(--mono); color: var(--text-primary); background: var(--bg); outline: none; transition: border-color 0.15s; }
 .form-input:focus { border-color: var(--brand); box-shadow: 0 0 12px rgba(0, 212, 180, 0.25); }
-.modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.form-error { padding: 9px 11px; border: 1px solid var(--red-700); border-radius: 8px; background: var(--red-50); color: var(--red-700); font-size: 12px; line-height: 1.45; }
+.modal-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+.modal-clear-action { margin-right: auto; }
 
 /* ═══════════════════════════════════════════════════════════
    APP PAGES — Compliance / Pipeline / Proposals / Prospects /
@@ -405,6 +410,7 @@ table.deals-table tr:last-child td { border-bottom: none; }
 .prospect-name { font-size: 14px; font-weight: 600; color: var(--gray-900); }
 .prospect-type { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
 .prospect-tag { font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 20px; background: var(--brand-50); color: var(--brand-400); border: 1px solid var(--brand-400); }
+.prospect-tag.inactive { background: var(--gray-50); color: var(--gray-500); border-color: var(--gray-400); }
 .prospect-meta { font-size: 12px; color: var(--gray-500); margin-bottom: 10px; }
 .prospect-meta span { margin-right: 10px; }
 .prospect-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 12px; }
@@ -417,6 +423,7 @@ table.deals-table tr:last-child td { border-bottom: none; }
 .back-btn svg { width: 14px; height: 14px; }
 .prospect-detail-header { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; padding: 24px; margin-bottom: 16px; }
 .prospect-detail-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.prospect-actions { display: flex; align-items: center; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 .prospect-detail-name { font-size: 22px; font-weight: 600; color: var(--gray-900); }
 .prospect-detail-meta { display: flex; gap: 16px; margin-top: 8px; flex-wrap: wrap; }
 .meta-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--gray-500); }

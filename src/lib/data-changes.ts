@@ -2,11 +2,12 @@ import type { DataCollection } from './integrations';
 
 export type DataChangeOptions = {
   /**
-   * Proposal deletes are destructive and must be explicitly tied to the
-   * user's delete action. Other collections retain their legacy inferred
-   * delete behaviour.
+   * Proposal and prospect deletes are destructive and must be explicitly
+   * tied to the user's confirmed delete action.
    */
   proposalDeleteIds?: readonly string[];
+  /** Prospect deletion is likewise allowed only from its explicit confirmed action. */
+  prospectDeleteIds?: readonly number[];
   /**
    * Background editors can coalesce queued failures and present one final
    * outcome themselves. Canonical rollback still happens in every case.
@@ -58,16 +59,17 @@ export function changesBetween(
     return !old || JSON.stringify(old) !== JSON.stringify(item);
   });
 
-  // A full proposal array can be stale while another browser tab creates a
-  // row. Treating every missing row as a delete could erase that concurrent
-  // draft. Proposal deletion therefore requires the exact ID from the
-  // confirmed Delete action; updates and resubmissions never infer deletes.
-  const allowedProposalDeletes = collection === 'proposals'
-    ? new Set(options.proposalDeleteIds || [])
-    : null;
+  // A full collection array can be stale while another browser tab creates a
+  // row. Proposal and prospect deletion therefore require the exact ID from
+  // the confirmed Delete action; ordinary updates never infer deletes.
+  const allowedDeletes = collection === 'proposals'
+    ? new Set((options.proposalDeleteIds || []).map(String))
+    : collection === 'prospects'
+      ? new Set((options.prospectDeleteIds || []).map(String))
+      : null;
   const deletes = previous.filter((item) => {
     const key = itemKey(collection, item);
-    return !after.has(key) && (!allowedProposalDeletes || allowedProposalDeletes.has(key));
+    return !after.has(key) && (!allowedDeletes || allowedDeletes.has(key));
   });
 
   return { upserts, deletes };

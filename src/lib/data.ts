@@ -42,6 +42,7 @@ export type AIResearch = {
 };
 export type Prospect = {
   id: number; name: string; type: string; country: string; website: string; added: string;
+  status?: 'Active' | 'Inactive';
   tags: string[]; employees: string; opportunities: number; totalValue: number; painPoints: string[];
   // Set on prospects added through the Add Prospect form.
   contact?: string; authority?: string; itBudget?: string; hrBudget?: string; timeline?: string;
@@ -361,8 +362,19 @@ export const getClosedDeals = (): ClosedDeal[] =>
   personalise(read('ramssolClosedDeals', CLOSED_DEALS.map((d) => ({ ...d }))) as unknown as Record<string, unknown>[], ['rep']) as unknown as ClosedDeal[];
 export const saveClosedDeals = (l: ClosedDeal[]) => write('closedDeals', l);
 
-export const getProspects = (): Prospect[] => read('ramssolProspects', PROSPECT_SEED.map((p) => ({ ...p })));
-export const saveProspects = (l: Prospect[]) => write('prospects', l);
+export const getProspects = (): Prospect[] =>
+  read('ramssolProspects', PROSPECT_SEED.map((p) => ({ ...p }))).map((prospect) => ({
+    ...prospect,
+    status: prospect.status === 'Inactive' ? 'Inactive' : 'Active',
+  }));
+export const saveProspects = (
+  list: Prospect[],
+  options: { deletedIds?: readonly number[]; suppressSyncError?: boolean } = {}
+) =>
+  write('prospects', list, {
+    prospectDeleteIds: options.deletedIds,
+    suppressSyncError: options.suppressSyncError,
+  });
 
 export const getTeam = (): TeamMember[] => read('ramssolTeam', TEAM_SEED.map((m) => ({ ...m })));
 export const saveTeam = (l: TeamMember[]) => write('team', l);

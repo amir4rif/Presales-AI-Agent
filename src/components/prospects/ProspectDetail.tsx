@@ -52,12 +52,18 @@ export default function ProspectDetail({
   onBack,
   onChange,
   onNewDeal,
+  canManage,
+  removalMode,
+  onRemove,
 }: {
   prospect: Prospect;
   all: Prospect[];
   onBack: () => void;
   onChange: (next: Prospect[]) => void;
   onNewDeal: () => void;
+  canManage: boolean;
+  removalMode: 'delete' | 'archive' | null;
+  onRemove: () => void;
 }) {
   const toast = useToast();
   const p = prospect;
@@ -272,6 +278,9 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div className="prospect-detail-name">{p.name}</div>
               <span className="prospect-tag">{p.type}</span>
+              <span className={`prospect-tag${p.status === 'Inactive' ? ' inactive' : ''}`}>
+                {p.status === 'Inactive' ? 'Inactive' : 'Active'}
+              </span>
             </div>
             <div className="prospect-detail-meta">
               <span className="meta-item">
@@ -294,11 +303,24 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
               {p.authority && p.authority !== '—' && <span className="meta-item">🔑 {p.authority}</span>}
             </div>
           </div>
-          <div style={{ display: 'flex', gap: 8 }}>
+          <div className="prospect-actions">
             <button className="btn-secondary" onClick={toggleWatch}>
               {p.watched ? '★ Watching' : '⭐ Watch'}
             </button>
-            <button className="btn-primary" onClick={onNewDeal}>
+            {canManage && removalMode && (
+              <button
+                className={removalMode === 'delete' ? 'btn-danger' : 'btn-secondary'}
+                onClick={onRemove}
+              >
+                {removalMode === 'delete' ? 'Delete Prospect' : 'Archive Prospect'}
+              </button>
+            )}
+            <button
+              className="btn-primary"
+              onClick={onNewDeal}
+              disabled={p.status === 'Inactive'}
+              title={p.status === 'Inactive' ? 'Inactive prospects cannot accept new deals.' : undefined}
+            >
               + New Deal
             </button>
           </div>

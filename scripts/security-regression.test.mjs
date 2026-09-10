@@ -21,6 +21,11 @@ import {
 import { changesBetween, mergeProposalSnapshot } from '../src/lib/data-changes.ts';
 import { dealsForProspect } from '../src/lib/prospect-deals.ts';
 import {
+  canManageProspect,
+  hasProspectDependencies,
+  prospectDependencies,
+} from '../src/lib/prospect-lifecycle.ts';
+import {
   deleteDraftProposalRows,
   writeProposalRows,
 } from '../src/lib/server/proposal-writer.ts';
@@ -1146,6 +1151,20 @@ test('proposal sync never infers destructive deletes from a stale full-store sna
   assert.deepEqual(confirmedDelete.deletes, [previous[1]]);
 });
 
+test('prospect sync deletes only the explicitly confirmed record', () => {
+  const previous = [
+    { id: 41, name: 'Keep me' },
+    { id: 42, name: 'Delete me' },
+  ];
+  const next = [previous[0]];
+
+  assert.deepEqual(changesBetween('prospects', previous, next).deletes, []);
+  assert.deepEqual(
+    changesBetween('prospects', previous, next, { prospectDeleteIds: [42] }).deletes,
+    [previous[1]]
+  );
+});
+
 test("Level 2 cannot edit or submit another rep's Draft proposal", () => {
   const migration = readFileSync(
     new URL(
@@ -1320,12 +1339,78 @@ test('related deals use a prospect id, or an exact full-name legacy fallback', (
   assert.deepEqual(dealsForProspect(deals, { id: 3, name: '   ' }), []);
 });
 
-test('Add Deal resets all modal fields and persists the prospect relationship', () => {
+test('Add Deal keeps drafts consistently and scopes prospect drafts to the account', () => {
+  const modal = readFileSync(
+    new URL('../src/components/deals/AddDealModal.tsx', import.meta.url),
+    'utf8'
+  );
+  const prospectPage = readFileSync(
+    new URL('../src/app/prospects/page.tsx', import.meta.url),
+    'utf8'
+  );
+  const pipelinePage = readFileSync(
+    new URL('../src/app/pipeline/page.tsx', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(modal, /Closing this window keeps your draft\./);
+  assert.match(modal, />\s*Clear form\s*</);
+  assert.match(modal, />\s*Close\s*</);
+  assert.doesNotMatch(modal, />\s*Cancel\s*</);
+  assert.match(prospectPage, /const \[dealDrafts, setDealDrafts\] = useState<Record<number, DealDraft>>/);
+  assert.match(prospectPage, /dealDrafts\[open\.id\] \|\| emptyDealDraft\(currentUser\(\), open\.name\)/);
+  assert.match(prospectPage, /\[open\.id\]: emptyDealDraft\(currentUser\(\), open\.name\)/);
+  assert.match(prospectPage, /prospectId: prospect\.id/);
+  assert.doesNotMatch(prospectPage, /key=\{open\.id\}/);
+  assert.match(prospectPage, /<AddDealModal/);
+  assert.match(pipelinePage, /<AddDealModal/);
+  assert.match(pipelinePage, /onClose=\{\(\) => setAddOpen\(false\)\}/);
+  assert.match(pipelinePage, /onClear=\{\(\) => setForm\(emptyDealDraft/);
+});
+
+test('prospect removal deletes only empty records and archives linked records', () => {
+  const prospect = { id: 7, name: 'Example Co', opportunities: 0, ownerId: 'owner-a' };
+  const empty = prospectDependencies(prospect, [], [], []);
+  const linked = prospectDependencies(
+    prospect,
+    [{ prospectId: 7, account: 'Different display label' }],
+    [{ company: ' example co ' }],
+    [{ account: 'EXAMPLE CO' }]
+  );
+
+  assert.deepEqual(empty, { opportunities: 0, deals: 0, proposals: 0 });
+  assert.equal(hasProspectDependencies(empty), false);
+  assert.deepEqual(linked, { opportunities: 0, deals: 2, proposals: 1 });
+  assert.equal(hasProspectDependencies(linked), true);
+  assert.equal(canManageProspect(prospect, 1, 'owner-a'), true);
+  assert.equal(canManageProspect(prospect, 1, 'owner-b'), false);
+  assert.equal(canManageProspect(prospect, 2, 'owner-b'), true);
+
   const page = readFileSync(new URL('../src/app/prospects/page.tsx', import.meta.url), 'utf8');
-  assert.match(page, /function emptyDealForm\(\)[\s\S]*stage: '1'/);
-  assert.match(page, /function close\(\)\s*{\s*setDeal\(emptyDealForm\(\)\);\s*onClose\(\);/);
-  assert.match(page, /key={open\.id}/);
-  assert.match(page, /prospectId: prospect\.id/);
+  const detail = readFileSync(
+    new URL('../src/components/prospects/ProspectDetail.tsx', import.meta.url),
+    'utf8'
+  );
+  const server = readFileSync(
+    new URL('../src/lib/server/supabase-data.ts', import.meta.url),
+    'utf8'
+  );
+  const migration = readFileSync(
+    new URL('../supabase/migrations/20260910034952_add_prospect_archiving.sql', import.meta.url),
+    'utf8'
+  );
+
+  assert.match(page, /hasProspectDependencies\(dependencies\) \? 'archive' : 'delete'/);
+  assert.match(page, /saveProspects\([\s\S]*deletedIds: \[target\.id\]/);
+  assert.match(page, /<Modal[\s\S]*Delete Prospect[\s\S]*Archive Prospect/);
+  assert.doesNotMatch(page, /\bconfirm\s*\(/);
+  assert.match(detail, /removalMode === 'delete' \? 'Delete Prospect' : 'Archive Prospect'/);
+  assert.match(server, /assertProspectsCanBeDeleted\(client, numericIds\)/);
+  assert.match(server, /\.delete\(\)\.in\('id', numericIds\)\.select\('id'\)/);
+  assert.match(migration, /add column status text not null default 'Active'/);
+  assert.match(migration, /current_access_level\(\)\) >= 2/);
+  assert.match(migration, /create trigger prevent_linked_prospect_delete/);
+  assert.match(migration, /Prospect .* has linked work and must be archived instead/);
 });
 
 test('prospect names are trimmed at both the client and database boundaries', () => {

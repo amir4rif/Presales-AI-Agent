@@ -4,8 +4,13 @@
    Level 1 sees only its own assigned pipeline; Levels 2/3 see
    team-wide (Doc §2). */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
+import { useToast } from '@/components/Toast';
+import AddDealModal, {
+  DEAL_SOURCES as SOURCES,
+  emptyDealDraft,
+  type DealDraft,
+} from '@/components/deals/AddDealModal';
 import {
   STAGES as BASE_STAGES,
   currentLevel,
@@ -25,8 +30,6 @@ import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const MOVEMENT_CLASS: Record<string, string> = { Advanced: 'movement-up', Held: 'movement-held', Regressed: 'movement-down' };
 const MOVEMENT_ICON: Record<string, string> = { Advanced: '▲', Held: '—', Regressed: '▼' };
-const SOURCES = ['Inbound', 'Outbound', 'Partner'];
-const LOSS_REASONS = ['Chose competitor', 'Budget cut', 'No decision', 'Pricing too high', 'Timing', 'Other'];
 
 const statusClass = (s: string) => (s === 'On Track' ? 'comply-yes' : s === 'At Risk' ? 'comply-wip' : 'comply-no');
 const stageClass = (n: number) => (n >= 6 ? 'stage-negotiation' : n >= 4 ? 'stage-proposal' : 'stage-qualification');
@@ -35,12 +38,8 @@ const quarterOf = (dateStr: string) => `Q${Math.ceil(+dateStr.slice(5, 7) / 3)} 
 /* Chronological sort for "Q3 '25" style labels → year then quarter. */
 const qSort = (a: string, b: string) => (a.slice(-2) + a[1]).localeCompare(b.slice(-2) + b[1]);
 
-const EMPTY_DEAL = {
-  rep: '', account: '', stage: '1', value: '', days: '',
-  source: 'Inbound', close: '', outcome: 'Open', loss: LOSS_REASONS[0], notes: '',
-};
-
 function PipelinePage() {
+  const toast = useToast();
   const [level, setLevel] = useState(1);
   const [me, setMe] = useState('');
   const [reps, setReps] = useState<string[]>([]);
@@ -54,7 +53,7 @@ function PipelinePage() {
   const [dealSearch, setDealSearch] = useState('');
   const [wrSearch, setWrSearch] = useState('');
   const [addOpen, setAddOpen] = useState(false);
-  const [form, setForm] = useState(EMPTY_DEAL);
+  const [form, setForm] = useState<DealDraft>(() => emptyDealDraft(''));
   const meId = currentUserId();
 
   const reload = useCallback(() => {
@@ -207,59 +206,57 @@ function PipelinePage() {
       .sort((a, b) => (b.closeDate || '').localeCompare(a.closeDate || ''));
   }, [visibleClosed, wrSearch]);
 
-  function addDeal() {
-    if (!form.account.trim()) {
-      alert('Please enter an account name.');
-      return;
-    }
-    const value = Number(form.value) || 0;
+  async function addDeal(draft: DealDraft) {
+    const value = Number(draft.value) || 0;
 
-    if (form.outcome === 'Won' || form.outcome === 'Lost') {
+    if (draft.outcome === 'Won' || draft.outcome === 'Lost') {
       // Manual closed-deal entry → feeds the Win Rate view (Doc §4.13).
       const next: ClosedDeal[] = [
         ...closed,
         {
-          ownerId: form.rep === me ? meId || profileIdForName(form.rep) : profileIdForName(form.rep),
-          rep: form.rep,
-          account: form.account.trim(),
+          ownerId: draft.rep === me ? meId || profileIdForName(draft.rep) : profileIdForName(draft.rep),
+          rep: draft.rep,
+          account: draft.account.trim(),
           value,
-          closeDate: form.close || new Date().toISOString().slice(0, 10),
-          source: form.source,
-          outcome: form.outcome,
-          lossReason: form.outcome === 'Lost' ? form.loss : '',
+          closeDate: draft.close || new Date().toISOString().slice(0, 10),
+          source: draft.source,
+          outcome: draft.outcome,
+          lossReason: draft.outcome === 'Lost' ? draft.loss : '',
         },
       ];
-      saveClosedDeals(next);
+      const saved = await saveClosedDeals(next);
+      if (!saved) return false;
       setClosed(next);
       setAddOpen(false);
-      setForm({ ...EMPTY_DEAL, rep: me });
+      setForm(emptyDealDraft(me));
       setTab('winrate');
-      return;
+      toast('✅ Closed deal added');
+      return true;
     }
 
     const next: Deal[] = [
       ...deals,
       {
-        ownerId: form.rep === me ? meId || profileIdForName(form.rep) : profileIdForName(form.rep),
-        rep: form.rep,
-        account: form.account.trim(),
-        stage: Number(form.stage),
-        daysInStage: Number(form.days) || 1,
+        ownerId: draft.rep === me ? meId || profileIdForName(draft.rep) : profileIdForName(draft.rep),
+        rep: draft.rep,
+        account: draft.account.trim(),
+        stage: Number(draft.stage),
+        daysInStage: Number(draft.days) || 1,
         daysToClose: 90,
         value,
         movement: 'Advanced',
         status: 'On Track',
-        notes: form.notes.trim(),
+        notes: draft.notes.trim(),
       },
     ];
-    saveDeals(next);
+    const saved = await saveDeals(next);
+    if (!saved) return false;
     setDeals(next);
     setAddOpen(false);
-    setForm({ ...EMPTY_DEAL, rep: me });
+    setForm(emptyDealDraft(me));
+    toast('✅ Deal added to the pipeline');
+    return true;
   }
-
-  const set = (k: keyof typeof EMPTY_DEAL) => (e: { target: { value: string } }) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
 
   return (
     <>
@@ -611,92 +608,17 @@ function PipelinePage() {
         </div>
       )}
 
-      <Modal
+      <AddDealModal
         open={addOpen}
+        draft={form}
+        reps={reps}
+        repLocked={level === 1}
+        showOutcomeFields
+        onDraftChange={setForm}
         onClose={() => setAddOpen(false)}
-        title="Add New Deal"
-        sub="Add an active deal to the pipeline."
-        actions={
-          <>
-            <button className="btn-secondary" onClick={() => setAddOpen(false)}>
-              Cancel
-            </button>
-            <button className="btn-primary" onClick={addDeal}>
-              Add Deal
-            </button>
-          </>
-        }
-      >
-        <div className="form-group">
-          <label className="form-label">Salesperson *</label>
-          {/* A rep only creates their own deals. */}
-          <select className="form-select" value={form.rep} onChange={set('rep')} disabled={level === 1}>
-            {reps.map((r) => (
-              <option key={r}>{r}</option>
-            ))}
-          </select>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Account / Client *</label>
-          <input className="form-input" value={form.account} onChange={set('account')} placeholder="Company name" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Stage *</label>
-          <select className="form-select" value={form.stage} onChange={set('stage')}>
-            {BASE_STAGES.map((s) => (
-              <option value={String(s.id)} key={s.id}>
-                {s.id} – {s.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="form-row-2col">
-          <div className="form-group">
-            <label className="form-label">Deal Value (RM) *</label>
-            <input className="form-input" type="number" value={form.value} onChange={set('value')} placeholder="3000000" />
-          </div>
-          <div className="form-group">
-            <label className="form-label">Days in Stage *</label>
-            <input className="form-input" type="number" value={form.days} onChange={set('days')} placeholder="5" />
-          </div>
-        </div>
-        <div className="form-row-2col">
-          <div className="form-group">
-            <label className="form-label">Lead Source</label>
-            <select className="form-select" value={form.source} onChange={set('source')}>
-              {SOURCES.map((s) => (
-                <option key={s}>{s}</option>
-              ))}
-            </select>
-          </div>
-          <div className="form-group">
-            <label className="form-label">Close Date</label>
-            <input className="form-input" type="date" value={form.close} onChange={set('close')} />
-          </div>
-        </div>
-        <div className="form-group">
-          <label className="form-label">Outcome</label>
-          <select className="form-select" value={form.outcome} onChange={set('outcome')}>
-            <option value="Open">Open (still in pipeline)</option>
-            <option value="Won">Won</option>
-            <option value="Lost">Lost</option>
-          </select>
-        </div>
-        {form.outcome === 'Lost' && (
-          <div className="form-group">
-            <label className="form-label">Loss Reason</label>
-            <select className="form-select" value={form.loss} onChange={set('loss')}>
-              {LOSS_REASONS.map((r) => (
-                <option key={r}>{r}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        <div className="form-group">
-          <label className="form-label">Notes</label>
-          <input className="form-input" value={form.notes} onChange={set('notes')} placeholder="Optional notes..." />
-        </div>
-      </Modal>
+        onClear={() => setForm(emptyDealDraft(me || currentUser()))}
+        onSubmit={addDeal}
+      />
     </>
   );
 }
