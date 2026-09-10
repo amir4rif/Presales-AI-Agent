@@ -215,6 +215,7 @@ function prospectToDomain(row: Tables<'prospects'>): Prospect {
     country: row.country,
     website: row.website,
     added: displayDate(row.added_on),
+    status: row.status === 'Inactive' ? 'Inactive' : 'Active',
     tags: row.tags,
     employees: row.employees,
     opportunities: row.opportunities,
@@ -433,6 +434,7 @@ function buildProspectRow(
     country: str(item.country),
     website: str(item.website),
     added_on: isoDate(item.added, new Date().toISOString().slice(0, 10)),
+    status: str(item.status) === 'Inactive' ? 'Inactive' : 'Active',
     tags: stringArray(item.tags),
     employees: str(item.employees),
     opportunities: Math.max(0, Math.trunc(num(item.opportunities))),
@@ -473,6 +475,57 @@ async function updateProfile(client: Client, value: unknown, loadProfiles: Profi
   fail('Could not update profile', response.error);
 }
 
+function normalizedProspectName(value: string | null | undefined) {
+  return (value || '').trim().toLocaleLowerCase();
+}
+
+async function assertProspectsCanBeDeleted(client: Client, ids: number[]) {
+  const prospects = await client
+    .from('prospects')
+    .select('id, name, opportunities')
+    .in('id', ids);
+  fail('Could not verify prospect dependencies', prospects.error);
+
+  const rows = prospects.data || [];
+  if (rows.length !== ids.length) {
+    throw new AuthorizationError('You do not have permission to delete this prospect.');
+  }
+
+  const names = rows.map((prospect) => prospect.name);
+  const [linkedDeals, legacyDeals, proposals, closedDeals] = await Promise.all([
+    client.from('deals').select('id, prospect_id, account').in('prospect_id', ids),
+    client.from('deals').select('id, prospect_id, account').is('prospect_id', null).in('account', names),
+    client.from('proposals').select('id, company').in('company', names),
+    client.from('closed_deals').select('id, account').in('account', names),
+  ]);
+  fail('Could not verify linked deals', linkedDeals.error);
+  fail('Could not verify legacy deals', legacyDeals.error);
+  fail('Could not verify linked proposals', proposals.error);
+  fail('Could not verify closed deals', closedDeals.error);
+
+  const stableDealProspectIds = new Set((linkedDeals.data || []).map((deal) => deal.prospect_id));
+  const legacyDealNames = new Set(
+    (legacyDeals.data || []).map((deal) => normalizedProspectName(deal.account))
+  );
+  const proposalNames = new Set(
+    (proposals.data || []).map((proposal) => normalizedProspectName(proposal.company))
+  );
+  const closedDealNames = new Set(
+    (closedDeals.data || []).map((deal) => normalizedProspectName(deal.account))
+  );
+  const blocked = rows.find((prospect) => {
+    const name = normalizedProspectName(prospect.name);
+    return prospect.opportunities > 0 || stableDealProspectIds.has(prospect.id) ||
+      legacyDealNames.has(name) || proposalNames.has(name) || closedDealNames.has(name);
+  });
+
+  if (blocked) {
+    throw new AuthorizationError(
+      `"${blocked.name}" has linked work and cannot be deleted. Set it to Inactive instead.`
+    );
+  }
+}
+
 async function deleteRecords(client: Client, collection: DataCollection, values: unknown[]) {
   if (!values.length) return;
   if (collection === 'team') {
@@ -484,8 +537,12 @@ async function deleteRecords(client: Client, collection: DataCollection, values:
     if (numericIds.some((id) => !Number.isSafeInteger(id) || id <= 0)) {
       throw new AuthorizationError('Every deleted prospect needs a valid numeric database id.');
     }
-    const response = await client.from('prospects').delete().in('id', numericIds);
+    await assertProspectsCanBeDeleted(client, numericIds);
+    const response = await client.from('prospects').delete().in('id', numericIds).select('id');
     fail('Could not delete prospects', response.error);
+    if ((response.data || []).length !== numericIds.length) {
+      throw new AuthorizationError('The prospect was not deleted. Refresh the page and try again.');
+    }
     return;
   }
 

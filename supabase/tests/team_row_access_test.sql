@@ -1,5 +1,5 @@
 begin;
-select plan(23);
+select plan(25);
 
 insert into auth.users (id, email)
 values
@@ -34,10 +34,12 @@ values
   ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Owner', 'Owner closed deal', current_date, 'Won'),
   ('30000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', 'Manager', 'Manager closed deal', current_date, 'Lost');
 
-insert into public.prospects (id, owner_id, name)
+insert into public.prospects (id, owner_id, name, opportunities)
 values
-  (900001, '10000000-0000-0000-0000-000000000001', 'Owner prospect'),
-  (900002, '10000000-0000-0000-0000-000000000002', 'Manager prospect');
+  (900001, '10000000-0000-0000-0000-000000000001', 'Owner prospect', 0),
+  (900002, '10000000-0000-0000-0000-000000000002', 'Manager prospect', 0),
+  (900003, '10000000-0000-0000-0000-000000000001', 'Owner cleanup prospect', 0),
+  (900004, '10000000-0000-0000-0000-000000000001', 'Linked prospect', 1);
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = '10000000-0000-0000-0000-000000000002';
@@ -117,9 +119,20 @@ select results_eq(
   'Level 2 cannot delete another rep''s closed deal'
 );
 select results_eq(
-  $$delete from public.prospects where id = 900001 returning id::text$$,
-  array[]::text[],
-  'Level 2 cannot delete another rep''s prospect'
+  $$delete from public.prospects where id = 900003 returning id::text$$,
+  array['900003'],
+  'Level 2 can delete another rep''s unlinked prospect'
+);
+select throws_ok(
+  $$delete from public.prospects where id = 900004$$,
+  '23503',
+  'Prospect "Linked prospect" has linked work and must be archived instead.',
+  'Level 2 cannot delete another rep''s linked prospect'
+);
+select results_eq(
+  $$update public.prospects set status = 'Inactive' where id = 900004 returning status$$,
+  array['Inactive'],
+  'Level 2 can archive another rep''s linked prospect'
 );
 
 select results_eq(

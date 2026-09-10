@@ -7,12 +7,16 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
 import { useToast } from '@/components/Toast';
+import AddDealModal, { emptyDealDraft, type DealDraft } from '@/components/deals/AddDealModal';
 import AddProspectModal, { type ProspectForm } from '@/components/prospects/AddProspectModal';
 import ProspectDetail from '@/components/prospects/ProspectDetail';
 import {
+  currentLevel,
   currentUser,
   currentUserId,
+  getClosedDeals,
   getDeals,
+  getProposals,
   getProspects,
   getReps,
   profileIdForName,
@@ -22,18 +26,36 @@ import {
   type Deal,
   type Prospect,
 } from '@/lib/data';
+import {
+  canManageProspect,
+  hasProspectDependencies,
+  prospectDependencies,
+  type ProspectDependencies,
+} from '@/lib/prospect-lifecycle';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
-const STAGE_OPTIONS = [
-  '1 – Prospecting',
-  '2 – Qualifying Leads',
-  '3 – Initial Meeting',
-  '4 – Define Prospect Needs',
-  '5 – Make An Offer',
-  '6 – Negotiation / Finalize',
-  '7 – Closing The Deal',
-  '8 – Deliver The Product',
-];
+type ProspectAction = {
+  prospectId: number;
+  mode: 'delete' | 'archive';
+  dependencies: ProspectDependencies;
+};
+
+function prospectStatus(prospect: Prospect) {
+  return prospect.status === 'Inactive' ? 'Inactive' : 'Active';
+}
+
+function dependencySummary(dependencies: ProspectDependencies) {
+  const labels = [
+    dependencies.opportunities
+      ? `${dependencies.opportunities} opportunit${dependencies.opportunities === 1 ? 'y' : 'ies'}`
+      : '',
+    dependencies.deals ? `${dependencies.deals} deal${dependencies.deals === 1 ? '' : 's'}` : '',
+    dependencies.proposals
+      ? `${dependencies.proposals} proposal${dependencies.proposals === 1 ? '' : 's'}`
+      : '',
+  ].filter(Boolean);
+  return labels.join(' · ');
+}
 
 function ProspectsPage() {
   const toast = useToast();
@@ -43,6 +65,12 @@ function ProspectsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [dealOpen, setDealOpen] = useState(false);
   const [reps, setReps] = useState<string[]>([]);
+  const [level, setLevel] = useState(1);
+  const [viewerId, setViewerId] = useState<string | undefined>();
+  const [dealDrafts, setDealDrafts] = useState<Record<number, DealDraft>>({});
+  const [prospectAction, setProspectAction] = useState<ProspectAction | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const reload = useCallback(() => setProspects(getProspects()), []);
 
@@ -53,6 +81,8 @@ function ProspectsPage() {
     const list = getReps();
     const names = list.includes(me) ? list : [me, ...list];
     setReps(names);
+    setLevel(currentLevel());
+    setViewerId(currentUserId());
   }, [reload]);
   useRemoteDataRefresh(reload);
 
@@ -64,24 +94,130 @@ function ProspectsPage() {
   const open = openId != null ? prospects.find((p) => p.id === openId) || null : null;
 
   function handleAdd(p: Prospect, _form: ProspectForm, research: AIResearch | null) {
-    const next = [...prospects, p];
-    saveProspects(next);
+    const prospect: Prospect = {
+      ...p,
+      ownerId: p.ownerId || currentUserId(),
+      status: 'Active',
+    };
+    const next = [...prospects, prospect];
+    void saveProspects(next);
     setProspects(next);
     setAddOpen(false);
     toast(`✅ Prospect added${research ? ' with AI research attached' : ''}`);
-
   }
 
-  function addDeal(deal: Deal) {
+  async function addDeal(draft: DealDraft, prospect: Prospect) {
+    const repId = draft.rep === currentUser()
+      ? currentUserId() || profileIdForName(draft.rep)
+      : profileIdForName(draft.rep);
+    const deal: Deal = {
+      ownerId: repId,
+      prospectId: prospect.id,
+      rep: draft.rep,
+      account: draft.account.trim(),
+      stage: Number(draft.stage),
+      daysInStage: Number(draft.days) || 1,
+      daysToClose: 90,
+      value: Number(draft.value) || 0,
+      movement: 'Advanced',
+      status: 'On Track',
+      notes: draft.notes.trim(),
+    };
     const next: Deal[] = [
       ...getDeals(),
       deal,
     ];
-    saveDeals(next); // keep Pipeline + dashboards in sync
+    const saved = await saveDeals(next);
+    if (!saved) return false;
+    setDealDrafts((drafts) => ({
+      ...drafts,
+      [prospect.id]: emptyDealDraft(currentUser(), prospect.name),
+    }));
+    setDealOpen(false);
     toast('✅ Deal added to the pipeline');
+    return true;
   }
 
+  function getDependencies(prospect: Prospect) {
+    return prospectDependencies(prospect, getDeals(), getProposals(), getClosedDeals());
+  }
+
+  function requestProspectAction(prospect: Prospect) {
+    const dependencies = getDependencies(prospect);
+    setActionError('');
+    setProspectAction({
+      prospectId: prospect.id,
+      mode: hasProspectDependencies(dependencies) ? 'archive' : 'delete',
+      dependencies,
+    });
+  }
+
+  async function confirmProspectAction() {
+    if (!prospectAction || actionBusy) return;
+    const target = getProspects().find((prospect) => prospect.id === prospectAction.prospectId);
+    if (!target) {
+      setActionError('This prospect no longer exists. Close this dialog and refresh the list.');
+      return;
+    }
+
+    const dependencies = getDependencies(target);
+    if (prospectAction.mode === 'delete' && hasProspectDependencies(dependencies)) {
+      setProspectAction({ prospectId: target.id, mode: 'archive', dependencies });
+      setActionError('Linked work was added. Review the archive action before continuing.');
+      return;
+    }
+
+    setActionBusy(true);
+    setActionError('');
+    const deleting = prospectAction.mode === 'delete';
+    const next = deleting
+      ? getProspects().filter((prospect) => prospect.id !== target.id)
+      : getProspects().map((prospect) =>
+          prospect.id === target.id ? { ...prospect, status: 'Inactive' as const } : prospect
+        );
+    const saved = await saveProspects(
+      next,
+      deleting ? { deletedIds: [target.id], suppressSyncError: true } : { suppressSyncError: true }
+    );
+    setActionBusy(false);
+
+    if (!saved) {
+      setActionError(
+        deleting
+          ? 'The prospect could not be deleted. Check that it has no linked work, then try again.'
+          : 'The prospect could not be archived. Your data is unchanged; try again.'
+      );
+      return;
+    }
+
+    setProspects(next);
+    setProspectAction(null);
+    if (deleting) {
+      setDealDrafts((drafts) => {
+        const nextDrafts = { ...drafts };
+        delete nextDrafts[target.id];
+        return nextDrafts;
+      });
+      setOpenId(null);
+      toast(`🗑️ ${target.name} deleted`);
+    } else {
+      toast(`${target.name} archived as Inactive`);
+    }
+  }
+
+  const actionTarget = prospectAction
+    ? prospects.find((prospect) => prospect.id === prospectAction.prospectId) || null
+    : null;
+
   if (open) {
+    const dependencies = getDependencies(open);
+    const removalMode = prospectStatus(open) === 'Inactive' && hasProspectDependencies(dependencies)
+      ? null
+      : hasProspectDependencies(dependencies)
+        ? 'archive'
+        : 'delete';
+    const draft = dealDrafts[open.id] || emptyDealDraft(currentUser(), open.name);
+
     return (
       <>
         <ProspectDetail
@@ -90,15 +226,82 @@ function ProspectsPage() {
           onBack={() => setOpenId(null)}
           onChange={setProspects}
           onNewDeal={() => setDealOpen(true)}
+          canManage={canManageProspect(open, level, viewerId)}
+          removalMode={removalMode}
+          onRemove={() => requestProspectAction(open)}
         />
         <AddDealModal
-          key={open.id}
           open={dealOpen}
+          draft={draft}
           onClose={() => setDealOpen(false)}
           reps={reps}
-          prospect={open}
-          onSubmit={addDeal}
+          repLocked={level === 1}
+          onDraftChange={(nextDraft) =>
+            setDealDrafts((drafts) => ({ ...drafts, [open.id]: nextDraft }))
+          }
+          onClear={() =>
+            setDealDrafts((drafts) => ({
+              ...drafts,
+              [open.id]: emptyDealDraft(currentUser(), open.name),
+            }))
+          }
+          onSubmit={(nextDraft) => addDeal(nextDraft, open)}
         />
+        {prospectAction && actionTarget && (
+          <Modal
+            open
+            onClose={() => {
+              if (actionBusy) return;
+              setProspectAction(null);
+              setActionError('');
+            }}
+            title={`${prospectAction.mode === 'delete' ? 'Delete' : 'Archive'} ${actionTarget.name}?`}
+            sub={
+              prospectAction.mode === 'delete'
+                ? 'This permanently removes the prospect and cannot be undone.'
+                : 'This keeps linked history intact and marks the prospect Inactive.'
+            }
+            actions={
+              <>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  disabled={actionBusy}
+                  onClick={() => {
+                    setProspectAction(null);
+                    setActionError('');
+                  }}
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  className={prospectAction.mode === 'delete' ? 'btn-danger' : 'btn-primary'}
+                  disabled={actionBusy}
+                  onClick={confirmProspectAction}
+                >
+                  {actionBusy
+                    ? prospectAction.mode === 'delete' ? 'Deleting…' : 'Archiving…'
+                    : prospectAction.mode === 'delete' ? 'Delete Prospect' : 'Archive Prospect'}
+                </button>
+              </>
+            }
+          >
+            <div className="confirm-strip">
+              <div className="cs-msg">
+                {prospectAction.mode === 'delete'
+                  ? 'No opportunities, deals, or proposals are linked to this prospect.'
+                  : 'This prospect cannot be deleted because linked work depends on it.'}
+              </div>
+              {prospectAction.mode === 'archive' && (
+                <div className="cs-warn">
+                  Linked records: {dependencySummary(prospectAction.dependencies)}
+                </div>
+              )}
+              {actionError && <div className="form-error" role="alert">{actionError}</div>}
+            </div>
+          </Modal>
+        )}
       </>
     );
   }
@@ -141,7 +344,9 @@ function ProspectsPage() {
                   </div>
                   <div className="prospect-type">{p.type}</div>
                 </div>
-                <span className="prospect-tag">Active</span>
+                <span className={`prospect-tag${prospectStatus(p) === 'Inactive' ? ' inactive' : ''}`}>
+                  {prospectStatus(p)}
+                </span>
               </div>
               <div className="prospect-meta">
                 <span>🌐 {p.country}</span>
@@ -173,120 +378,6 @@ function ProspectsPage() {
 
       <AddProspectModal open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAdd} />
     </>
-  );
-}
-
-type DealForm = { rep: string; account: string; stage: string; value: string; days: string; notes: string };
-
-function emptyDealForm(): DealForm {
-  return { rep: currentUser(), account: '', stage: '1', value: '', days: '', notes: '' };
-}
-
-function AddDealModal({
-  open,
-  onClose,
-  reps,
-  prospect,
-  onSubmit,
-}: {
-  open: boolean;
-  onClose: () => void;
-  reps: string[];
-  prospect: Prospect;
-  onSubmit: (deal: Deal) => void;
-}) {
-  const [deal, setDeal] = useState<DealForm>(emptyDealForm);
-
-  useEffect(() => {
-    if (open) setDeal(emptyDealForm());
-  }, [open, prospect.id]);
-
-  const set = (k: keyof DealForm) => (e: { target: { value: string } }) =>
-    setDeal((d) => ({ ...d, [k]: e.target.value }));
-
-  function close() {
-    setDeal(emptyDealForm());
-    onClose();
-  }
-
-  function submit() {
-    if (!deal.account.trim()) {
-      alert('Please enter an account name.');
-      return;
-    }
-    const repId = deal.rep === currentUser()
-      ? currentUserId() || profileIdForName(deal.rep)
-      : profileIdForName(deal.rep);
-    onSubmit({
-      ownerId: repId,
-      prospectId: prospect.id,
-      rep: deal.rep,
-      account: deal.account.trim(),
-      stage: Number(deal.stage),
-      daysInStage: Number(deal.days) || 1,
-      daysToClose: 90,
-      value: Number(deal.value) || 0,
-      movement: 'Advanced',
-      status: 'On Track',
-      notes: deal.notes.trim(),
-    });
-    close();
-  }
-
-  return (
-    <Modal
-      open={open}
-      onClose={close}
-      title="Add New Deal"
-      sub="Add an active deal to the pipeline."
-      actions={
-        <>
-          <button className="btn-secondary" onClick={close}>
-            Cancel
-          </button>
-          <button className="btn-primary" onClick={submit}>
-            Add Deal
-          </button>
-        </>
-      }
-    >
-      <div className="form-group">
-        <label className="form-label">Salesperson *</label>
-        <select className="form-select" value={deal.rep} onChange={set('rep')}>
-          {reps.map((r) => (
-            <option key={r}>{r}</option>
-          ))}
-        </select>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Account / Client *</label>
-        <input className="form-input" value={deal.account} onChange={set('account')} placeholder="Company name" />
-      </div>
-      <div className="form-group">
-        <label className="form-label">Stage *</label>
-        <select className="form-select" value={deal.stage} onChange={set('stage')}>
-          {STAGE_OPTIONS.map((s, i) => (
-            <option value={String(i + 1)} key={s}>
-              {s}
-            </option>
-          ))}
-        </select>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-        <div className="form-group">
-          <label className="form-label">Deal Value (RM) *</label>
-          <input className="form-input" type="number" value={deal.value} onChange={set('value')} placeholder="3000000" />
-        </div>
-        <div className="form-group">
-          <label className="form-label">Days in Stage *</label>
-          <input className="form-input" type="number" value={deal.days} onChange={set('days')} placeholder="5" />
-        </div>
-      </div>
-      <div className="form-group">
-        <label className="form-label">Notes</label>
-        <input className="form-input" value={deal.notes} onChange={set('notes')} placeholder="Optional notes..." />
-      </div>
-    </Modal>
   );
 }
 
