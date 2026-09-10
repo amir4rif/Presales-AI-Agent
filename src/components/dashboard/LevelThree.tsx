@@ -1,5 +1,5 @@
 'use client';
-/* Level 3 · Administrator — org-wide oversight, the AI learning loop
+/* Level 3 · Administrator — org-wide oversight, current proposal fixes
    and platform configuration. */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -37,14 +37,14 @@ export default function LevelThree({ s }: { s: Stats }) {
      treatment made a reason like "Pricing too high" look like broken data. */
   const loop = [
     {
-      v: s.topReason ? s.topReason[0] : 'None yet',
+      v: s.topReason ? s.topReason[0] : '—',
       text: true,
       l: 'Top Rejection Reason',
       sub: s.topReason
-        ? `${s.topReason[1]} of ${plural(totalRej, 'rejection', 'rejections')}`
-        : 'Nothing sent back yet',
+        ? `${s.topReason[1]} of ${totalRej} waiting for revision`
+        : 'Nothing waiting for revision.',
     },
-    { v: `${s.revise} : ${s.killed}`, l: 'Revise vs Close Ratio', sub: 'Fixable vs dead-end' },
+    { v: `${s.revise} : ${s.killed}`, l: 'Revise vs Close Ratio', sub: 'Open for revision vs closed' },
     { v: `${s.approvalRate}%`, l: 'Approval Rate', sub: plural(s.approved + s.revise, 'quality-judged case', 'quality-judged cases') },
     { v: avgVer.toFixed(1), l: 'Versions per Case', sub: 'Fewer loops is better' },
   ];
@@ -97,7 +97,7 @@ export default function LevelThree({ s }: { s: Stats }) {
           </span>
           <h1 className="hero-title greeting">{greeting(s.user)}</h1>
           <p className="hero-sub">
-            Full system oversight — org-wide performance, the AI learning loop, user access and
+            Full system oversight — org-wide performance, current proposal fixes, user access and
             platform configuration.
           </p>
           <div className="hero-actions">
@@ -148,8 +148,8 @@ export default function LevelThree({ s }: { s: Stats }) {
 
       <div className="analytics-grid">
         <Card
-          title="AI Learning Loop"
-          note="Rejection patterns feeding back into the AI (Doc §4.10)."
+          title="What Needs Fixing Now"
+          note="A live view of proposals sent back to sales. Resolved cases drop off this list."
         >
           <div className="ll-grid">
             {loop.map((t) => (

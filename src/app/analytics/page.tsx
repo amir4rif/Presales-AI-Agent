@@ -1,6 +1,6 @@
 'use client';
-/* Analytics — the two-stage win-rate model (Doc §4) and the AI
-   learning loop (Doc §4.10). Level 2 and 3 only. */
+/* Analytics — the two-stage win-rate model (Doc §4) and the live
+   proposal-revision queue. Level 2 and 3 only. */
 import { useCallback, useEffect, useState } from 'react';
 import RequireLevel from '@/components/RequireLevel';
 import {
@@ -101,7 +101,7 @@ function AnalyticsPage() {
   })();
   const maxBlocker = Math.max(...blockers.map((r) => r[1]), 1);
 
-  /* ── AI LEARNING LOOP METRICS (Doc §4.10) ───────────────── */
+  /* ── CURRENT PROPOSAL-REVISION METRICS ──────────────────── */
   const topReasons = Object.entries(reasons).sort((a, b) => b[1] - a[1]);
   const totalReject = topReasons.reduce((a, r) => a + r[1], 0);
   const maxReason = Math.max(...topReasons.map((r) => r[1]), 1);
@@ -116,8 +116,14 @@ function AnalyticsPage() {
     : 1;
 
   const tiles = [
-    { val: topReasons[0]?.[0] || '—', lbl: 'Top Rejection Reason', sub: topReasons[0] ? `${topReasons[0][1]} of ${totalReject} rejections` : '' },
-    { val: `${s1.revise} : ${s1.closed}`, lbl: 'Revise vs Close Ratio', sub: 'Fixable vs dead-end rejections' },
+    {
+      val: topReasons[0]?.[0] || '—',
+      lbl: 'Top Rejection Reason',
+      sub: topReasons[0]
+        ? `${topReasons[0][1]} of ${totalReject} waiting for revision`
+        : 'Nothing waiting for revision.',
+    },
+    { val: `${s1.revise} : ${s1.closed}`, lbl: 'Revise vs Close Ratio', sub: 'Open for revision vs closed' },
     { val: `${s1.rate}%`, lbl: 'Approval Rate (current)', sub: 'Trending up with context injection' },
     { val: avgVersions.toFixed(1), lbl: 'Revision Count per Case', sub: 'Level-1 loops before approval — fewer is better' },
   ];
@@ -251,24 +257,28 @@ function AnalyticsPage() {
           <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
             Combines client loss reasons and internal rejection reasons.
           </div>
-          {blockers.map(([name, n]) => (
-            <div className="freq-row" key={name}>
-              <div className="freq-name">{name}</div>
-              <div className="freq-track">
-                <div className="freq-fill" style={{ width: `${(n / maxBlocker) * 100}%` }} />
+          {blockers.length ? (
+            blockers.map(([name, n]) => (
+              <div className="freq-row" key={name}>
+                <div className="freq-name">{name}</div>
+                <div className="freq-track">
+                  <div className="freq-fill" style={{ width: `${(n / maxBlocker) * 100}%` }} />
+                </div>
+                <div className="freq-val">{n}</div>
               </div>
-              <div className="freq-val">{n}</div>
-            </div>
-          ))}
+            ))
+          ) : (
+            <div className="an-note">Nothing waiting for revision.</div>
+          )}
         </div>
       </div>
 
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="card-header">
           <div>
-            <span className="card-title">AI Learning Loop</span>
+            <span className="card-title">What Needs Fixing Now</span>
             <div className="an-card-sub">
-              Rejection patterns feed back into the AI to improve first drafts (Doc §4.10).
+              A live view of proposals sent back to sales. Resolved cases drop off this list.
             </div>
           </div>
         </div>
@@ -289,7 +299,7 @@ function AnalyticsPage() {
             <span className="card-title">Top 5 Rejection Reasons</span>
           </div>
           <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
-            Where the AI is failing most often.
+            Reasons on proposals currently open for revision.
           </div>
           {topReasons.length ? (
             topReasons.slice(0, 5).map(([name, n]) => (
@@ -304,7 +314,7 @@ function AnalyticsPage() {
               </div>
             ))
           ) : (
-            <div className="an-note">No rejections recorded yet.</div>
+            <div className="an-note">Nothing waiting for revision.</div>
           )}
         </div>
 
