@@ -4,6 +4,7 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { ProposalStatus } from '@/lib/data';
+import { MIN_CLOSED_DEALS_FOR_RATE } from '@/lib/analytics-metrics';
 
 export const BADGE: Record<ProposalStatus, string> = {
   'Approved': 'status-completed',
@@ -143,19 +144,27 @@ export function RepBars({ ranked }: { ranked: ReturnType<typeof rankReps> }) {
   }
   return (
     <>
-      {ranked.map((r) => (
-        <div className="hbar-row" key={r.rep}>
-          <div className="hbar-name" title={r.rep}>
-            {r.rep.split(' ')[0]}
+      <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
+        Rates appear after at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per salesperson.
+      </div>
+      {ranked.map((r) => {
+        const eligible = r.w + r.l >= MIN_CLOSED_DEALS_FOR_RATE;
+        return (
+          <div className="hbar-row" key={r.rep}>
+            <div className="hbar-name" title={r.rep}>
+              {r.rep.split(' ')[0]}
+            </div>
+            <div className="hbar-track">
+              <div className="hbar-fill" style={{ width: `${eligible ? r.rate : 0}%` }} />
+            </div>
+            <div className={`hbar-val${eligible ? '' : ' is-unavailable'}`}>
+              {eligible
+                ? `${r.rate}% · ${r.w}W/${r.l}L`
+                : `${r.w + r.l}/${MIN_CLOSED_DEALS_FOR_RATE} deals`}
+            </div>
           </div>
-          <div className="hbar-track">
-            <div className="hbar-fill" style={{ width: `${r.rate}%` }} />
-          </div>
-          <div className="hbar-val">
-            {r.rate}% · {r.w}W/{r.l}L
-          </div>
-        </div>
-      ))}
+        );
+      })}
     </>
   );
 }

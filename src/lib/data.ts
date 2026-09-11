@@ -19,11 +19,12 @@ import {
 } from './proposal-lifecycle';
 import { mergeProposalSnapshot, type DataChangeOptions } from './data-changes';
 import { calculateTwoStageRates } from './stage-rates';
+import { collectRepNames } from './analytics-metrics';
 
 export { currentLevel, currentUser, currentUserId };
 
 /* ── TYPES ─────────────────────────────────────────────── */
-export type Stage = { id: number; name: string; sla: number; avgDays: number; prob: number };
+export type Stage = { id: number; name: string; sla: number; prob: number };
 export type Opportunity = { oppId: string; account: string; deal: string; value: number; industry: string };
 export type ClosedDeal = { id?: string; ownerId?: string; rep: string; account: string; value: number; closeDate: string; source: string; outcome: 'Won' | 'Lost'; lossReason: string };
 export type Deal = { id?: string; ownerId?: string; prospectId?: number; rep: string; account: string; stage: number; daysInStage: number; daysToClose: number; value: number; movement: string; status: string; notes: string };
@@ -64,19 +65,17 @@ export type Proposal = {
 };
 export type DealOutcome = 'Pending' | 'Won' | 'Lost';
 
-export const REPS_SEED = ['Lim LG', 'Ahmad Razak', 'Priya Nair', 'Wei Ling Tan', 'Rajan Pillai', 'Siti Rahimah', 'Faizal Hassan'];
-
-// Pipeline stages with SLA day thresholds + observed average days-in-stage
-// (used for the Analytics velocity-vs-SLA view, Doc §3.6).
+// Pipeline stage definitions. Observed days-in-stage are calculated from
+// live deals rather than stored as illustrative values here.
 export const STAGES: Stage[] = [
-  { id: 1, name: 'Prospecting',            sla: 7,  avgDays: 5,  prob: 0.10 },
-  { id: 2, name: 'Qualifying Leads',       sla: 7,  avgDays: 9,  prob: 0.20 },
-  { id: 3, name: 'Initial Meeting',        sla: 14, avgDays: 12, prob: 0.30 },
-  { id: 4, name: 'Define Prospect Needs',  sla: 14, avgDays: 16, prob: 0.40 },
-  { id: 5, name: 'Make An Offer',          sla: 14, avgDays: 18, prob: 0.55 },
-  { id: 6, name: 'Negotiation / Finalize', sla: 21, avgDays: 25, prob: 0.70 },
-  { id: 7, name: 'Closing The Deal',       sla: 14, avgDays: 11, prob: 0.90 },
-  { id: 8, name: 'Deliver The Product',    sla: 30, avgDays: 22, prob: 1.00 },
+  { id: 1, name: 'Prospecting',            sla: 7,  prob: 0.10 },
+  { id: 2, name: 'Qualifying Leads',       sla: 7,  prob: 0.20 },
+  { id: 3, name: 'Initial Meeting',        sla: 14, prob: 0.30 },
+  { id: 4, name: 'Define Prospect Needs',  sla: 14, prob: 0.40 },
+  { id: 5, name: 'Make An Offer',          sla: 14, prob: 0.55 },
+  { id: 6, name: 'Negotiation / Finalize', sla: 21, prob: 0.70 },
+  { id: 7, name: 'Closing The Deal',       sla: 14, prob: 0.90 },
+  { id: 8, name: 'Deliver The Product',    sla: 30, prob: 1.00 },
 ];
 
 // Open opportunities available to start a NEW proposal against (Doc §3.8).
@@ -393,10 +392,15 @@ export function profileIdForName(name: string): string | undefined {
 
 export const pct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 
-/** Rep list follows the same persona swap, so every dropdown and filter
-    offers the signed-in user rather than the seed name they replaced. */
+/** Owners come from the live directory and live records. This preserves
+    historical owners while ensuring newly created real accounts appear. */
 export function getReps(): string[] {
-  return personalise(REPS_SEED.map((n) => ({ n })), ['n']).map((r) => r.n);
+  return collectRepNames({
+    team: getTeam(),
+    deals: getDeals(),
+    closedDeals: getClosedDeals(),
+    proposals: getProposals(),
+  });
 }
 
 /* ── STATS ENGINE ───────────────────────────────────────────

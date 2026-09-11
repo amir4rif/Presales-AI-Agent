@@ -26,6 +26,10 @@ import {
   type ClosedDeal,
   type Deal,
 } from '@/lib/data';
+import {
+  MIN_CLOSED_DEALS_FOR_RATE,
+  closedDealRate,
+} from '@/lib/analytics-metrics';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const MOVEMENT_CLASS: Record<string, string> = { Advanced: 'movement-up', Held: 'movement-held', Regressed: 'movement-down' };
@@ -33,7 +37,6 @@ const MOVEMENT_ICON: Record<string, string> = { Advanced: '▲', Held: '—', Re
 
 const statusClass = (s: string) => (s === 'On Track' ? 'comply-yes' : s === 'At Risk' ? 'comply-wip' : 'comply-no');
 const stageClass = (n: number) => (n >= 6 ? 'stage-negotiation' : n >= 4 ? 'stage-proposal' : 'stage-qualification');
-const wpct = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 const quarterOf = (dateStr: string) => `Q${Math.ceil(+dateStr.slice(5, 7) / 3)} '${dateStr.slice(2, 4)}`;
 /* Chronological sort for "Q3 '25" style labels → year then quarter. */
 const qSort = (a: string, b: string) => (a.slice(-2) + a[1]).localeCompare(b.slice(-2) + b[1]);
@@ -59,6 +62,9 @@ function PipelinePage() {
   const reload = useCallback(() => {
     setDeals(getDeals());
     setClosed(getClosedDeals());
+    const name = currentUser();
+    const list = getReps();
+    setReps(currentLevel() === 1 && !list.includes(name) ? [name, ...list] : list);
   }, []);
 
   useEffect(() => {
@@ -66,8 +72,6 @@ function PipelinePage() {
     const name = currentUser();
     setLevel(lvl);
     setMe(name);
-    const list = getReps();
-    setReps(list.includes(name) ? list : [name, ...list]);
     reload();
     setForm((f) => ({ ...f, rep: name }));
     /* Stages come from the shared store, with any custom SLA thresholds
@@ -116,7 +120,6 @@ function PipelinePage() {
   const weighted = filtered.reduce((a, d) => a + d.value * (stageOf(d)?.prob || 0), 0);
   const stalled = filtered.filter((d) => d.daysInStage > (stageOf(d)?.sla ?? Infinity)).length;
   const closeSoon = filtered.filter((d) => d.daysToClose <= 30).length;
-  const coverage = ((weighted / 15000000) * 100).toFixed(0);
 
   const kpis = [
     { label: 'Active Deals', value: filtered.length, sub: '', color: '' },
@@ -124,7 +127,7 @@ function PipelinePage() {
     { label: 'Weighted', value: fmtRM(weighted), sub: 'Probability-adjusted', color: 'kpi-up' },
     { label: 'Stalled Deals', value: stalled, sub: 'Past SLA', color: stalled > 0 ? 'kpi-danger' : '' },
     { label: 'Close ≤30 Days', value: closeSoon, sub: 'Immediate attention', color: closeSoon > 0 ? 'kpi-warn' : '' },
-    { label: 'Coverage', value: `${coverage}%`, sub: 'vs RM 15M target', color: Number(coverage) >= 100 ? 'kpi-up' : 'kpi-warn' },
+    { label: 'Coverage', value: 'Not available', sub: 'Needs a configured pipeline target', color: 'is-unavailable' },
   ];
 
   /* ── Funnel ───────────────────────────────────────────── */
@@ -154,7 +157,7 @@ function PipelinePage() {
   const lost = visibleClosed.filter((d) => d.outcome === 'Lost');
   const wonValue = won.reduce((a, d) => a + d.value, 0);
   const lostValue = lost.reduce((a, d) => a + d.value, 0);
-  const overallRate = wpct(won.length, visibleClosed.length);
+  const overallRate = closedDealRate(won.length, visibleClosed.length);
 
   const quarters: Record<string, { won: number; lost: number }> = {};
   visibleClosed.forEach((d) => {
@@ -173,9 +176,16 @@ function PipelinePage() {
       if (d.outcome === 'Won') r.w++;
       else r.l++;
     });
-    return Object.entries(acc)
-      .map(([rep, r]) => ({ rep, rate: wpct(r.w, r.w + r.l), w: r.w, l: r.l }))
-      .sort((a, b) => b.rate - a.rate);
+    return reps
+      .map((rep) => {
+        const r = acc[rep] || { w: 0, l: 0 };
+        return { rep, rate: closedDealRate(r.w, r.w + r.l), w: r.w, l: r.l };
+      })
+      .sort((a, b) =>
+        Number(b.rate !== null) - Number(a.rate !== null)
+        || (b.rate ?? -1) - (a.rate ?? -1)
+        || b.w + b.l - (a.w + a.l)
+      );
   })();
 
   const tiers = [
@@ -193,7 +203,7 @@ function PipelinePage() {
     });
     return SOURCES.filter((s) => acc[s]).map((s) => ({
       source: s,
-      rate: wpct(acc[s].w, acc[s].w + acc[s].l),
+      rate: closedDealRate(acc[s].w, acc[s].w + acc[s].l),
       ...acc[s],
     }));
   })();
@@ -260,7 +270,7 @@ function PipelinePage() {
 
   return (
     <>
-      <div className="page-header">
+      <div className="page-header pipeline-page-header">
         {/* Level 1 owns a single, personal pipeline view (Doc §2). */}
         <div className="page-title">{level === 1 ? 'My Pipeline' : 'Pipeline Dashboard'}</div>
         <div className="toolbar">
@@ -300,17 +310,19 @@ function PipelinePage() {
       {tab === 'pipeline' ? (
         <div>
           <div className="winrate-hero">
-            <div className="wh-num">{overallRate}%</div>
+            <div className="wh-num">{overallRate === null ? '—' : `${overallRate}%`}</div>
             <div className="wh-body">
               <div className="wh-label">Overall Win Rate</div>
               <div className="wh-sub">
-                {won.length} won of {visibleClosed.length} closed deals · no-decision counts as a loss
-                (Doc §4.7)
+                {overallRate === null
+                  ? `Needs at least ${MIN_CLOSED_DEALS_FOR_RATE} closed deals · ${visibleClosed.length} recorded`
+                  : `${won.length} won of ${visibleClosed.length} closed deals · no-decision counts as a loss (Doc §4.7)`}
               </div>
             </div>
             <div className="wh-spark">
               {qKeys.map((k) => {
-                const r = wpct(quarters[k].won, quarters[k].won + quarters[k].lost);
+                const r = closedDealRate(quarters[k].won, quarters[k].won + quarters[k].lost);
+                if (r === null) return null;
                 return (
                   <div className="bar" key={k} style={{ height: Math.max(r * 0.42, 4) }} title={`${k}: ${r}%`} />
                 );
@@ -456,10 +468,22 @@ function PipelinePage() {
         <div>
           <div className="kpi-row">
             {[
-              { label: 'Overall Win Rate', value: `${overallRate}%`, sub: `${won.length}W / ${lost.length}L`, cls: 'kpi-up' },
+              {
+                label: 'Overall Win Rate',
+                value: overallRate === null ? 'Not available' : `${overallRate}%`,
+                sub: overallRate === null
+                  ? `Needs at least ${MIN_CLOSED_DEALS_FOR_RATE} closed deals`
+                  : `${won.length}W / ${lost.length}L`,
+                cls: overallRate === null ? 'is-unavailable' : 'kpi-up',
+              },
               { label: 'Total Won Value', value: fmtRM(wonValue), sub: 'Closed-won', cls: 'kpi-up' },
               { label: 'Total Lost Value', value: fmtRM(lostValue), sub: 'Closed-lost', cls: 'kpi-danger' },
-              { label: 'Avg Won Deal Size', value: fmtRM(Math.round(won.length ? wonValue / won.length : 0)), sub: 'Mean closed-won', cls: '' },
+              {
+                label: 'Avg Won Deal Size',
+                value: won.length ? fmtRM(Math.round(wonValue / won.length)) : 'Not available',
+                sub: won.length ? 'Mean closed-won' : 'Needs at least one won deal',
+                cls: won.length ? '' : 'is-unavailable',
+              },
             ].map((k) => (
               <div className="kpi-card" key={k.label}>
                 <div className="kpi-label">{k.label}</div>
@@ -474,54 +498,71 @@ function PipelinePage() {
               <div className="card-header">
                 <span className="card-title">Win Rate by Salesperson</span>
               </div>
-              {repRates.map((r) => (
-                <div className="hbar-row" key={r.rep}>
-                  <div className="hbar-name">{r.rep.split(' ')[0]}</div>
-                  <div className="hbar-track">
-                    <div className="hbar-fill" style={{ width: `${r.rate}%` }} />
+              <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
+                Rates appear after at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per salesperson.
+              </div>
+              {repRates.length ? (
+                repRates.map((r) => (
+                  <div className="hbar-row" key={r.rep}>
+                    <div className="hbar-name" title={r.rep}>{r.rep.split(' ')[0]}</div>
+                    <div className="hbar-track">
+                      <div className="hbar-fill" style={{ width: `${r.rate || 0}%` }} />
+                    </div>
+                    <div className={`hbar-val${r.rate === null ? ' is-unavailable' : ''}`}>
+                      {r.rate === null ? `${r.w + r.l}/${MIN_CLOSED_DEALS_FOR_RATE} deals` : `${r.rate}% · ${r.w}W/${r.l}L`}
+                    </div>
                   </div>
-                  <div className="hbar-val">
-                    {r.rate}% · {r.w}W/{r.l}L
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="empty-hint">Needs at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals to compare salespeople.</div>
+              )}
             </div>
 
             <div className="card">
               <div className="card-header">
                 <span className="card-title">Quarterly Trend</span>
               </div>
-              <div className="qtrend">
-                {qKeys.map((k) => {
-                  const { won: w, lost: l } = quarters[k];
-                  const t = w + l;
-                  const h = (t / maxTotal) * 150;
-                  return (
-                    <div className="qtrend-col" key={k}>
-                      <div className="qtrend-pct">{wpct(w, t)}%</div>
-                      <div className="qtrend-stack" style={{ height: h }}>
-                        <div className="qtrend-won" style={{ height: t ? (w / t) * h : 0 }} />
-                        <div className="qtrend-lost" style={{ height: t ? (l / t) * h : 0 }} />
-                      </div>
-                      <div className="qtrend-lbl">{k}</div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--gray-500)', marginTop: 12 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 3, background: 'linear-gradient(180deg,var(--teal),var(--brand-600))' }} />
-                  Won
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--gray-200)' }} />
-                  Lost
-                </span>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                  <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--gold)' }} />
-                  Win rate %
-                </span>
-              </div>
+              {qKeys.length ? (
+                <>
+                  <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
+                    Rates appear with at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per quarter.
+                  </div>
+                  <div className="qtrend">
+                    {qKeys.map((k) => {
+                      const { won: w, lost: l } = quarters[k];
+                      const t = w + l;
+                      const rate = closedDealRate(w, t);
+                      const h = (t / maxTotal) * 150;
+                      return (
+                        <div className="qtrend-col" key={k} title={`${w} won, ${l} lost`}>
+                          <div className="qtrend-pct">{rate === null ? '—' : `${rate}%`}</div>
+                          <div className="qtrend-stack" style={{ height: h }}>
+                            <div className="qtrend-won" style={{ height: t ? (w / t) * h : 0 }} />
+                            <div className="qtrend-lost" style={{ height: t ? (l / t) * h : 0 }} />
+                          </div>
+                          <div className="qtrend-lbl">{k}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--gray-500)', marginTop: 12 }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: 'linear-gradient(180deg,var(--teal),var(--brand-600))' }} />
+                      Won
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--gray-200)' }} />
+                      Lost
+                    </span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <span style={{ width: 10, height: 10, borderRadius: 3, background: 'var(--gold)' }} />
+                      Win rate %
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="empty-hint">Needs at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals to show a trend.</div>
+              )}
             </div>
           </div>
 
@@ -534,12 +575,17 @@ function PipelinePage() {
                 {tiers.map((t) => {
                   const g = visibleClosed.filter((d) => t.test(d.value));
                   const w = g.filter((d) => d.outcome === 'Won').length;
+                  const rate = closedDealRate(w, g.length);
                   return (
                     <div className={`tier-card ${t.cls}`} key={t.name}>
                       <div className="t-name">{t.name}</div>
-                      <div className="t-rate">{wpct(w, g.length)}%</div>
+                      <div className={`t-rate${rate === null ? ' is-unavailable' : ''}`}>
+                        {rate === null ? '—' : `${rate}%`}
+                      </div>
                       <div className="t-sub">
-                        {w}W / {g.length - w}L
+                        {rate === null
+                          ? `Needs ${MIN_CLOSED_DEALS_FOR_RATE} closed deals · ${g.length} recorded`
+                          : `${w}W / ${g.length - w}L`}
                       </div>
                     </div>
                   );
@@ -551,17 +597,24 @@ function PipelinePage() {
               <div className="card-header">
                 <span className="card-title">Win Rate by Lead Source</span>
               </div>
-              {sourceRates.map((s) => (
-                <div className="hbar-row" key={s.source}>
-                  <div className="hbar-name">{s.source}</div>
-                  <div className="hbar-track">
-                    <div className="hbar-fill" style={{ width: `${s.rate}%` }} />
+              <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
+                Rates appear after at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per source.
+              </div>
+              {sourceRates.length ? (
+                sourceRates.map((s) => (
+                  <div className="hbar-row" key={s.source}>
+                    <div className="hbar-name">{s.source}</div>
+                    <div className="hbar-track">
+                      <div className="hbar-fill" style={{ width: `${s.rate || 0}%` }} />
+                    </div>
+                    <div className={`hbar-val${s.rate === null ? ' is-unavailable' : ''}`}>
+                      {s.rate === null ? `${s.w + s.l}/${MIN_CLOSED_DEALS_FOR_RATE} deals` : `${s.rate}% · ${s.w}W/${s.l}L`}
+                    </div>
                   </div>
-                  <div className="hbar-val">
-                    {s.rate}% · {s.w}W/{s.l}L
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="empty-hint">Needs at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals to compare lead sources.</div>
+              )}
             </div>
           </div>
 
