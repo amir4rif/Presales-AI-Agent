@@ -7,6 +7,14 @@ import {
   visibleProposalVersionsForOwner,
 } from '../src/lib/proposal-lifecycle.ts';
 import { calculateTwoStageRates } from '../src/lib/stage-rates.ts';
+import {
+  MIN_COMPLETED_PROJECTS_FOR_ANALYTICS,
+  analyticsReadiness,
+  calculateMonthlyApprovalRates,
+  calculateStageAgeAverages,
+  closedDealRate,
+  collectRepNames,
+} from '../src/lib/analytics-metrics.ts';
 
 const proposal = (caseId, status, outcome = undefined, version = 1) => ({
   caseId,
@@ -67,6 +75,78 @@ test('legacy proposals without a Case ID remain separate cases', () => {
   assert.equal(rates.approved, 2);
   assert.equal(rates.decided, 2);
   assert.equal(rates.winRate, 50);
+});
+
+test('closed-deal rates wait for a three-deal sample', () => {
+  assert.equal(closedDealRate(0, 0), null);
+  assert.equal(closedDealRate(2, 2), null);
+  assert.equal(closedDealRate(2, 3), 67);
+});
+
+test('analytics remain gated until three completed projects', () => {
+  assert.equal(MIN_COMPLETED_PROJECTS_FOR_ANALYTICS, 3);
+  assert.deepEqual(analyticsReadiness(0), {
+    completed: 0,
+    required: 3,
+    remaining: 3,
+    ready: false,
+    progress: 0,
+  });
+  assert.deepEqual(analyticsReadiness(2), {
+    completed: 2,
+    required: 3,
+    remaining: 1,
+    ready: false,
+    progress: 67,
+  });
+  assert.deepEqual(analyticsReadiness(3), {
+    completed: 3,
+    required: 3,
+    remaining: 0,
+    ready: true,
+    progress: 100,
+  });
+});
+
+test('monthly approval trend is built only from recorded review decisions', () => {
+  assert.deepEqual(calculateMonthlyApprovalRates([
+    { status: 'Approved', reviewedDate: '2026-05-09' },
+    { status: 'Reject & Revise', reviewedDate: '10 May 2026', rejectionReason: 'Pricing' },
+    { status: 'Superseded', reviewedDate: '12 May 2026', rejectionReason: 'Scope' },
+    { status: 'Approved', reviewedDate: '18 Apr 2026' },
+    { status: 'Reject & Close', reviewedDate: '20 Apr 2026', rejectionReason: 'Out of scope' },
+    { status: 'Approved', reviewedDate: '' },
+  ]), [
+    { key: '2026-04', label: "Apr '26", approved: 1, revised: 0, judged: 1, rate: 100 },
+    { key: '2026-05', label: "May '26", approved: 1, revised: 2, judged: 3, rate: 33 },
+  ]);
+});
+
+test('stage age averages use active deals and expose missing coverage', () => {
+  assert.deepEqual(calculateStageAgeAverages([
+    { id: 1, name: 'Prospecting', sla: 7 },
+    { id: 2, name: 'Qualified', sla: 14 },
+  ], [
+    { stage: 1, daysInStage: 3 },
+    { stage: 1, daysInStage: 8 },
+    { stage: 2, daysInStage: Number.NaN },
+  ]), [
+    { id: 1, name: 'Prospecting', sla: 7, dealCount: 2, avgDays: 5.5 },
+    { id: 2, name: 'Qualified', sla: 14, dealCount: 0, avgDays: null },
+  ]);
+});
+
+test('salesperson choices come from live profiles and owned records', () => {
+  assert.deepEqual(collectRepNames({
+    team: [
+      { name: 'Real Rep', role: 'Sales Representative', status: 'active' },
+      { name: 'Manager', role: 'Sales Manager', status: 'active' },
+      { name: 'Inactive Rep', role: 'Sales Representative', status: 'inactive' },
+    ],
+    deals: [{ rep: 'Pipeline Owner' }],
+    closedDeals: [{ rep: 'Historic Owner' }],
+    proposals: [{ owner: 'Proposal Owner', submittedBy: 'Real Rep' }],
+  }), ['Historic Owner', 'Pipeline Owner', 'Proposal Owner', 'Real Rep']);
 });
 
 test('learning-loop reasons count only live Reject & Revise proposals', () => {

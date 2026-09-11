@@ -72,15 +72,15 @@ function ProspectsPage() {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState('');
 
-  const reload = useCallback(() => setProspects(getProspects()), []);
+  const reload = useCallback(() => {
+    setProspects(getProspects());
+    const me = currentUser();
+    const list = getReps();
+    setReps(currentLevel() === 1 && !list.includes(me) ? [me, ...list] : list);
+  }, []);
 
   useEffect(() => {
     reload();
-    // Keep the Add Deal salesperson list in sync with the shared rep list.
-    const me = currentUser();
-    const list = getReps();
-    const names = list.includes(me) ? list : [me, ...list];
-    setReps(names);
     setLevel(currentLevel());
     setViewerId(currentUserId());
   }, [reload]);
