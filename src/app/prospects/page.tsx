@@ -33,6 +33,7 @@ import {
   type ProspectDependencies,
 } from '@/lib/prospect-lifecycle';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
+import { daysUntilDealClose } from '@/lib/deal-outcomes';
 
 type ProspectAction = {
   prospectId: number;
@@ -111,13 +112,17 @@ function ProspectsPage() {
       ? currentUserId() || profileIdForName(draft.rep)
       : profileIdForName(draft.rep);
     const deal: Deal = {
+      id: crypto.randomUUID(),
       ownerId: repId,
       prospectId: prospect.id,
+      opportunityId: draft.opportunityId.trim() || undefined,
       rep: draft.rep,
       account: draft.account.trim(),
+      outcome: 'Open',
       stage: Number(draft.stage),
       daysInStage: Number(draft.days) || 1,
-      daysToClose: 90,
+      daysToClose: daysUntilDealClose({ closeDate: draft.close, daysToClose: 90 }),
+      closeDate: draft.close,
       value: Number(draft.value) || 0,
       movement: 'Advanced',
       status: 'On Track',

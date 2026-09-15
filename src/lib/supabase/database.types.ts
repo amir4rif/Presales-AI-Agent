@@ -28,6 +28,10 @@ type ProposalRow = {
   review_note: string;
   sections: Json;
   outcome: string | null;
+  deal_id: string | null;
+  deal_link_action: string | null;
+  deal_linked_at: string | null;
+  prospect_id: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -50,8 +54,11 @@ type DealRow = {
   id: string;
   owner_id: string;
   prospect_id: number | null;
+  case_id: string | null;
+  opportunity_id: string | null;
   rep: string;
   account: string;
+  expected_close_date: string;
   stage: number;
   days_in_stage: number;
   days_to_close: number;
@@ -59,6 +66,12 @@ type DealRow = {
   movement: string;
   status: string;
   notes: string;
+  pending_disqualification_reason: string | null;
+  pending_close_source: string | null;
+  pending_close_date: string | null;
+  close_requested_by_id: string | null;
+  close_requested_by: string | null;
+  close_requested_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -66,6 +79,9 @@ type DealRow = {
 type ClosedDealRow = {
   id: string;
   owner_id: string;
+  prospect_id: number | null;
+  case_id: string | null;
+  opportunity_id: string | null;
   rep: string;
   account: string;
   value: number;
@@ -73,6 +89,16 @@ type ClosedDealRow = {
   source: string;
   outcome: string;
   loss_reason: string;
+  disqualification_reason: string;
+  closed_by_id: string | null;
+  closed_by: string;
+  closed_at: string;
+  disqualification_requested_by_id: string | null;
+  disqualification_requested_by: string | null;
+  disqualification_requested_at: string | null;
+  disqualification_approved_by_id: string | null;
+  disqualification_approved_by: string | null;
+  disqualification_approved_at: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -174,6 +200,25 @@ export type Database = {
       };
     };
     Functions: {
+      close_deal: {
+        Args: {
+          p_deal_id: string;
+          p_outcome: string;
+          p_reason: string;
+          p_source: string;
+          p_close_date: string;
+          p_expected_updated_at: string;
+        };
+        Returns: Json;
+      };
+      review_deal_disqualification: {
+        Args: {
+          p_deal_id: string;
+          p_approve: boolean;
+          p_expected_updated_at: string;
+        };
+        Returns: Json;
+      };
       resubmit_proposal: {
         Args: {
           p_expected_updated_at: string;

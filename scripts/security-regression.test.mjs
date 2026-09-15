@@ -517,7 +517,11 @@ test('Draft autosave failures are caller-owned while canonical rollback remains 
   );
   assert.match(
     dataSync,
-    /export function runProposalDataTransaction<[\s\S]*proposalTransactionCoordinator\.run[\s\S]*await waitForPendingDataSync\(\);[\s\S]*return transaction\(\)/
+    /export function runDataTransaction<[\s\S]*proposalTransactionCoordinator\.run[\s\S]*await waitForPendingDataSync\(\);[\s\S]*return transaction\(\)/
+  );
+  assert.match(
+    dataSync,
+    /export function runProposalDataTransaction<[\s\S]*return runDataTransaction\(transaction\)/
   );
   assert.match(
     dataSync,
@@ -1321,7 +1325,7 @@ test('proposal notifications are durable, recipient-scoped, and trigger-driven',
   assert.doesNotMatch(approvalsPage, /\bnotify\s*\(/);
 });
 
-test('related deals use a prospect id, or an exact full-name legacy fallback', () => {
+test('related deals use only an explicit prospect id', () => {
   const prospects = [
     { id: 1, name: ' Petronas ' },
     { id: 2, name: 'Healthcare Partners Bhd' },
@@ -1334,8 +1338,8 @@ test('related deals use a prospect id, or an exact full-name legacy fallback', (
     { account: ' Healthcare Partners Bhd ' },
   ];
 
-  assert.deepEqual(dealsForProspect(deals, prospects[0]), [deals[0], deals[2]]);
-  assert.deepEqual(dealsForProspect(deals, prospects[1]), [deals[1], deals[4]]);
+  assert.deepEqual(dealsForProspect(deals, prospects[0]), [deals[0]]);
+  assert.deepEqual(dealsForProspect(deals, prospects[1]), [deals[1]]);
   assert.deepEqual(dealsForProspect(deals, { id: 3, name: '   ' }), []);
 });
 
@@ -1374,8 +1378,8 @@ test('prospect removal deletes only empty records and archives linked records', 
   const linked = prospectDependencies(
     prospect,
     [{ prospectId: 7, account: 'Different display label' }],
-    [{ company: ' example co ' }],
-    [{ account: 'EXAMPLE CO' }]
+    [{ prospectId: 7, company: 'Completely different display label' }],
+    [{ prospectId: 7, account: 'Another unrelated label' }]
   );
 
   assert.deepEqual(empty, { opportunities: 0, deals: 0, proposals: 0 });

@@ -25,6 +25,7 @@ import {
   closedDealRate,
 } from '@/lib/analytics-metrics';
 import { rejectionReasonStats } from '@/lib/proposal-lifecycle';
+import { scoredClosedDeals } from '@/lib/deal-outcomes';
 import { calculateTwoStageRates } from '@/lib/stage-rates';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
@@ -75,7 +76,8 @@ function AnalyticsPage() {
     );
   }
 
-  const readiness = analyticsReadiness(closed.length);
+  const scoredClosed = scoredClosedDeals(closed);
+  const readiness = analyticsReadiness(scoredClosed.length);
   if (!readiness.ready) {
     const projectWord = readiness.remaining === 1 ? 'project' : 'projects';
     return (
@@ -137,7 +139,7 @@ function AnalyticsPage() {
   const wonValue = closed.filter((d) => d.outcome === 'Won').reduce((a, d) => a + d.value, 0);
   const hasStageOne = s1.judged > 0;
   const hasStageTwo = s2.total > 0;
-  const hasClosedDeals = closed.length > 0;
+  const hasClosedDeals = scoredClosed.length > 0;
 
   const kpis = [
     {
@@ -172,7 +174,7 @@ function AnalyticsPage() {
 
   /* ── QUARTERLY TREND ────────────────────────────────────── */
   const quarters: Record<string, { won: number; lost: number }> = {};
-  closed.forEach((d) => {
+  scoredClosed.forEach((d) => {
     const k = quarterOf(d.closeDate);
     const q = quarters[k] || (quarters[k] = { won: 0, lost: 0 });
     if (d.outcome === 'Won') q.won++;
@@ -184,10 +186,10 @@ function AnalyticsPage() {
   /* ── BY SALESPERSON ─────────────────────────────────────── */
   const repRows = (() => {
     const repsByName: Record<string, { won: number; lost: number }> = {};
-    closed.forEach((d) => {
+    scoredClosed.forEach((d) => {
       const r = repsByName[d.rep] || (repsByName[d.rep] = { won: 0, lost: 0 });
       if (d.outcome === 'Won') r.won++;
-      else r.lost++;
+      else if (d.outcome === 'Lost') r.lost++;
     });
     return reps
       .map((rep) => {

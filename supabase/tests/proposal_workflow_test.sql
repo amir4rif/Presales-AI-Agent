@@ -1,4 +1,6 @@
 begin;
+create extension if not exists pgtap with schema extensions;
+set local search_path = public, extensions;
 select plan(24);
 
 insert into auth.users (id, email)
@@ -36,6 +38,7 @@ set local "request.jwt.claims" = '{"sub":"11000000-0000-0000-0000-000000000001",
 insert into public.proposals (
   id,
   case_id,
+  opportunity_id,
   company,
   deal,
   value,
@@ -52,6 +55,7 @@ insert into public.proposals (
 values (
   'PROP-WORKFLOW-OWNER-DRAFT',
   'CASE-WORKFLOW-OWNER-DRAFT',
+  'OPP-WORKFLOW-OWNER-DRAFT',
   'Owner Account',
   'Owner Opportunity',
   100000,

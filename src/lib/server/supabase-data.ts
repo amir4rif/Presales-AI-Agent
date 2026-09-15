@@ -12,6 +12,11 @@ import type {
 } from '@/lib/data';
 import type { DataCollection } from '@/lib/integrations';
 import {
+  addCalendarDays,
+  daysUntilDealClose,
+  localDateKey,
+} from '@/lib/deal-outcomes';
+import {
   ProfileResolutionError,
   resolveProfileIdFromWire,
 } from '@/lib/profile-identity';
@@ -172,23 +177,39 @@ function proposalToDomain(row: Tables<'proposals'>): Proposal {
     updatedAt: row.updated_at,
     sections: (row.sections || {}) as Proposal['sections'],
     outcome: (row.outcome || undefined) as Proposal['outcome'],
+    dealId: row.deal_id || undefined,
+    dealLinkAction: (row.deal_link_action || undefined) as Proposal['dealLinkAction'],
+    dealLinkedAt: row.deal_linked_at || undefined,
+    prospectId: row.prospect_id ?? undefined,
   };
 }
 
 function dealToDomain(row: Tables<'deals'>): Deal {
+  const closeDate = row.expected_close_date;
   return {
     id: row.id,
     ownerId: row.owner_id,
     prospectId: row.prospect_id ?? undefined,
+    caseId: row.case_id || undefined,
+    opportunityId: row.opportunity_id || undefined,
     rep: row.rep,
     account: row.account,
+    outcome: 'Open',
     stage: row.stage,
     daysInStage: row.days_in_stage,
-    daysToClose: row.days_to_close,
+    daysToClose: daysUntilDealClose({ closeDate, daysToClose: row.days_to_close }),
+    closeDate,
     value: Number(row.value),
     movement: row.movement,
     status: row.status,
     notes: row.notes,
+    updatedAt: row.updated_at,
+    pendingDisqualificationReason: row.pending_disqualification_reason || undefined,
+    pendingCloseSource: row.pending_close_source || undefined,
+    pendingCloseDate: row.pending_close_date || undefined,
+    closeRequestedById: row.close_requested_by_id || undefined,
+    closeRequestedBy: row.close_requested_by || undefined,
+    closeRequestedAt: row.close_requested_at || undefined,
   };
 }
 
@@ -196,6 +217,9 @@ function closedDealToDomain(row: Tables<'closed_deals'>): ClosedDeal {
   return {
     id: row.id,
     ownerId: row.owner_id,
+    prospectId: row.prospect_id ?? undefined,
+    caseId: row.case_id || undefined,
+    opportunityId: row.opportunity_id || undefined,
     rep: row.rep,
     account: row.account,
     value: Number(row.value),
@@ -203,6 +227,16 @@ function closedDealToDomain(row: Tables<'closed_deals'>): ClosedDeal {
     source: row.source,
     outcome: row.outcome as ClosedDeal['outcome'],
     lossReason: row.loss_reason,
+    disqualificationReason: row.disqualification_reason || undefined,
+    closedById: row.closed_by_id || undefined,
+    closedBy: row.closed_by || undefined,
+    closedAt: row.closed_at || undefined,
+    disqualificationRequestedById: row.disqualification_requested_by_id || undefined,
+    disqualificationRequestedBy: row.disqualification_requested_by || undefined,
+    disqualificationRequestedAt: row.disqualification_requested_at || undefined,
+    disqualificationApprovedById: row.disqualification_approved_by_id || undefined,
+    disqualificationApprovedBy: row.disqualification_approved_by || undefined,
+    disqualificationApprovedAt: row.disqualification_approved_at || undefined,
   };
 }
 
@@ -366,8 +400,10 @@ async function buildProposalRow(
   const id = str(item.id);
   const caseId = str(item.caseId);
   const updatedAt = str(item.updatedAt);
+  const prospectId = Number(item.prospectId);
   if (id) row.id = id;
   if (caseId) row.case_id = caseId;
+  if (Number.isSafeInteger(prospectId) && prospectId > 0) row.prospect_id = prospectId;
   // This is an expected-version token only. proposal-writer removes it from
   // INSERT/UPDATE payloads and uses it in the existing-row CAS predicate.
   if (updatedAt) row.updated_at = updatedAt;
@@ -381,20 +417,33 @@ async function buildDealRow(
 ): Promise<Database['public']['Tables']['deals']['Insert']> {
   const item = record(value);
   const id = str(item.id);
+  const daysToClose = Math.trunc(num(item.daysToClose));
+  const closeDate = isoDate(item.closeDate) || addCalendarDays(localDateKey(), daysToClose);
   const row: Database['public']['Tables']['deals']['Insert'] = {
     owner_id: await resolveProfileId(item, 'rep', 'ownerId', loadProfiles, userId),
     rep: str(item.rep),
     account: str(item.account),
     stage: Math.min(8, Math.max(1, Math.trunc(num(item.stage, 1)))),
     days_in_stage: Math.max(0, Math.trunc(num(item.daysInStage))),
-    days_to_close: Math.max(0, Math.trunc(num(item.daysToClose))),
+    // Legacy duration remains non-negative; expected_close_date is the source
+    // of truth and may independently be in the past.
+    days_to_close: Math.max(0, daysToClose),
+    expected_close_date: closeDate,
     value: Math.max(0, num(item.value)),
     movement: str(item.movement),
     status: str(item.status, 'On Track'),
     notes: str(item.notes),
+    pending_disqualification_reason: str(item.pendingDisqualificationReason) || null,
+    pending_close_source: str(item.pendingCloseSource) || null,
+    pending_close_date: isoDate(item.pendingCloseDate) || null,
+    close_requested_by_id: str(item.closeRequestedById) || null,
+    close_requested_by: str(item.closeRequestedBy) || null,
+    close_requested_at: isoTimestamp(item.closeRequestedAt),
   };
   const prospectId = Number(item.prospectId);
   if (Number.isSafeInteger(prospectId) && prospectId > 0) row.prospect_id = prospectId;
+  const opportunityId = str(item.opportunityId).trim();
+  if (opportunityId) row.opportunity_id = opportunityId;
   if (id) row.id = id;
   return row;
 }
@@ -415,7 +464,14 @@ async function buildClosedDealRow(
     source: str(item.source),
     outcome: str(item.outcome, 'Lost'),
     loss_reason: str(item.lossReason),
+    disqualification_reason: str(item.disqualificationReason),
   };
+  const prospectId = Number(item.prospectId);
+  if (Number.isSafeInteger(prospectId) && prospectId > 0) row.prospect_id = prospectId;
+  const caseId = str(item.caseId).trim();
+  const opportunityId = str(item.opportunityId).trim();
+  if (caseId) row.case_id = caseId;
+  if (opportunityId) row.opportunity_id = opportunityId;
   if (id) row.id = id;
   return row;
 }
@@ -475,10 +531,6 @@ async function updateProfile(client: Client, value: unknown, loadProfiles: Profi
   fail('Could not update profile', response.error);
 }
 
-function normalizedProspectName(value: string | null | undefined) {
-  return (value || '').trim().toLocaleLowerCase();
-}
-
 async function assertProspectsCanBeDeleted(client: Client, ids: number[]) {
   const prospects = await client
     .from('prospects')
@@ -491,32 +543,21 @@ async function assertProspectsCanBeDeleted(client: Client, ids: number[]) {
     throw new AuthorizationError('You do not have permission to delete this prospect.');
   }
 
-  const names = rows.map((prospect) => prospect.name);
-  const [linkedDeals, legacyDeals, proposals, closedDeals] = await Promise.all([
-    client.from('deals').select('id, prospect_id, account').in('prospect_id', ids),
-    client.from('deals').select('id, prospect_id, account').is('prospect_id', null).in('account', names),
-    client.from('proposals').select('id, company').in('company', names),
-    client.from('closed_deals').select('id, account').in('account', names),
+  const [linkedDeals, proposals, closedDeals] = await Promise.all([
+    client.from('deals').select('id, prospect_id').in('prospect_id', ids),
+    client.from('proposals').select('id, prospect_id').in('prospect_id', ids),
+    client.from('closed_deals').select('id, prospect_id').in('prospect_id', ids),
   ]);
   fail('Could not verify linked deals', linkedDeals.error);
-  fail('Could not verify legacy deals', legacyDeals.error);
   fail('Could not verify linked proposals', proposals.error);
   fail('Could not verify closed deals', closedDeals.error);
 
   const stableDealProspectIds = new Set((linkedDeals.data || []).map((deal) => deal.prospect_id));
-  const legacyDealNames = new Set(
-    (legacyDeals.data || []).map((deal) => normalizedProspectName(deal.account))
-  );
-  const proposalNames = new Set(
-    (proposals.data || []).map((proposal) => normalizedProspectName(proposal.company))
-  );
-  const closedDealNames = new Set(
-    (closedDeals.data || []).map((deal) => normalizedProspectName(deal.account))
-  );
+  const proposalProspectIds = new Set((proposals.data || []).map((proposal) => proposal.prospect_id));
+  const closedDealProspectIds = new Set((closedDeals.data || []).map((deal) => deal.prospect_id));
   const blocked = rows.find((prospect) => {
-    const name = normalizedProspectName(prospect.name);
     return prospect.opportunities > 0 || stableDealProspectIds.has(prospect.id) ||
-      legacyDealNames.has(name) || proposalNames.has(name) || closedDealNames.has(name);
+      proposalProspectIds.has(prospect.id) || closedDealProspectIds.has(prospect.id);
   });
 
   if (blocked) {

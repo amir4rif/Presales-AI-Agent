@@ -20,14 +20,74 @@ import {
 import { mergeProposalSnapshot, type DataChangeOptions } from './data-changes';
 import { calculateTwoStageRates } from './stage-rates';
 import { collectRepNames } from './analytics-metrics';
+import {
+  addCalendarDays,
+  dealNeedsOutcome,
+  dealOutcomeEscalated,
+  dealOutcomeOverdueDays,
+  localDateKey,
+  outcomeHygieneByRep,
+} from './deal-outcomes';
+import type {
+  ClosedDealOutcome,
+  ProposalDealOutcome,
+} from './deal-outcomes';
 
 export { currentLevel, currentUser, currentUserId };
+export type { ClosedDealOutcome, DealOutcome, ProposalDealOutcome } from './deal-outcomes';
 
 /* ── TYPES ─────────────────────────────────────────────── */
 export type Stage = { id: number; name: string; sla: number; prob: number };
 export type Opportunity = { oppId: string; account: string; deal: string; value: number; industry: string };
-export type ClosedDeal = { id?: string; ownerId?: string; rep: string; account: string; value: number; closeDate: string; source: string; outcome: 'Won' | 'Lost'; lossReason: string };
-export type Deal = { id?: string; ownerId?: string; prospectId?: number; rep: string; account: string; stage: number; daysInStage: number; daysToClose: number; value: number; movement: string; status: string; notes: string };
+export type ClosedDeal = {
+  id?: string;
+  ownerId?: string;
+  prospectId?: number;
+  caseId?: string;
+  opportunityId?: string;
+  rep: string;
+  account: string;
+  value: number;
+  closeDate: string;
+  source: string;
+  outcome: ClosedDealOutcome;
+  lossReason: string;
+  disqualificationReason?: string;
+  closedById?: string;
+  closedBy?: string;
+  closedAt?: string;
+  disqualificationRequestedById?: string;
+  disqualificationRequestedBy?: string;
+  disqualificationRequestedAt?: string;
+  disqualificationApprovedById?: string;
+  disqualificationApprovedBy?: string;
+  disqualificationApprovedAt?: string;
+};
+export type Deal = {
+  id?: string;
+  ownerId?: string;
+  prospectId?: number;
+  caseId?: string;
+  opportunityId?: string;
+  rep: string;
+  account: string;
+  outcome: 'Open';
+  stage: number;
+  daysInStage: number;
+  daysToClose: number;
+  closeDate?: string;
+  value: number;
+  movement: string;
+  status: string;
+  notes: string;
+  updatedAt?: string;
+  pendingDisqualificationReason?: string;
+  pendingCloseSource?: string;
+  pendingCloseDate?: string;
+  closeRequestedById?: string;
+  closeRequestedBy?: string;
+  closeRequestedAt?: string;
+};
 export type TeamMember = { id?: string; name: string; email: string; role: string; level?: 1 | 2 | 3; status: string; lastActive: string };
 export type AIResearch = {
   companyBackground?: string;
@@ -61,9 +121,12 @@ export type Proposal = {
   updatedAt?: string;
   sections: { executive: string; solution: string; commercials: string };
   /* Post-approval outcome (v10). Only meaningful once status is Approved. */
-  outcome?: DealOutcome;
+  outcome?: ProposalDealOutcome;
+  dealId?: string;
+  dealLinkAction?: 'attached' | 'created';
+  dealLinkedAt?: string;
+  prospectId?: number;
 };
-export type DealOutcome = 'Pending' | 'Won' | 'Lost';
 
 // Pipeline stage definitions. Observed days-in-stage are calculated from
 // live deals rather than stored as illustrative values here.
@@ -115,7 +178,10 @@ export const CLOSED_DEALS: ClosedDeal[] = [
   { rep: 'Priya Nair',    account: 'Grab MY – Martech',            value: 1300000, closeDate: '2026-06-10', source: 'Outbound', outcome: 'Lost', lossReason: 'Budget cut' },
   { rep: 'Lim LG',        account: 'Tzu Chi – Volunteer Portal',   value: 1500000, closeDate: '2026-06-18', source: 'Inbound',  outcome: 'Won',  lossReason: '' },
   { rep: 'Lim LG',        account: 'Sime Darby – Payroll',         value: 1100000, closeDate: '2026-05-06', source: 'Outbound', outcome: 'Lost', lossReason: 'Pricing too high' },
-];
+].map((deal, index) => ({
+  ...deal,
+  id: `seed-closed-deal-${String(index + 1).padStart(3, '0')}`,
+})) as ClosedDeal[];
 
 // Active (open) deals — the live pipeline. Shared by Pipeline + the dashboard.
 export const ACTIVE_DEALS: Deal[] = [
@@ -132,7 +198,12 @@ export const ACTIVE_DEALS: Deal[] = [
   { rep: 'Rajan Pillai',  account: 'NGO – Website Revamp',        stage: 4, daysInStage: 6,  daysToClose: 40, value: 1200000, movement: 'Advanced',  status: 'On Track', notes: '' },
   { rep: 'Faizal Hassan', account: 'Telco – Security Solution',   stage: 6, daysInStage: 30, daysToClose: 12, value: 2600000, movement: 'Held',      status: 'Stalled',  notes: 'POC failed, re-scoping' },
   { prospectId: 5, rep: 'Ahmad Razak',   account: 'Manufacturing Co – ERP',      stage: 2, daysInStage: 4,  daysToClose: 80, value: 3000000, movement: 'Advanced',  status: 'On Track', notes: '' },
-];
+].map((deal, index) => ({
+  ...deal,
+  id: `seed-open-deal-${String(index + 1).padStart(3, '0')}`,
+  outcome: 'Open' as const,
+  closeDate: addCalendarDays(localDateKey(), deal.daysToClose),
+}));
 
 // User directory — the doc's named users (Doc §1/§2).
 export const TEAM_SEED: TeamMember[] = [
@@ -304,6 +375,23 @@ function read<T>(key: string, fallback: T): T {
   }
 }
 
+function readWithStableIds<T extends { id?: string }>(
+  key: string,
+  fallback: T[]
+): T[] {
+  const rows = read(key, fallback);
+  if (!canStore()) return rows;
+
+  let changed = false;
+  const normalized = rows.map((row) => {
+    if (row.id) return row;
+    changed = true;
+    return { ...row, id: crypto.randomUUID() };
+  });
+  if (changed) localStorage.setItem(key, JSON.stringify(normalized));
+  return normalized;
+}
+
 function write(
   collection: DataCollection,
   value: unknown[],
@@ -354,12 +442,19 @@ export function ensureProposalStore(): Proposal[] {
    These are the function names the doc asks us to keep stable. When
    the source flips to Lark, only their bodies change. */
 export const getDeals = (): Deal[] =>
-  personalise(read('ramssolDeals', ACTIVE_DEALS.map((d) => ({ ...d }))) as unknown as Record<string, unknown>[], ['rep']) as unknown as Deal[];
-export const saveDeals = (l: Deal[]) => write('deals', l);
+  personalise(
+    readWithStableIds(STORAGE_KEY_BY_COLLECTION.deals, ACTIVE_DEALS.map((d) => ({ ...d }))) as unknown as Record<string, unknown>[],
+    ['rep']
+  ) as unknown as Deal[];
+export const saveDeals = (l: Deal[], options: DataChangeOptions = {}) => write('deals', l, options);
 
 export const getClosedDeals = (): ClosedDeal[] =>
-  personalise(read('ramssolClosedDeals', CLOSED_DEALS.map((d) => ({ ...d }))) as unknown as Record<string, unknown>[], ['rep']) as unknown as ClosedDeal[];
-export const saveClosedDeals = (l: ClosedDeal[]) => write('closedDeals', l);
+  personalise(
+    readWithStableIds(STORAGE_KEY_BY_COLLECTION.closedDeals, CLOSED_DEALS.map((d) => ({ ...d }))) as unknown as Record<string, unknown>[],
+    ['rep']
+  ) as unknown as ClosedDeal[];
+export const saveClosedDeals = (l: ClosedDeal[], options: DataChangeOptions = {}) =>
+  write('closedDeals', l, options);
 
 export const getProspects = (): Prospect[] =>
   read('ramssolProspects', PROSPECT_SEED.map((p) => ({ ...p }))).map((prospect) => ({
@@ -430,6 +525,17 @@ export function stats(user?: string) {
     const s = STAGES[d.stage - 1];
     return s && d.daysInStage > s.sla;
   });
+  const needsOutcome = deals.filter((deal) => dealNeedsOutcome(deal));
+  const prioritizedNeedsOutcome = needsOutcome.slice().sort((a, b) =>
+    Number(dealOutcomeEscalated(b)) - Number(dealOutcomeEscalated(a)) ||
+    dealOutcomeOverdueDays(b) - dealOutcomeOverdueDays(a)
+  );
+  const attentionDealIds = new Set(prioritizedNeedsOutcome.map((deal) => deal.id || deal));
+  const attentionDeals = [
+    ...prioritizedNeedsOutcome,
+    ...stalled.filter((deal) => !attentionDealIds.has(deal.id || deal)),
+  ];
+  const myNeedsOutcome = myDeals.filter((deal) => dealNeedsOutcome(deal));
 
   // Only live Reject & Revise reasons drive the AI learning loop (Doc §4.10).
   const { reasons, topReason } = rejectionReasonStats(store);
@@ -447,7 +553,14 @@ export function stats(user?: string) {
     pipelineValue:   deals.reduce((a, d) => a + d.value, 0),
     myPipelineValue: myDeals.reduce((a, d) => a + d.value, 0),
     weighted: deals.reduce((a, d) => a + d.value * (STAGES[d.stage - 1]?.prob || 0), 0),
-    stalled, topReason, reasons,
+    stalled,
+    needsOutcome,
+    myNeedsOutcome,
+    escalatedOutcomeDeals: needsOutcome.filter((deal) => dealOutcomeEscalated(deal)),
+    attentionDeals,
+    outcomeHygiene: outcomeHygieneByRep(deals),
+    topReason,
+    reasons,
   };
 }
 

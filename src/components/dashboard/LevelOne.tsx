@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { STAGES, fmtRM, type Stats } from '@/lib/data';
+import { dealNeedsOutcome, dealOutcomeOverdueDays } from '@/lib/deal-outcomes';
 import { greeting } from '@/lib/useStats';
 import { ActionStrip, Arrow, BADGE, Card, DOT, Empty } from './shared';
 
@@ -85,6 +86,16 @@ export default function LevelOne({ s }: { s: Stats }) {
         />
       )}
 
+      {s.myNeedsOutcome.length > 0 && (
+        <ActionStrip
+          icon="!"
+          title={`${s.myNeedsOutcome.length} open deal${s.myNeedsOutcome.length === 1 ? ' needs' : 's need'} an outcome`}
+          sub="The target close date has passed. Choose Won, Lost, or Disqualified; the deals remain in pipeline until you decide."
+          cta="Review deals"
+          href="/pipeline"
+        />
+      )}
+
       <div className="section-head">
         <h3>
           What would you like to <span className="accent">do?</span>
@@ -143,9 +154,10 @@ export default function LevelOne({ s }: { s: Stats }) {
         <Card title="My Assigned Deals" link="Open pipeline" linkHref="/pipeline">
           <div className="row-list">
             {s.myDeals.length ? (
-              s.myDeals.slice(0, 5).map((d, i) => {
+              s.myDeals.slice().sort((a, b) => Number(dealNeedsOutcome(b)) - Number(dealNeedsOutcome(a))).slice(0, 5).map((d, i) => {
                 const st = STAGES[d.stage - 1];
                 const late = st && d.daysInStage > st.sla;
+                const needsOutcome = dealNeedsOutcome(d);
                 return (
                   <div
                     className="activity-item"
@@ -153,12 +165,13 @@ export default function LevelOne({ s }: { s: Stats }) {
                     key={`${d.account}-${i}`}
                     onClick={() => router.push('/pipeline')}
                   >
-                    <div className={`activity-dot ${late ? 'amber' : 'blue'}`} />
+                    <div className={`activity-dot ${needsOutcome ? 'red' : late ? 'amber' : 'blue'}`} />
                     <div className="activity-info">
                       <div className="activity-name">{d.account}</div>
                       <div className="activity-desc">
                         {st?.name || `Stage ${d.stage}`} · {d.daysInStage}d in stage
                         {late ? ` · past ${st.sla}d SLA` : ''}
+                        {needsOutcome ? ` · Needs Outcome (${dealOutcomeOverdueDays(d)}d overdue)` : ''}
                       </div>
                     </div>
                     <div className="activity-right">

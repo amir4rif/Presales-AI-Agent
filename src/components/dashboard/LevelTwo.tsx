@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { STAGES, fmtRM, type Stats } from '@/lib/data';
+import { dealNeedsOutcome, dealOutcomeEscalated, dealOutcomeOverdueDays } from '@/lib/deal-outcomes';
 import { greeting } from '@/lib/useStats';
 import { ActionStrip, Card, Empty, KpiRow, RepBars, plural, rankReps } from './shared';
 
@@ -13,6 +14,7 @@ const CONFIDENT = 3;
 export default function LevelTwo({ s }: { s: Stats }) {
   const router = useRouter();
   const queue = s.cur.filter((p) => p.status === 'Pending Review');
+  const disqualificationQueue = s.deals.filter((deal) => deal.pendingDisqualificationReason);
   const ranked = rankReps(s.closed);
   const eligible = ranked.filter((r) => r.w + r.l >= CONFIDENT);
   const best = eligible[0];
@@ -63,7 +65,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
             <div className="hero-stat"><div className="hs-num gold">{s.pending}</div><div className="hs-lbl">Awaiting review</div></div>
             <div className="hero-stat"><div className="hs-num">{s.approvalRate}%</div><div className="hs-lbl">Approval rate</div></div>
             <div className="hero-stat"><div className="hs-num">{s.winRate}%</div><div className="hs-lbl">Post-approval win</div></div>
-            <div className="hero-stat"><div className="hs-num">{s.stalled.length}</div><div className="hs-lbl">Stalled deals</div></div>
+            <div className="hero-stat"><div className="hs-num">{s.attentionDeals.length}</div><div className="hs-lbl">Deals needing attention</div></div>
           </div>
         </div>
       </section>
@@ -78,6 +80,26 @@ export default function LevelTwo({ s }: { s: Stats }) {
         />
       )}
 
+      {disqualificationQueue.length > 0 && (
+        <ActionStrip
+          icon="!"
+          title={`${disqualificationQueue.length} disqualification request${disqualificationQueue.length === 1 ? '' : 's'} need a decision`}
+          sub="Commission-impacting outcomes stay Open until you approve or decline them."
+          cta="Review requests"
+          href="/pipeline"
+        />
+      )}
+
+      {s.escalatedOutcomeDeals.length > 0 && (
+        <ActionStrip
+          icon="!"
+          title={`${s.escalatedOutcomeDeals.length} overdue deal${s.escalatedOutcomeDeals.length === 1 ? ' has' : 's have'} escalated to you`}
+          sub="These deals are still Open and scored in pipeline value, but their target close dates passed at least 14 days ago."
+          cta="Resolve outcomes"
+          href="/pipeline"
+        />
+      )}
+
       <KpiRow
         items={[
           { l: 'Pending Review', v: s.pending, sub: 'Awaiting a decision', c: s.pending ? 'kpi-warn' : '' },
@@ -85,7 +107,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
           { l: 'Post-Approval Win', v: `${s.winRate}%`, sub: `${s.won}W / ${s.won + s.lost} decided`, c: 'kpi-up' },
           { l: 'Team Pipeline', v: fmtRM(s.pipelineValue), sub: `${s.deals.length} open deals` },
           { l: 'Weighted', v: fmtRM(s.weighted), sub: 'Probability-adjusted' },
-          { l: 'Stalled Deals', v: s.stalled.length, sub: 'Past stage SLA', c: s.stalled.length ? 'kpi-danger' : '' },
+          { l: 'Needs Outcome', v: s.needsOutcome.length, sub: `${s.escalatedOutcomeDeals.length} escalated at 14+ days`, c: s.needsOutcome.length ? 'kpi-danger' : '' },
         ]}
       />
 
@@ -118,9 +140,10 @@ export default function LevelTwo({ s }: { s: Stats }) {
 
       <div className="analytics-grid">
         <Card title="Deals Needing Attention" link="Open pipeline" linkHref="/pipeline">
-          {s.stalled.length ? (
-            s.stalled.slice(0, 6).map((d, i) => {
+          {s.attentionDeals.length ? (
+            s.attentionDeals.slice(0, 6).map((d, i) => {
               const st = STAGES[d.stage - 1];
+              const needsOutcome = dealNeedsOutcome(d);
               return (
                 <div
                   className="activity-item"
@@ -130,13 +153,15 @@ export default function LevelTwo({ s }: { s: Stats }) {
                 >
                   <div
                     className={`activity-dot ${
-                      d.status === 'Stalled' || d.status === 'At Risk' ? 'red' : 'amber'
+                      needsOutcome || d.status === 'Stalled' || d.status === 'At Risk' ? 'red' : 'amber'
                     }`}
                   />
                   <div className="activity-info">
                     <div className="activity-name">{d.account}</div>
                     <div className="activity-desc">
-                      {d.rep} · {st?.name || `Stage ${d.stage}`} · {d.daysInStage}d of {st?.sla}d SLA
+                      {d.rep} · {needsOutcome
+                        ? `Needs Outcome · ${dealOutcomeOverdueDays(d)}d overdue${dealOutcomeEscalated(d) ? ' · escalated' : ''}`
+                        : `${st?.name || `Stage ${d.stage}`} · ${d.daysInStage}d of ${st?.sla}d SLA`}
                     </div>
                   </div>
                   <div className="activity-right">
@@ -149,7 +174,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
               );
             })
           ) : (
-            <Empty>Every deal is inside its stage SLA 🎉</Empty>
+            <Empty>No stage-SLA or overdue-outcome issues.</Empty>
           )}
         </Card>
 
@@ -214,6 +239,27 @@ export default function LevelTwo({ s }: { s: Stats }) {
           </div>
         </Card>
       </div>
+
+      <Card title="Outcome Hygiene by Rep" note="Open deals past their target close date; escalation begins at 14 days overdue.">
+        {s.outcomeHygiene.length ? (
+          <div className="hygiene-table" role="table" aria-label="Outcome hygiene counts by salesperson">
+            <div className="hygiene-row hygiene-head" role="row">
+              <span role="columnheader">Salesperson</span>
+              <span role="columnheader">Needs Outcome</span>
+              <span role="columnheader">Escalated</span>
+            </div>
+            {s.outcomeHygiene.map((row) => (
+              <div className="hygiene-row" role="row" key={row.rep}>
+                <strong role="cell">{row.rep}</strong>
+                <span role="cell">{row.needsOutcome}</span>
+                <span role="cell" className={row.escalated ? 'hygiene-escalated' : ''}>{row.escalated}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <Empty>No open deal is past its target close date.</Empty>
+        )}
+      </Card>
     </>
   );
 }

@@ -33,6 +33,15 @@ const PROPOSAL_WORKFLOW_MESSAGES = [
   'Proposal submission time can only be set by submitting a draft.',
   'Reviewer audit fields can only be set when a pending proposal is decided.',
   'Proposal outcomes can only be tracked on approved versions.',
+  'Deal outcomes must be recorded by closing the linked deal.',
+  'This deal already has a live proposal case. Close or supersede it before attaching another.',
+  'An approved or closed proposal must have a non-empty opportunity ID before it can link a deal.',
+  'A pending disqualification must be approved or declined before the deal can be deleted.',
+  'Disqualified deals require Level 2 approval.',
+  'A deal can only be linked to a case by the proposal workflow.',
+  'A deal case link can only be changed by the proposal workflow.',
+  'A linked deal cannot be moved to another opportunity.',
+  'A pending disqualification request can only be changed by the review workflow.',
   'Level 1 users cannot change reviewer-controlled proposal fields.',
   'This proposal status transition is not permitted.',
 ];
@@ -106,10 +115,19 @@ export async function PUT(
       return json({ error: error.message }, 403);
     }
     if (error instanceof SupabaseDataError && error.code === '42501') {
+      const knownMessage = PROPOSAL_WORKFLOW_MESSAGES.find((message) =>
+        error.message.endsWith(message)
+      );
+      const message = knownMessage || (collection === 'proposals'
+        ? proposalWorkflowMessage(error)
+        : 'You do not have permission to make this change.');
+      return json({ error: message }, 403);
+    }
+    if (error instanceof SupabaseDataError && error.code === '23505') {
       const message = collection === 'proposals'
         ? proposalWorkflowMessage(error)
-        : 'You do not have permission to make this change.';
-      return json({ error: message }, 403);
+        : 'This record conflicts with an existing record.';
+      return json({ error: message }, 409);
     }
     return json({ error: `Could not persist ${collection} to Supabase.` }, 502);
   }

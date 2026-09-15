@@ -42,13 +42,68 @@ export async function waitForPendingDataSync() {
  * Serialize the full proposal operation, including the initial sync drain and
  * confirmed read. This closes the gap a bare "wait, then write" would leave.
  */
-export function runProposalDataTransaction<T>(transaction: () => Promise<T> | T) {
+export function runDataTransaction<T>(transaction: () => Promise<T> | T) {
   const generation = dataLayerGeneration;
   return proposalTransactionCoordinator.run(async () => {
     assertCurrentGeneration(generation);
     await waitForPendingDataSync();
     assertCurrentGeneration(generation);
     return transaction();
+  });
+}
+
+export function runProposalDataTransaction<T>(transaction: () => Promise<T> | T) {
+  return runDataTransaction(transaction);
+}
+
+export type DealWorkflowCommand =
+  | {
+      action: 'close';
+      dealId: string;
+      outcome: 'Won' | 'Lost' | 'Disqualified';
+      reason: string;
+      source: string;
+      closeDate: string;
+      expectedUpdatedAt: string;
+    }
+  | {
+      action: 'review-disqualification';
+      dealId: string;
+      approve: boolean;
+      expectedUpdatedAt: string;
+    };
+
+export type DealWorkflowResult = {
+  status: 'closed' | 'pending_approval' | 'declined';
+  dealId: string;
+  outcome: 'Open' | 'Won' | 'Lost' | 'Disqualified';
+};
+
+export function executeRemoteDealWorkflow(command: DealWorkflowCommand) {
+  if (!isRemoteDataSource()) {
+    throw new DataLayerError('The remote deal workflow is unavailable in seed mode.');
+  }
+
+  return runDataTransaction(async () => {
+    const generation = dataLayerGeneration;
+    const response = await controlledFetch('/api/deals/close', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(command),
+    });
+    const body = await responseJson(response) as Partial<DealWorkflowResult> & { error?: string };
+    assertCurrentGeneration(generation);
+    if (!response.ok) {
+      throw new DataLayerError(body.error || 'Could not complete the deal workflow.');
+    }
+    if (!body.status || !body.dealId || !body.outcome) {
+      throw new DataLayerError('The deal workflow returned an invalid response.');
+    }
+
+    await loadRemotePayload(generation);
+    assertCurrentGeneration(generation);
+    window.dispatchEvent(new Event('rams:remote-data'));
+    return body as DealWorkflowResult;
   });
 }
 

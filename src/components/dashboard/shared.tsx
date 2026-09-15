@@ -116,12 +116,13 @@ export function Empty({ children }: { children: ReactNode }) {
 }
 
 /** Win rate per rep, ranked best first — used by L2 and L3. */
-export function rankReps(closed: { rep: string; outcome: 'Won' | 'Lost' }[]) {
+export function rankReps(closed: { rep: string; outcome: 'Won' | 'Lost' | 'Disqualified' }[]) {
   const reps: Record<string, { w: number; l: number }> = {};
   closed.forEach((d) => {
+    if (d.outcome !== 'Won' && d.outcome !== 'Lost') return;
     const r = reps[d.rep] || (reps[d.rep] = { w: 0, l: 0 });
     if (d.outcome === 'Won') r.w++;
-    else r.l++;
+    else if (d.outcome === 'Lost') r.l++;
   });
   return Object.entries(reps)
     .map(([rep, r]) => ({

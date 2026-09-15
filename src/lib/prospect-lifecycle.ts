@@ -15,25 +15,16 @@ export function canManageProspect(prospect: Prospect, level: number, userId?: st
   return level >= 2 || Boolean(userId && prospect.ownerId === userId);
 }
 
-function normalizedName(value: string | null | undefined) {
-  return (value || '').trim().toLocaleLowerCase();
-}
-
-/** Resolve every relationship the current data model can tie to a prospect. */
+/** Resolve only durable ID relationships; never guess from account text. */
 export function prospectDependencies(
   prospect: Prospect,
   deals: Deal[],
   proposals: Proposal[],
   closedDeals: ClosedDeal[] = []
 ): ProspectDependencies {
-  const name = normalizedName(prospect.name);
   const activeDeals = dealsForProspect(deals, prospect);
-  const historicalDeals = name
-    ? closedDeals.filter((deal) => normalizedName(deal.account) === name)
-    : [];
-  const linkedProposals = name
-    ? proposals.filter((proposal) => normalizedName(proposal.company) === name)
-    : [];
+  const historicalDeals = closedDeals.filter((deal) => deal.prospectId === prospect.id);
+  const linkedProposals = proposals.filter((proposal) => proposal.prospectId === prospect.id);
 
   return {
     opportunities: Math.max(0, prospect.opportunities || 0),

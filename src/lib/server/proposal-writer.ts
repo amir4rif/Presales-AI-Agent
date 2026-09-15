@@ -80,9 +80,6 @@ function mutableProposalUpdate(row: ProposalUpdate, actualStatus: string): Propo
     copyDefined(update, row, 'rejection_reason');
     copyDefined(update, row, 'review_note');
     copyDefined(update, row, 'outcome');
-  } else if (actualStatus === 'Approved' && desiredStatus === actualStatus) {
-    // Outcome tracking is the only supported same-status edit after approval.
-    copyDefined(update, row, 'outcome');
   }
 
   return update;

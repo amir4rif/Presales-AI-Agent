@@ -5,7 +5,7 @@ export type ProposalStageRecord = {
   caseId: string;
   version?: number;
   status: string;
-  outcome?: 'Pending' | 'Won' | 'Lost';
+  outcome?: 'Pending' | 'Won' | 'Lost' | 'Disqualified';
 };
 
 type CaseState = {

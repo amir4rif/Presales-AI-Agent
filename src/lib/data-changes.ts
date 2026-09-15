@@ -2,10 +2,14 @@ import type { DataCollection } from './integrations';
 
 export type DataChangeOptions = {
   /**
-   * Proposal and prospect deletes are destructive and must be explicitly
+   * Proposal, deal, and prospect deletes are destructive and must be explicitly
    * tied to the user's confirmed delete action.
    */
   proposalDeleteIds?: readonly string[];
+  /** Deal deletion is allowed only from the confirmed row action. */
+  dealDeleteIds?: readonly string[];
+  /** Closed-deal deletion is allowed only from its confirmed history action. */
+  closedDealDeleteIds?: readonly string[];
   /** Prospect deletion is likewise allowed only from its explicit confirmed action. */
   prospectDeleteIds?: readonly number[];
   /**
@@ -26,9 +30,9 @@ function itemKey(collection: DataCollection, value: unknown): string {
   if (!item) return '';
   if (collection === 'proposals' || collection === 'prospects') return String(item.id || '');
   if (collection === 'team') return String(item.id || item.email || '');
-  if (item.id) return String(item.id);
-  if (collection === 'deals') return JSON.stringify([item.rep, item.account]);
-  return JSON.stringify([item.rep, item.account, item.closeDate]);
+  // Deal identity is always its stable ID. Account text is display data and
+  // must never become an implicit relationship or mutation key.
+  return String(item.id || '');
 }
 
 /** Preserve proposal rows omitted by a stale full-store client snapshot. */
@@ -60,13 +64,17 @@ export function changesBetween(
   });
 
   // A full collection array can be stale while another browser tab creates a
-  // row. Proposal and prospect deletion therefore require the exact ID from
+  // row. Proposal, deal, and prospect deletion therefore require the exact ID from
   // the confirmed Delete action; ordinary updates never infer deletes.
   const allowedDeletes = collection === 'proposals'
     ? new Set((options.proposalDeleteIds || []).map(String))
-    : collection === 'prospects'
-      ? new Set((options.prospectDeleteIds || []).map(String))
-      : null;
+    : collection === 'deals'
+      ? new Set((options.dealDeleteIds || []).map(String))
+      : collection === 'closedDeals'
+        ? new Set((options.closedDealDeleteIds || []).map(String))
+      : collection === 'prospects'
+        ? new Set((options.prospectDeleteIds || []).map(String))
+        : null;
   const deletes = previous.filter((item) => {
     const key = itemKey(collection, item);
     return !after.has(key) && (!allowedDeletes || allowedDeletes.has(key));

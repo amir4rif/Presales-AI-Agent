@@ -27,12 +27,17 @@ import {
   currentUserId,
   ensureProposalStore,
   fmtRM,
+  getClosedDeals,
+  getDeals,
   profileIdForName,
+  saveClosedDeals,
+  saveDeals,
   saveProposals,
-  type DealOutcome,
+  type ClosedDeal,
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
+import { addCalendarDays, localDateKey } from '@/lib/deal-outcomes';
 import {
   initializeDataLayer,
   isRemoteDataSource,
@@ -58,19 +63,27 @@ const REJECTION_REASONS = [
   'Scope mismatch',
   'Wrong product fit',
   'Missing information',
-  'Compliance issue',
+  'Compliance',
+  'Blacklisted account',
   'Formatting/quality',
   'Out of scope',
   'Other',
 ];
 const CLOSE_REASONS = new Set([
-  'Compliance issue',
+  'Compliance',
+  'Blacklisted account',
   'Out of scope',
   'Wrong product fit',
 ]);
 
 const isRejected = (status: string) =>
   status === 'Reject & Revise' || status === 'Reject & Close';
+
+const isLiveDealCase = (proposal: Proposal) =>
+  proposal.status === 'Draft' ||
+  proposal.status === 'Pending Review' ||
+  proposal.status === 'Reject & Revise' ||
+  (proposal.status === 'Approved' && (!proposal.outcome || proposal.outcome === 'Pending'));
 
 function pillClass(status: string) {
   if (status === 'Approved') return 'pill-approved';
@@ -84,6 +97,7 @@ function pillClass(status: string) {
 function outcomePillClass(outcome: string) {
   if (outcome === 'Won') return 'pill-won';
   if (outcome === 'Lost') return 'pill-lost';
+  if (outcome === 'Disqualified') return 'pill-disqualified';
   return 'pill-outcome-pending';
 }
 
@@ -103,7 +117,6 @@ function ApprovalsPage() {
   const [note, setNote] = useState('');
   const [reasonError, setReasonError] = useState('');
   const [pendingDecision, setPendingDecision] = useState<ProposalStatus | null>(null);
-  const [outcomeSaved, setOutcomeSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -136,8 +149,9 @@ function ApprovalsPage() {
   /* v10: outcome stats for approved proposals. */
   const won = approved.filter((p) => p.outcome === 'Won').length;
   const lost = approved.filter((p) => p.outcome === 'Lost').length;
+  const disqualified = approved.filter((p) => p.outcome === 'Disqualified').length;
   const outcomeSub = approved.length
-    ? `${won} Won · ${lost} Lost · ${approved.length - won - lost} Pending`
+    ? `${won} Won · ${lost} Lost · ${disqualified} Disqualified · ${approved.length - won - lost - disqualified} Pending`
     : 'All time';
 
   const kpis = [
@@ -172,7 +186,6 @@ function ApprovalsPage() {
     setNote('');
     setReasonError('');
     setPendingDecision(null);
-    setOutcomeSaved(false);
   }
 
   function closeReview() {
@@ -196,7 +209,7 @@ function ApprovalsPage() {
         toast('⚠️ This proposal was already changed elsewhere. The latest status is now shown.', true);
         return null;
       }
-      const next = currentStore.map((p) => {
+      let next = currentStore.map((p) => {
         if (p.id !== id) return p;
         const updated: Proposal = {
           ...p,
@@ -212,20 +225,112 @@ function ApprovalsPage() {
           // v10: an approved proposal starts outcome tracking. IDs are filled
           // in only when absent — an existing Case ID ties versions together.
           updated.outcome = updated.outcome || 'Pending';
-          if (!updated.caseId && !isRemoteDataSource()) {
-            updated.caseId = generateCaseId();
-          }
+        }
+        if (!isRemoteDataSource() && (decision === 'Approved' || decision === 'Reject & Close')) {
+          updated.caseId = updated.caseId || generateCaseId();
           updated.opportunityId = updated.opportunityId || generateOppId();
         }
         return updated;
       });
+
+      if (!isRemoteDataSource() && (decision === 'Approved' || decision === 'Reject & Close')) {
+        const proposal = next.find((item) => item.id === id)!;
+        const currentDeals = getDeals();
+        const now = new Date().toISOString();
+        let linked = currentDeals.find((deal) => deal.opportunityId === proposal.opportunityId);
+        const linkAction: NonNullable<Proposal['dealLinkAction']> = linked ? 'attached' : 'created';
+
+        if (linked) {
+          const conflictingCase = currentStore.find((item) =>
+            item.id !== proposal.id &&
+            item.dealId === linked?.id &&
+            item.caseId !== proposal.caseId &&
+            isLiveDealCase(item)
+          );
+          if (conflictingCase) {
+            throw new Error('This deal already has a live proposal case. Close or supersede it before attaching another.');
+          }
+          linked = {
+            ...linked,
+            caseId: proposal.caseId,
+            opportunityId: proposal.opportunityId,
+            prospectId: proposal.prospectId ?? linked.prospectId,
+            updatedAt: now,
+          };
+        } else {
+          linked = {
+            id: crypto.randomUUID(),
+            ownerId: proposal.ownerId || profileIdForName(proposal.owner),
+            prospectId: proposal.prospectId,
+            caseId: proposal.caseId,
+            opportunityId: proposal.opportunityId,
+            rep: proposal.owner,
+            account: proposal.company,
+            outcome: 'Open',
+            stage: 1,
+            daysInStage: 0,
+            daysToClose: 90,
+            closeDate: addCalendarDays(localDateKey(), 90),
+            value: proposal.value,
+            movement: 'Advanced',
+            status: 'On Track',
+            notes: '',
+            updatedAt: now,
+          };
+        }
+
+        next = next.map((item) => item.id === id
+          ? {
+              ...item,
+              dealId: linked!.id,
+              dealLinkAction: linkAction,
+              dealLinkedAt: now,
+              outcome: decision === 'Reject & Close' ? 'Disqualified' : item.outcome,
+            }
+          : item);
+
+        const otherDeals = currentDeals.filter((deal) => deal.id !== linked!.id);
+        if (decision === 'Reject & Close') {
+          const historical: ClosedDeal = {
+            id: linked.id,
+            ownerId: linked.ownerId,
+            prospectId: linked.prospectId,
+            caseId: proposal.caseId,
+            opportunityId: proposal.opportunityId,
+            rep: linked.rep,
+            account: linked.account,
+            value: linked.value,
+            closeDate: localDateKey(),
+            source: 'Proposal',
+            outcome: 'Disqualified',
+            lossReason: '',
+            disqualificationReason: why,
+            closedById: currentUserId(),
+            closedBy: who,
+            closedAt: now,
+            disqualificationRequestedById: proposal.ownerId,
+            disqualificationRequestedBy: proposal.owner,
+            disqualificationRequestedAt: proposal.submittedDate,
+            disqualificationApprovedById: currentUserId(),
+            disqualificationApprovedBy: who,
+            disqualificationApprovedAt: now,
+          };
+          const currentClosed = getClosedDeals();
+          await saveClosedDeals([...currentClosed.filter((deal) => deal.id !== linked!.id), historical]);
+          await saveDeals(otherDeals, { dealDeleteIds: linked.id ? [linked.id] : [] });
+        } else {
+          await saveDeals([...otherDeals, linked]);
+        }
+      }
+
       const persisted = await saveProposals(next);
       if (!persisted) {
         await reconcileWithRemote();
         return null;
       }
-      reload();
-      return next.find((p) => p.id === id)!;
+      const canonical = ensureProposalStore();
+      setStore(canonical);
+      return canonical.find((p) => p.id === id) || next.find((p) => p.id === id)!;
     });
   }
 
@@ -261,16 +366,19 @@ function ApprovalsPage() {
         return;
       }
 
-      const icon = decision === 'Approved' ? '✅' : decision === 'Reject & Revise' ? '↩' : '✕';
       const label =
         decision === 'Approved'
-          ? 'approved'
+          ? `approved · ${p.dealLinkAction === 'attached' ? 'existing deal attached' : 'new deal created'}`
           : decision === 'Reject & Revise'
             ? 'sent back for revision'
-            : 'closed';
-      toast(`${icon} ${p.deal} ${label}`, decision !== 'Approved');
+            : 'rejected · linked deal disqualified';
+      toast(`${p.deal} ${label}`, decision !== 'Approved');
 
       closeReview();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'The proposal decision could not be saved.';
+      setReasonError(message);
+      toast(message, true);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -286,40 +394,11 @@ function ApprovalsPage() {
     setSaving(true);
     try {
       const p = await applyDecision(id, 'Approved', '', target.reviewNote);
-      if (p) toast(`✅ ${p.deal} approved`);
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  }
-
-  /* v10 — FEATURE 3: outcome tracking on an approved proposal. */
-  async function saveOutcome(outcome: DealOutcome) {
-    if (!reviewing || savingRef.current) return;
-    savingRef.current = true;
-    setSaving(true);
-    setOutcomeSaved(false);
-    try {
-      await runProposalDataTransaction(async () => {
-        const currentStore = ensureProposalStore();
-        const target = currentStore.find((proposal) => proposal.id === reviewing.id);
-        if (!target || target.status !== 'Approved') {
-          await reconcileWithRemote();
-          toast('⚠️ This proposal changed elsewhere. The latest status is now shown.', true);
-          return;
-        }
-        const next = currentStore.map((p) =>
-          p.id === reviewing.id ? { ...p, outcome } : p
-        );
-        const persisted = await saveProposals(next);
-        if (!persisted) {
-          await reconcileWithRemote();
-          return;
-        }
-        reload();
-        setOutcomeSaved(true);
-        setTimeout(() => setOutcomeSaved(false), 1500);
-      });
+      if (p) {
+        toast(`${p.deal} approved · ${p.dealLinkAction === 'attached' ? 'existing deal attached' : 'new deal created'}`);
+      }
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'The proposal could not be approved.', true);
     } finally {
       savingRef.current = false;
       setSaving(false);
@@ -499,8 +578,8 @@ function ApprovalsPage() {
                   className="row-btn reject lg"
                   disabled={saving || !CLOSE_REASONS.has(reason)}
                   title={CLOSE_REASONS.has(reason)
-                    ? 'Unfixable — case ends, counted as loss'
-                    : 'Available only for compliance, out-of-scope, or wrong-product-fit reasons'}
+                    ? 'Structural rejection — case ends and its linked deal is disqualified'
+                    : 'Available only for compliance, blacklist, out-of-scope, or wrong-product-fit reasons'}
                   onClick={() => requestConfirm('Reject & Close')}
                 >
                   ✕ Reject &amp; Close
@@ -563,10 +642,9 @@ function ApprovalsPage() {
               </div>
             )}
 
-            {/* v10 — FEATURE 3: outcome tracking, approved proposals only */}
-            {reviewing.status === 'Approved' && (
+            {(reviewing.status === 'Approved' || reviewing.dealId) && (
               <div className="outcome-section">
-                <div className="os-title">Deal Outcome</div>
+                <div className="os-title">Linked Deal</div>
                 <div className="outcome-meta-grid">
                   <div>
                     <div className="lbl">Case ID</div>
@@ -576,31 +654,30 @@ function ApprovalsPage() {
                     <div className="lbl">Opportunity ID</div>
                     <div className="val">{reviewing.opportunityId || '—'}</div>
                   </div>
+                  <div>
+                    <div className="lbl">Deal ID</div>
+                    <div className="val">{reviewing.dealId || 'Link created on approval'}</div>
+                  </div>
+                  <div>
+                    <div className="lbl">Link Result</div>
+                    <div className="val">
+                      {reviewing.dealLinkAction === 'attached'
+                        ? 'Existing deal attached'
+                        : reviewing.dealLinkAction === 'created'
+                          ? 'New deal created'
+                          : 'Pending decision'}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="lbl">Outcome</div>
+                    <div className="val">{reviewing.outcome || 'Pending'}</div>
+                  </div>
                 </div>
-                <div className="outcome-select-row">
-                  <label style={{ fontSize: 11, fontWeight: 500, color: 'var(--gray-700)' }}>
-                    Outcome:
-                  </label>
-                  <select
-                    value={reviewing.outcome || 'Pending'}
-                    disabled={saving}
-                    onChange={(e) => saveOutcome(e.target.value as DealOutcome)}
-                  >
-                    <option value="Pending">Pending</option>
-                    <option value="Won">Won</option>
-                    <option value="Lost">Lost</option>
-                  </select>
-                  <span
-                    style={{
-                      fontSize: 11,
-                      color: 'var(--brand-500)',
-                      opacity: outcomeSaved ? 1 : 0,
-                      transition: 'opacity .3s',
-                    }}
-                  >
-                    ✓ Saved
-                  </span>
-                </div>
+                {reviewing.status === 'Approved' && (!reviewing.outcome || reviewing.outcome === 'Pending') && (
+                  <div className="an-note" style={{ marginTop: 8 }}>
+                    Record Won, Lost, or Disqualified from the linked deal in Pipeline. Proposal outcomes cannot be edited separately.
+                  </div>
+                )}
               </div>
             )}
 
@@ -631,8 +708,8 @@ function ApprovalsPage() {
                     </div>
                   )}
                   <div className="an-note" style={{ marginTop: 6 }}>
-                    Reject &amp; Close is available only for Compliance issue, Out of scope,
-                    or Wrong product fit. All other reasons must use Reject &amp; Revise.
+                    Reject &amp; Close is available only for Compliance, Blacklisted account,
+                    Out of scope, or Wrong product fit. It disqualifies the linked deal and is excluded from scoring.
                   </div>
                 </div>
 

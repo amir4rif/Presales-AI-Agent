@@ -364,11 +364,32 @@ table.rfp-table tr:last-child td { border-bottom: none; }
 .rep-bar.weighted { background: #3B82F6; }
 .rep-bar-val     { font-size: 11px; font-family: var(--mono); color: var(--gray-400); min-width: 70px; text-align: right; }
 .deals-table-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: auto; margin-bottom: 16px; }
-table.deals-table { width: 100%; border-collapse: collapse; min-width: 900px; }
+table.deals-table { width: 100%; border-collapse: collapse; min-width: 1180px; }
 table.deals-table th { font-size: 11px; font-weight: 500; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 14px; background: var(--gray-50); border-bottom: 1px solid var(--gray-100); text-align: left; white-space: nowrap; }
 table.deals-table td { padding: 11px 14px; border-bottom: 1px solid var(--gray-100); font-size: 13px; vertical-align: middle; color: var(--gray-900); }
 table.deals-table tr.stalled td { background: var(--gray-50); }
+table.deals-table tr.needs-outcome-row td { background: rgba(245, 158, 11, 0.055); }
 table.deals-table tr:last-child td { border-bottom: none; }
+table.deals-table th:last-child { position: sticky; right: 0; z-index: 2; min-width: 192px; box-shadow: -10px 0 18px rgba(2, 6, 23, .16); }
+table.deals-table td:last-child { position: sticky; right: 0; z-index: 1; min-width: 192px; background: var(--white); box-shadow: -10px 0 18px rgba(2, 6, 23, .12); }
+table.deals-table tr.stalled td:last-child { background: var(--gray-50); }
+table.deals-table tr.needs-outcome-row td:last-child { background: color-mix(in srgb, var(--white) 94.5%, #f59e0b); }
+.deal-row-actions { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.needs-outcome-badge { display: inline-block; margin-top: 4px; padding: 2px 7px; border: 1px solid var(--amber-600); border-radius: 999px; color: var(--amber-600); font-size: 10px; font-weight: 600; white-space: nowrap; }
+.needs-outcome-badge.escalated { border-color: var(--red-700); color: var(--red-700); }
+.deal-close-summary, .deal-review-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 18px; padding: 14px; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 10px; }
+.deal-close-summary div, .deal-review-summary div { min-width: 0; }
+.deal-close-summary span, .deal-review-summary span { display: block; margin-bottom: 3px; color: var(--gray-500); font-size: 10px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.deal-close-summary strong, .deal-review-summary strong { display: block; overflow-wrap: anywhere; color: var(--gray-900); font-size: 12.5px; font-weight: 600; }
+.deal-approval-note { padding: 10px 12px; border: 1px solid var(--amber-600); border-radius: 9px; background: var(--amber-50); color: var(--amber-600); font-size: 12px; line-height: 1.5; }
+.deal-audit-note { margin-top: 2px; color: var(--gray-500); font-size: 10.5px; }
+.delete-deal-name { padding: 12px 14px; background: var(--gray-50); border-radius: 9px; color: var(--gray-900); font-size: 13px; font-weight: 600; }
+.hygiene-table { display: flex; flex-direction: column; }
+.hygiene-row { display: grid; grid-template-columns: minmax(180px, 1fr) 130px 100px; gap: 14px; align-items: center; padding: 10px 4px; border-bottom: 1px solid var(--gray-100); color: var(--gray-700); font-size: 12.5px; }
+.hygiene-row:last-child { border-bottom: 0; }
+.hygiene-head { padding-top: 0; color: var(--gray-500); font-size: 10.5px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+.hygiene-row strong { color: var(--gray-900); font-weight: 600; }
+.hygiene-escalated { color: var(--red-700); font-weight: 700; }
 .movement-up   { color: var(--brand-400); font-weight: 500; }
 .movement-held { color: var(--amber-600); }
 .movement-down { color: var(--red-700); }
@@ -1013,6 +1034,7 @@ button[type="submit"]:hover, #login-btn:hover, #register-btn:hover {
 .analytics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: 16px; margin-bottom: 16px; align-items: start; }
 .outcome-won  { color: var(--brand-300); font-weight: 600; }
 .outcome-lost { color: var(--red-500); font-weight: 600; }
+.outcome-disqualified { color: var(--amber-600); font-weight: 600; }
 
 /* ═══════════════════════════════════════════════════════════
    PREMIUM DESIGN LAYER  (gradient-hairline glass · glow · hero)
@@ -1332,6 +1354,7 @@ body::after {
 .row-btn { font-size: 11.5px; font-weight: 500; padding: 6px 12px; border-radius: 7px; cursor: pointer; font-family: var(--font); border: 1px solid var(--gray-200); background: none; color: var(--gray-700); transition: all .15s; }
 .row-btn:disabled { opacity: .45; cursor: not-allowed; }
 .row-btn:hover:not(:disabled) { border-color: var(--brand-400); color: var(--brand-400); background: var(--brand-50); }
+.row-btn:focus-visible { outline: 2px solid var(--brand-400); outline-offset: 2px; }
 .row-btn.resubmit { border-color: #FB923C; color: #FB923C; }
 .row-btn.resubmit:hover:not(:disabled) { background: #FB923C; color: white; }
 .row-btn.danger { border-color: var(--red-700); color: var(--red-700); }
@@ -1572,4 +1595,5 @@ body::after {
 .outcome-select-row select:focus { border-color: var(--brand-400); }
 .pill-won  { background: var(--brand-50); color: var(--brand-500); border: 1px solid var(--brand-500); }
 .pill-lost { background: var(--red-50); color: var(--red-700); border: 1px solid var(--red-700); }
+.pill-disqualified { background: var(--amber-50); color: var(--amber-600); border: 1px solid var(--amber-600); }
 .pill-outcome-pending { background: var(--gray-100); color: var(--gray-500); border: 1px solid var(--gray-200); }
