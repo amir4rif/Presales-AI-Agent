@@ -1,4 +1,6 @@
 begin;
+create extension if not exists pgtap with schema extensions;
+set local search_path = public, extensions;
 select plan(12);
 
 insert into auth.users (id, email)
@@ -46,7 +48,7 @@ values
   ('PROP-DELETE-HISTORY-V1', 'CASE-DELETE-HISTORY', 1, 'History Co', 'History Deal', 100,
     '12000000-0000-0000-0000-000000000001', 'Draft Owner',
     '12000000-0000-0000-0000-000000000001', 'Draft Owner', 'Approved', '', '{}'::jsonb),
-  ('PROP-DELETE-HISTORY-V2', 'CASE-DELETE-HISTORY', 2, 'History Co', 'History Deal', 100,
+  ('PROP-DELETE-HISTORY-V2', 'CASE-DELETE-REUSABLE', 1, 'Reusable Draft Co', 'Reusable Draft Deal', 100,
     '12000000-0000-0000-0000-000000000001', 'Draft Owner',
     '12000000-0000-0000-0000-000000000001', 'Draft Owner', 'Draft', '', '{}'::jsonb);
 
@@ -99,19 +101,19 @@ select results_eq(
 select results_eq(
   $$delete from public.proposals where id = 'PROP-DELETE-HISTORY-V2' returning id$$,
   array['PROP-DELETE-HISTORY-V2'],
-  'The owner can delete Draft version 2'
+  'The owner can delete another valid first-version Draft'
 );
 
 select is(
   (select count(*) from public.proposals where id = 'PROP-DELETE-HISTORY-V1'),
   1::bigint,
-  'Deleting version 2 leaves version 1 intact'
+  'Deleting an independent Draft leaves approved history intact'
 );
 
 select is(
   (select count(*) from public.proposal_version_history where case_id = 'CASE-DELETE-HISTORY'),
   1::bigint,
-  'Deleting Draft version 2 leaves the case history for version 1 intact'
+  'Deleting an independent Draft leaves the approved case in the history view'
 );
 
 select lives_ok(
@@ -119,19 +121,19 @@ select lives_ok(
       id, case_id, version, company, deal, value,
       submitted_by_id, submitted_by, owner_id, owner, status, sections
     ) values (
-      'PROP-DELETE-HISTORY-V2-RECREATED', 'CASE-DELETE-HISTORY', 2,
-      'History Co', 'History Deal', 100,
+      'PROP-DELETE-HISTORY-V2-RECREATED', 'CASE-DELETE-REUSABLE', 1,
+      'Reusable Draft Co', 'Reusable Draft Deal', 100,
       '12000000-0000-0000-0000-000000000001', 'Draft Owner',
       '12000000-0000-0000-0000-000000000001', 'Draft Owner',
       'Draft', '{}'::jsonb
     )$$,
-  'Version 2 can be created again after its Draft predecessor is deleted'
+  'A first-version Draft identity can be reused after its row is deleted'
 );
 
 select results_eq(
-  $$select version from public.proposals where case_id = 'CASE-DELETE-HISTORY' order by version$$,
-  array[1, 2],
-  'The recreated case contains versions 1 and 2'
+  $$select version from public.proposals where case_id = 'CASE-DELETE-REUSABLE' order by version$$,
+  array[1],
+  'The recreated Draft remains a valid first proposal version'
 );
 
 select * from finish();

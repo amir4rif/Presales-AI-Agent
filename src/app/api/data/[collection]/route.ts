@@ -35,6 +35,11 @@ const PROPOSAL_WORKFLOW_MESSAGES = [
   'Proposal outcomes can only be tracked on approved versions.',
   'Deal outcomes must be recorded by closing the linked deal.',
   'This deal already has a live proposal case. Close or supersede it before attaching another.',
+  'The selected deal is no longer open or is outside your pipeline.',
+  'The linked deal is no longer open. Refresh the approval queue and try again.',
+  'A new linked proposal must be a first-version Draft for one live deal.',
+  'A new proposal needs an id.',
+  'Proposal sections must be a JSON object.',
   'An approved or closed proposal must have a non-empty opportunity ID before it can link a deal.',
   'A pending disqualification must be approved or declined before the deal can be deleted.',
   'Disqualified deals require Level 2 approval.',
@@ -128,6 +133,12 @@ export async function PUT(
         ? proposalWorkflowMessage(error)
         : 'This record conflicts with an existing record.';
       return json({ error: message }, 409);
+    }
+    if (error instanceof SupabaseDataError && error.code === '22023' && collection === 'proposals') {
+      return json({ error: proposalWorkflowMessage(error) }, 400);
+    }
+    if (error instanceof SupabaseDataError && error.code === 'P0002' && collection === 'proposals') {
+      return json({ error: proposalWorkflowMessage(error) }, 409);
     }
     return json({ error: `Could not persist ${collection} to Supabase.` }, 502);
   }

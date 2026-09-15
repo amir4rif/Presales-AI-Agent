@@ -43,7 +43,11 @@ import {
   isRemoteDataSource,
   runProposalDataTransaction,
 } from '@/lib/data-sync';
-import { latestLiveProposalVersions, rejectionReasonStats } from '@/lib/proposal-lifecycle';
+import {
+  isLiveProposalCase,
+  latestLiveProposalVersions,
+  rejectionReasonStats,
+} from '@/lib/proposal-lifecycle';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -78,12 +82,6 @@ const CLOSE_REASONS = new Set([
 
 const isRejected = (status: string) =>
   status === 'Reject & Revise' || status === 'Reject & Close';
-
-const isLiveDealCase = (proposal: Proposal) =>
-  proposal.status === 'Draft' ||
-  proposal.status === 'Pending Review' ||
-  proposal.status === 'Reject & Revise' ||
-  (proposal.status === 'Approved' && (!proposal.outcome || proposal.outcome === 'Pending'));
 
 function pillClass(status: string) {
   if (status === 'Approved') return 'pill-approved';
@@ -237,15 +235,21 @@ function ApprovalsPage() {
         const proposal = next.find((item) => item.id === id)!;
         const currentDeals = getDeals();
         const now = new Date().toISOString();
-        let linked = currentDeals.find((deal) => deal.opportunityId === proposal.opportunityId);
-        const linkAction: NonNullable<Proposal['dealLinkAction']> = linked ? 'attached' : 'created';
+        let linked = proposal.dealId
+          ? currentDeals.find((deal) => deal.id === proposal.dealId)
+          : currentDeals.find((deal) => deal.opportunityId === proposal.opportunityId);
+        if (proposal.dealId && !linked) {
+          throw new Error('The linked deal is no longer open. Refresh the approval queue and try again.');
+        }
+        const linkAction: NonNullable<Proposal['dealLinkAction']> = proposal.dealLinkAction ||
+          (linked ? 'attached' : 'created');
 
         if (linked) {
           const conflictingCase = currentStore.find((item) =>
             item.id !== proposal.id &&
             item.dealId === linked?.id &&
             item.caseId !== proposal.caseId &&
-            isLiveDealCase(item)
+            isLiveProposalCase(item)
           );
           if (conflictingCase) {
             throw new Error('This deal already has a live proposal case. Close or supersede it before attaching another.');
@@ -253,7 +257,7 @@ function ApprovalsPage() {
           linked = {
             ...linked,
             caseId: proposal.caseId,
-            opportunityId: proposal.opportunityId,
+            opportunityId: proposal.opportunityId || linked.opportunityId,
             prospectId: proposal.prospectId ?? linked.prospectId,
             updatedAt: now,
           };
@@ -284,7 +288,7 @@ function ApprovalsPage() {
               ...item,
               dealId: linked!.id,
               dealLinkAction: linkAction,
-              dealLinkedAt: now,
+              dealLinkedAt: item.dealLinkedAt || now,
               outcome: decision === 'Reject & Close' ? 'Disqualified' : item.outcome,
             }
           : item);
@@ -296,7 +300,7 @@ function ApprovalsPage() {
             ownerId: linked.ownerId,
             prospectId: linked.prospectId,
             caseId: proposal.caseId,
-            opportunityId: proposal.opportunityId,
+            opportunityId: proposal.opportunityId || linked.opportunityId,
             rep: linked.rep,
             account: linked.account,
             value: linked.value,

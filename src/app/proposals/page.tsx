@@ -9,13 +9,17 @@ import RequireLevel from '@/components/RequireLevel';
 import { useToast } from '@/components/Toast';
 import { callClaude } from '@/lib/ai';
 import {
-  OPPORTUNITIES,
+  STAGES,
+  currentLevel,
   currentUser,
   currentUserId,
   ensureProposalStore,
   fmtRM,
+  getDeals,
   profileIdForName,
+  saveDeals,
   saveProposals,
+  type Deal,
   type Proposal,
   type ProposalStatus,
 } from '@/lib/data';
@@ -25,7 +29,12 @@ import {
   isRemoteDataSource,
   runProposalDataTransaction,
 } from '@/lib/data-sync';
-import { visibleProposalVersionsForOwner } from '@/lib/proposal-lifecycle';
+import {
+  dealHasLiveProposalCase,
+  dealsAvailableForProposal,
+  visibleDealsForProposal,
+  visibleProposalVersionsForOwner,
+} from '@/lib/proposal-lifecycle';
 import {
   conflictingProposalSectionKeys,
   mergeEditedProposalSections,
@@ -100,7 +109,10 @@ const dealTitle = (p: Proposal) => p.deal + (p.version > 1 ? ` (v${p.version})` 
 function ProposalsPage() {
   const toast = useToast();
   const [store, setStore] = useState<Proposal[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [me, setMe] = useState('');
+  const [level, setLevel] = useState(1);
+  const [viewerId, setViewerId] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -232,7 +244,10 @@ function ProposalsPage() {
     editorCanonicalUpdatedAtRef.current = proposal.updatedAt;
   }, []);
 
-  const reload = useCallback(() => setStore(ensureProposalStore()), []);
+  const reload = useCallback(() => {
+    setStore(ensureProposalStore());
+    setDeals(getDeals());
+  }, []);
   const reconcileWithRemote = useCallback(async () => {
     if (isRemoteDataSource()) {
       await initializeDataLayer({ force: true }).catch(() => undefined);
@@ -242,6 +257,8 @@ function ProposalsPage() {
 
   useEffect(() => {
     setMe(currentUser());
+    setLevel(currentLevel());
+    setViewerId(currentUserId() || '');
     reload();
   }, [reload]);
   useRemoteDataRefresh(reload);
@@ -321,7 +338,7 @@ function ProposalsPage() {
     if (statusFilter !== 'all') out = out.filter((p) => p.status === statusFilter);
     if (q) {
       out = out.filter((p) =>
-        [p.company, p.deal, p.caseId, p.reviewer, p.opportunityId].some((v) =>
+        [p.company, p.deal, p.caseId, p.dealId, p.reviewer, p.opportunityId].some((v) =>
           (v || '').toLowerCase().includes(q)
         )
       );
@@ -334,6 +351,15 @@ function ProposalsPage() {
       return (b.generatedDate || '').localeCompare(a.generatedDate || '');
     });
   }, [store, me, query, statusFilter]);
+
+  const visibleDeals = useMemo(
+    () => visibleDealsForProposal(deals, level, me, viewerId),
+    [deals, level, me, viewerId]
+  );
+  const proposalDealPool = useMemo(
+    () => dealsAvailableForProposal(visibleDeals, store),
+    [store, visibleDeals]
+  );
 
   const caseVersionCount = (caseId: string) => store.filter((p) => p.caseId === caseId).length;
 
@@ -362,6 +388,14 @@ function ProposalsPage() {
         if (!persisted) {
           await reconcileWithRemote();
           return;
+        }
+        if (!isRemoteDataSource() && current.dealId && current.caseId) {
+          const nextDeals = getDeals().map((deal) =>
+            deal.id === current.dealId && deal.caseId === current.caseId
+              ? { ...deal, caseId: undefined }
+              : deal
+          );
+          await saveDeals(nextDeals);
         }
         reload();
         toast('🗑️ Draft deleted');
@@ -639,46 +673,89 @@ function ProposalsPage() {
     setSuggestion(null);
   }
 
-  async function createFromOpportunity(oppId: string) {
+  async function createFromDeal(dealId: string) {
     if (listSavingRef.current) return;
-    const o = OPPORTUNITIES.find((x) => x.oppId === oppId);
-    if (!o) return;
-    const id = genId('PROP');
-    const actorId = currentUserId() || profileIdForName(me);
-    const created: Proposal = {
-      id,
-      // Supabase assigns collision-free case numbers. Seed mode remains fully offline.
-      caseId: isRemoteDataSource() ? '' : genId('CASE'),
-      opportunityId: o.oppId,
-      version: 1,
-      company: o.account,
-      deal: o.deal,
-      value: o.value,
-      submittedBy: me,
-      submittedById: actorId,
-      owner: me,
-      ownerId: actorId,
-      generatedDate: new Date().toISOString().slice(0, 10),
-      submittedDate: '',
-      status: 'Draft',
-      reviewer: '',
-      reviewedDate: '',
-      reviewNote: '',
-      rejectionReason: '',
-      lastUpdated: todayUK(),
-      sections: {
-        executive: `${o.account} is evaluating a solution for their ${o.industry} operations. This proposal outlines how Ramssol can address their priorities and deliver measurable value.`,
-        solution: `Ramssol proposes a tailored solution for ${o.account}. Use "Generate with AI" on each section to expand the draft.`,
-        commercials: `Indicative investment: ${fmtRM(o.value)} (Year 1). Final commercials to be confirmed after scoping.`,
-      },
-    };
     listSavingRef.current = true;
     setListSaving(true);
     try {
       await runProposalDataTransaction(async () => {
-        const next = [...ensureProposalStore(), created];
+        const currentStore = ensureProposalStore();
+        const currentDeals = getDeals();
+        const selected = currentDeals.find((deal) => deal.id === dealId);
+        const actor = currentUser() || me;
+        const actorId = currentUserId() || profileIdForName(actor);
+        const actorLevel = currentLevel();
+        const canSeeDeal = selected && (
+          actorLevel >= 2 ||
+          (actorId && selected.ownerId ? selected.ownerId === actorId : selected.rep === actor)
+        );
+
+        if (!selected || !selected.id || !canSeeDeal) {
+          await reconcileWithRemote();
+          toast('⚠️ This deal is no longer available. Refresh the pipeline and try again.', true);
+          return;
+        }
+        if (dealHasLiveProposalCase(selected, currentStore)) {
+          await reconcileWithRemote();
+          toast(
+            '⚠️ This deal already has a live proposal case. Open that case instead of starting another.',
+            true
+          );
+          return;
+        }
+
+        const id = genId('PROP');
+        const remote = isRemoteDataSource();
+        const caseId = remote ? '' : genId('CASE');
+        const linkedAt = new Date().toISOString();
+        // The pipeline contract has one account/deal display label. Copy it to
+        // both proposal display columns; the relationship itself is dealId.
+        const created: Proposal = {
+          id,
+          caseId,
+          opportunityId: selected.opportunityId || '',
+          version: 1,
+          company: selected.account,
+          deal: selected.account,
+          value: selected.value,
+          submittedBy: actor,
+          submittedById: actorId,
+          owner: actor,
+          ownerId: actorId,
+          generatedDate: new Date().toISOString().slice(0, 10),
+          submittedDate: '',
+          status: 'Draft',
+          reviewer: '',
+          reviewedDate: '',
+          reviewNote: '',
+          rejectionReason: '',
+          lastUpdated: todayUK(),
+          sections: {
+            executive: `${selected.account} is evaluating the active deal recorded in the sales pipeline. This proposal outlines how Ramssol can address the account's priorities and deliver measurable value.`,
+            solution: `Ramssol proposes a tailored solution for ${selected.account}. Use "Generate with AI" on each section to expand the draft.`,
+            commercials: `Indicative investment: ${fmtRM(selected.value)} (Year 1). Final commercials to be confirmed after scoping.`,
+          },
+          dealId: selected.id,
+          dealLinkAction: 'attached',
+          dealLinkedAt: linkedAt,
+          prospectId: selected.prospectId,
+        };
+
+        if (!remote) {
+          const linkedDeals = currentDeals.map((deal) =>
+            deal.id === selected.id ? { ...deal, caseId, updatedAt: linkedAt } : deal
+          );
+          const linked = await saveDeals(linkedDeals);
+          if (!linked) {
+            toast('⚠️ The deal could not be linked. Try again.', true);
+            return;
+          }
+        }
+
+        const next = [...currentStore, created];
         const persisted = await saveProposals(next);
         if (!persisted) {
+          if (!remote) await saveDeals(currentDeals);
           await reconcileWithRemote();
           return;
         }
@@ -697,6 +774,11 @@ function ProposalsPage() {
         clearSectionConflicts();
         setSection('executive');
       });
+    } catch (error) {
+      toast(
+        error instanceof Error ? error.message : 'The proposal could not be created.',
+        true
+      );
     } finally {
       listSavingRef.current = false;
       setListSaving(false);
@@ -864,10 +946,6 @@ function ProposalsPage() {
     ? store.filter((p) => p.caseId === historyCase).sort((a, b) => (a.version || 1) - (b.version || 1))
     : [];
 
-  const takenOpps = new Set(store.map((p) => p.opportunityId));
-  const openOpps = OPPORTUNITIES.filter((o) => !takenOpps.has(o.oppId));
-  const oppPool = openOpps.length ? openOpps : OPPORTUNITIES;
-
   /* ── RENDER ────────────────────────────────────────────── */
   if (editing) {
     const statusAllowsEdit = canEditProposal(editing.status);
@@ -876,7 +954,9 @@ function ProposalsPage() {
     const badge = STATUS_BADGE[editing.status] || STATUS_BADGE.Draft;
     const meta = [
       editing.caseId ? `Case ${editing.caseId}` : '',
-      editing.opportunityId ? `Opp ${editing.opportunityId}` : '',
+      editing.dealId
+        ? `Deal ${editing.dealId}`
+        : editing.opportunityId ? `Legacy Opp ${editing.opportunityId}` : '',
       editing.reviewer ? `Reviewer: ${editing.reviewer}` : '',
       editing.submittedDate ? `Submitted: ${editing.submittedDate}` : '',
     ]
@@ -1190,7 +1270,14 @@ function ProposalsPage() {
     <>
       <div className="page-header">
         <div className="page-title">My Proposals</div>
-        <button className="btn-primary" disabled={listSaving} onClick={() => setNewOpen(true)}>
+        <button
+          className="btn-primary"
+          disabled={listSaving}
+          onClick={() => {
+            reload();
+            setNewOpen(true);
+          }}
+        >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
             <line x1="12" y1="5" x2="12" y2="19" />
             <line x1="5" y1="12" x2="19" y2="12" />
@@ -1206,7 +1293,7 @@ function ProposalsPage() {
       <div className="proposals-toolbar">
         <input
           className="proposals-search"
-          placeholder="Search account, Case ID, Reviewer, or Opportunity ID…"
+          placeholder="Search account, Case ID, Reviewer, or Deal ID…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
@@ -1310,12 +1397,13 @@ function ProposalsPage() {
         </table>
       </div>
 
-      {/* NEW PROPOSAL — pick an opportunity (Doc §3.8) */}
+      {/* NEW PROPOSAL — pick a real live deal (Doc §3.8) */}
       <Modal
         open={newOpen}
         onClose={listSaving ? () => undefined : () => setNewOpen(false)}
         title="New Proposal"
-        sub="Pick an opportunity to create an account-specific starter draft. Use Generate with AI on any section you want to expand."
+        sub="Pick a live pipeline deal to create its linked starter draft. Deals with a live case stay unavailable until that case closes."
+        style={{ width: 520, maxHeight: 'calc(100dvh - 32px)' }}
         actions={
           <button className="btn-secondary" disabled={listSaving} onClick={() => setNewOpen(false)}>
             Cancel
@@ -1323,19 +1411,40 @@ function ProposalsPage() {
         }
       >
         <div className="opp-pick">
-          {oppPool.map((o) => (
-            <button
-              className="opp-item"
-              key={o.oppId}
-              disabled={listSaving}
-              onClick={() => createFromOpportunity(o.oppId)}
-            >
-              <div className="oi-deal">{o.deal}</div>
-              <div className="oi-meta">
-                {o.account} · {o.industry} · {fmtRM(o.value)} · {o.oppId}
-              </div>
-            </button>
-          ))}
+          {proposalDealPool.length ? proposalDealPool.map((deal) => {
+            const stage = STAGES[deal.stage - 1];
+            return (
+              <button
+                type="button"
+                className="opp-item"
+                key={deal.id}
+                disabled={listSaving}
+                aria-label={`Create a proposal for ${deal.account}`}
+                onClick={() => createFromDeal(deal.id!)}
+              >
+                <div className="oi-deal">{deal.account}</div>
+                <div className="oi-meta">
+                  <span>{deal.rep}</span>
+                  <span>{stage ? `Stage ${stage.id} · ${stage.name}` : 'Stage unavailable'}</span>
+                  <span>{fmtRM(deal.value)}</span>
+                  <span className="oi-id">Deal {deal.id}</span>
+                </div>
+              </button>
+            );
+          }) : (
+            <div className="opp-empty" role="status">
+              <strong>
+                {visibleDeals.length
+                  ? 'Every visible deal already has a live proposal case.'
+                  : 'No live deals are available yet.'}
+              </strong>
+              <span>
+                {visibleDeals.length
+                  ? 'Open the existing case to revise or resubmit it.'
+                  : 'Create a deal from a prospect or in Pipeline, then return here.'}
+              </span>
+            </div>
+          )}
         </div>
       </Modal>
 

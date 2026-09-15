@@ -200,6 +200,20 @@ export type Database = {
       };
     };
     Functions: {
+      create_proposal_for_deal: {
+        Args: {
+          p_deal_id: string;
+          p_proposal_id: string;
+          p_sections: Json;
+        };
+        Returns: ProposalRow;
+        SetofOptions: {
+          from: '*';
+          to: 'proposals';
+          isOneToOne: true;
+          isSetofReturn: false;
+        };
+      };
       close_deal: {
         Args: {
           p_deal_id: string;

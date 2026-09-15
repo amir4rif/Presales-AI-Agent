@@ -27,6 +27,8 @@ const DRAFT_DELETE_MESSAGE =
   'Only current draft proposals can be deleted. Refresh the latest data and try again.';
 const LOGICAL_MUTATION_MESSAGE =
   'A proposal request must contain exactly one logical change.';
+const LINKED_DRAFT_MESSAGE =
+  'A new linked proposal must be a first-version Draft for one live deal.';
 
 function workflowError(message: string): OperationError {
   return { code: '42501', message };
@@ -201,6 +203,25 @@ export async function writeProposalRows(
     fail('Could not resubmit proposal', response.error);
     consumedInserts.add(insertIndex);
     consumedUpdates.add(updateIndex);
+  }
+
+  // Deal-first proposal creation is also one database transaction. The RPC
+  // locks the selected deal, derives immutable display fields from that row,
+  // inserts the Draft, and writes the reciprocal case pointer.
+  if (rows.length === 1 && inserts.length === 1 && inserts[0].deal_id) {
+    const linkedDraft = inserts[0];
+    if (!linkedDraft.id || !linkedDraft.deal_id || linkedDraft.status !== 'Draft' ||
+        (linkedDraft.version !== undefined && linkedDraft.version !== 1)) {
+      fail('Could not create proposal for deal', workflowError(LINKED_DRAFT_MESSAGE));
+      return;
+    }
+    const response = await client.rpc('create_proposal_for_deal', {
+      p_deal_id: linkedDraft.deal_id,
+      p_proposal_id: linkedDraft.id,
+      p_sections: linkedDraft.sections ?? {},
+    });
+    fail('Could not create proposal for deal', response.error);
+    consumedInserts.add(0);
   }
 
   const ordinaryInserts = inserts.filter((_, index) => !consumedInserts.has(index));

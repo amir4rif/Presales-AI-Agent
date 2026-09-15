@@ -1,8 +1,10 @@
 export type ProposalLifecycleRow = {
   id?: string | null;
   caseId?: string | null;
+  dealId?: string | null;
   version?: number | null;
   status: string;
+  outcome?: string | null;
   rejectionReason?: string | null;
   owner?: string | null;
   submittedBy?: string | null;
@@ -10,9 +12,65 @@ export type ProposalLifecycleRow = {
   submittedById?: string | null;
 };
 
+export type ProposalDealRow = {
+  id?: string | null;
+  caseId?: string | null;
+};
+
+export type ProposalVisibleDealRow = ProposalDealRow & {
+  ownerId?: string | null;
+  rep: string;
+};
+
 /** Superseded versions remain in history but are not the live case version. */
 export function isLiveProposalVersion(proposal: ProposalLifecycleRow) {
   return proposal.status !== 'Superseded';
+}
+
+/**
+ * A deal's one-live-case slot stays occupied through drafting, review,
+ * revision, and an approved-but-not-yet-closed outcome. Terminal proposal
+ * and deal outcomes do not occupy it.
+ */
+export function isLiveProposalCase(proposal: ProposalLifecycleRow) {
+  return proposal.status === 'Draft' ||
+    proposal.status === 'Pending Review' ||
+    proposal.status === 'Reject & Revise' ||
+    (proposal.status === 'Approved' &&
+      (!proposal.outcome || proposal.outcome === 'Pending'));
+}
+
+/** Relationships are IDs only. Display labels never participate. */
+export function dealHasLiveProposalCase(
+  deal: ProposalDealRow,
+  proposals: ProposalLifecycleRow[]
+) {
+  if (deal.caseId?.trim()) return true;
+  const dealId = deal.id?.trim();
+  if (!dealId) return true;
+  return proposals.some((proposal) =>
+    proposal.dealId === dealId && isLiveProposalCase(proposal)
+  );
+}
+
+export function dealsAvailableForProposal<T extends ProposalDealRow>(
+  deals: T[],
+  proposals: ProposalLifecycleRow[]
+) {
+  return deals.filter((deal) => !dealHasLiveProposalCase(deal, proposals));
+}
+
+/** Mirrors Pipeline's L1-own / L2+-team visibility without inventing a join. */
+export function visibleDealsForProposal<T extends ProposalVisibleDealRow>(
+  deals: T[],
+  level: number,
+  user: string,
+  userId?: string
+) {
+  if (level >= 2) return deals;
+  return deals.filter((deal) =>
+    userId && deal.ownerId ? deal.ownerId === userId : deal.rep === user
+  );
 }
 
 /** Keep one current row per case even while a stale browser cache is healing. */

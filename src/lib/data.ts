@@ -38,7 +38,6 @@ export type { ClosedDealOutcome, DealOutcome, ProposalDealOutcome } from './deal
 
 /* ── TYPES ─────────────────────────────────────────────── */
 export type Stage = { id: number; name: string; sla: number; prob: number };
-export type Opportunity = { oppId: string; account: string; deal: string; value: number; industry: string };
 export type ClosedDeal = {
   id?: string;
   ownerId?: string;
@@ -139,15 +138,6 @@ export const STAGES: Stage[] = [
   { id: 6, name: 'Negotiation / Finalize', sla: 21, prob: 0.70 },
   { id: 7, name: 'Closing The Deal',       sla: 14, prob: 0.90 },
   { id: 8, name: 'Deliver The Product',    sla: 30, prob: 1.00 },
-];
-
-// Open opportunities available to start a NEW proposal against (Doc §3.8).
-export const OPPORTUNITIES: Opportunity[] = [
-  { oppId: 'OPP-2026-0101', account: 'Sunway Group',       deal: 'Sunway – HCM Platform',            value: 2400000, industry: 'Property & Construction' },
-  { oppId: 'OPP-2026-0102', account: 'AeonCredit',         deal: 'AeonCredit – RPA Automation',      value: 1800000, industry: 'Banking & Finance' },
-  { oppId: 'OPP-2026-0103', account: 'MyToll',             deal: 'MyToll – Payroll Modernisation',   value: 1200000, industry: 'Logistics & Supply Chain' },
-  { oppId: 'OPP-2026-0105', account: 'KPJ Healthcare',     deal: 'KPJ – Clinical Analytics',         value: 3200000, industry: 'Healthcare' },
-  { oppId: 'OPP-2026-0106', account: 'Taylor’s Education', deal: 'Taylor’s – Student Lifecycle LMS',  value: 1700000, industry: 'Education' },
 ];
 
 // Company-wide closed-deal history for pipeline analysis (Doc §4.13).

@@ -399,10 +399,12 @@ async function buildProposalRow(
   };
   const id = str(item.id);
   const caseId = str(item.caseId);
+  const dealId = str(item.dealId).trim();
   const updatedAt = str(item.updatedAt);
   const prospectId = Number(item.prospectId);
   if (id) row.id = id;
   if (caseId) row.case_id = caseId;
+  if (dealId) row.deal_id = dealId;
   if (Number.isSafeInteger(prospectId) && prospectId > 0) row.prospect_id = prospectId;
   // This is an expected-version token only. proposal-writer removes it from
   // INSERT/UPDATE payloads and uses it in the existing-row CAS predicate.

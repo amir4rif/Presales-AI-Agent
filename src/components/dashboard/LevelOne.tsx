@@ -9,7 +9,7 @@ import { ActionStrip, Arrow, BADGE, Card, DOT, Empty } from './shared';
 
 const QUICK = [
   { n: '01', title: 'Research a Prospect', desc: 'Let the AI Sales Agent profile a company, its pain points and buying potential.', cta: 'Open Prospects', href: '/prospects' },
-  { n: '02', title: 'Draft a Proposal',    desc: 'Generate a first draft from an opportunity, then submit it for review.',        cta: 'New Proposal',  href: '/proposals' },
+  { n: '02', title: 'Draft a Proposal',    desc: 'Generate a starter draft from one of your active deals, then submit it for review.', cta: 'New Proposal', href: '/proposals' },
   { n: '03', title: 'Complete an RFP',     desc: 'Upload a compliance form and let AI fill it from the knowledge base.',          cta: 'Upload RFP',    href: '/compliance' },
   { n: '04', title: 'Update My Deals',     desc: 'Keep your assigned opportunities and stages current.',                          cta: 'My Pipeline',   href: '/pipeline' },
 ];
