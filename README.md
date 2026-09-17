@@ -2,7 +2,7 @@
 
 Next.js application for prospect research, proposal versioning, approvals, pipeline tracking, and analytics.
 
-The default offline mode uses authored seed data. The shared free-tier path uses Supabase for Postgres, Auth, RLS, and proposal Realtime; Google Gemini for proposal generation and separately keyed Google Search-grounded prospect research; and Vercel for hosting.
+Runtime application data comes exclusively from Supabase Postgres. The app has no offline, seed, demo, or browser-storage fallback: an empty database produces honest empty states, and a failed database write remains failed. Supabase also provides Auth, RLS, and Realtime; Google Gemini provides proposal generation and separately keyed Google Search-grounded prospect research; Vercel provides hosting.
 
 ```text
 Browser ──► Supabase Auth (cookie session)
@@ -26,7 +26,7 @@ npm run check:env
 npm run dev
 ```
 
-Open <http://localhost:3000>. With `DATA_SOURCE=seed`, the login page offers password-free Level 1, 2, and 3 personas. Seed mode stores demo edits in the browser only and never calls Supabase.
+Open <http://localhost:3000>. A configured Supabase project and a real authenticated account are required. The login page never offers password-free personas or locally stored demo records.
 
 ## Supabase setup
 
@@ -35,13 +35,12 @@ Open <http://localhost:3000>. With `DATA_SOURCE=seed`, the login page offers pas
 3. Copy the Project URL and an enabled `sb_publishable_...` key into `.env.local`:
 
    ```dotenv
-   DATA_SOURCE=supabase
    NEXT_PUBLIC_SUPABASE_URL=https://PROJECT_REF.supabase.co
    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
    ```
 
 4. In Supabase Auth URL Configuration, set the local Site URL to `http://localhost:3000` and allow `http://localhost:3000/auth/**` as a redirect URL. Add the matching Vercel URLs before deployment.
-5. Create accounts through the application. New users always start at Level 1; this is intentional so user-editable signup metadata cannot grant authorization.
+5. Create accounts through the application. New users receive the default role stored in `workspace_config`; signup metadata cannot grant authorization.
 6. Bootstrap the first administrator once in the Supabase SQL Editor, replacing the email with the intended administrator account:
 
    ```sql
@@ -53,9 +52,9 @@ Open <http://localhost:3000>. With `DATA_SOURCE=seed`, the login page offers pas
    After that, the Level 3 user can assign reviewer and administrator roles in Settings.
 7. Run `npm run check:env:strict`, then sign in and test the full workflow.
 
-The migration creates real `profiles`, `proposals`, `deals`, `closed_deals`, and `prospects` tables plus three security-invoker views:
+The migrations create real `profiles`, `proposals`, `deals`, `closed_deals`, `prospects`, `workspace_config`, `notification_preferences`, and `compliance_rows` tables plus three security-invoker views. Supabase seed loading is disabled; migrations insert reference configuration only, never customer/demo records.
 
-- `my_proposals`: current owner, excluding Superseded and Reject & Close.
+- `my_proposals`: current owner, excluding only Superseded versions.
 - `admin_approvals`: Pending Review rows visible through base-table RLS.
 - `proposal_version_history`: visible versions ordered by case and version.
 
@@ -81,7 +80,7 @@ RESEARCH_GEMINI_API_KEY=
 
 When configured, `/api/research` uses Gemini's built-in Google Search grounding and returns the existing bounded summary and source-link contract. Its credential is deliberately separate from `GEMINI_API_KEY`. Because Gemini quotas are scoped to a Cloud project rather than an API key, create the research credential in a separate Gemini/Cloud project to ensure research traffic cannot interrupt proposal generation. The prospect panel displays Google's returned Search Suggestions beside each grounded result and does not persist that markup. Citation URLs are shown exactly as Google returns them, including Google redirect URLs; the server does not resolve or rewrite them.
 
-The grounding tool has no direct equivalents for the old `country`, `language`, or `safeSearch` request switches. Geographic relevance and English output are therefore explicit prompt instructions (using the prospect's location, with Malaysia as the default). Search-result filtering is left to Google Search grounding and Gemini's standard safety filters rather than pretending output safety settings are a search filter.
+The grounding tool has no direct equivalents for the old `country`, `language`, or `safeSearch` request switches. Geographic relevance and English output are therefore explicit prompt instructions using the entered prospect location when present; the app never invents a default location. Search-result filtering is left to Google Search grounding and Gemini's standard safety filters rather than pretending output safety settings are a search filter.
 
 ## Vercel deployment
 
@@ -96,10 +95,7 @@ The runtime does not write to the filesystem. Supabase clients and user state ar
 ## Verification
 
 ```bash
-npm run check:env
-npm run typecheck
-npm run lint
-npm run build
+npm run check
 ```
 
 For the connected Supabase project, also run database security and performance advisors after applying the migration. The detailed hand-off checklist is in [docs/FINAL_IMPLEMENTATION.md](docs/FINAL_IMPLEMENTATION.md).

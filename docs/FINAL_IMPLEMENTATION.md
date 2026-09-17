@@ -10,6 +10,8 @@ Use this checklist only after the correct Supabase project, Gemini key, and Verc
 - Generate fresh TypeScript types from that project and compare them with `src/lib/supabase/database.types.ts`.
 - Run Supabase security and performance advisors and resolve every material warning.
 - Verify that `public.proposals` appears in the `supabase_realtime` publication.
+- Verify that every required `public.workspace_config` row exists and that no customer/demo rows are installed by migrations or seeds.
+- Keep Supabase seed loading disabled. Empty tables must remain empty in the UI rather than being replaced with local sample data.
 
 ## 2. Configure Auth
 
@@ -42,14 +44,15 @@ Use this checklist only after the correct Supabase project, Gemini key, and Verc
 
 ## 5. Click through the product workflow
 
-1. Level 1 creates a proposal; confirm Postgres assigns its Case ID.
-2. Level 1 submits it for review.
-3. Level 2 rejects it with a reason.
-4. Level 1 creates a new version; confirm the old version becomes Superseded and remains queryable.
-5. Level 2 approves the new version.
-6. Set Won/Lost outcomes on approved proposals and confirm Dashboard, Analytics, Proposals, and Approvals agree. Pending outcomes must not enter the Stage 2 denominator.
-7. Exercise Gemini and confirm a forced/rate-limited `429` displays a useful message.
-8. If grounded research is configured, confirm it shows a real summary, working source links, and Google's Search Suggestions; confirm `RESEARCH_GEMINI_API_KEY` never reaches the browser.
+1. Level 1 creates a real deal in Pipeline, including its stage-entry date and close date.
+2. Level 1 creates one proposal from that deal; confirm Postgres assigns its Case ID and reciprocal deal link.
+3. Level 1 submits it for review.
+4. Level 2 rejects it with a reason.
+5. Level 1 creates a new version; confirm the old version becomes Superseded and remains queryable.
+6. Level 2 approves the new version.
+7. Close the linked deal as Won/Lost in Pipeline and confirm Dashboard, Analytics, Proposals, and Approvals agree. Pending outcomes must not enter the Stage 2 denominator.
+8. Exercise Gemini and confirm a forced/rate-limited `429` displays a useful message.
+9. If grounded research is configured, confirm it shows a real summary and working source links; confirm unsupported facts stay blank and `RESEARCH_GEMINI_API_KEY` never reaches the browser.
 
 ## 6. Deploy to Vercel
 
