@@ -32,6 +32,7 @@ import {
   prospectDependencies,
   type ProspectDependencies,
 } from '@/lib/prospect-lifecycle';
+import { dealsForProspect } from '@/lib/prospect-deals';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 import { daysUntilDealClose } from '@/lib/deal-outcomes';
 
@@ -47,9 +48,6 @@ function prospectStatus(prospect: Prospect) {
 
 function dependencySummary(dependencies: ProspectDependencies) {
   const labels = [
-    dependencies.opportunities
-      ? `${dependencies.opportunities} opportunit${dependencies.opportunities === 1 ? 'y' : 'ies'}`
-      : '',
     dependencies.deals ? `${dependencies.deals} deal${dependencies.deals === 1 ? '' : 's'}` : '',
     dependencies.proposals
       ? `${dependencies.proposals} proposal${dependencies.proposals === 1 ? '' : 's'}`
@@ -61,6 +59,7 @@ function dependencySummary(dependencies: ProspectDependencies) {
 function ProspectsPage() {
   const toast = useToast();
   const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [industry, setIndustry] = useState('all');
   const [openId, setOpenId] = useState<number | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -75,6 +74,7 @@ function ProspectsPage() {
 
   const reload = useCallback(() => {
     setProspects(getProspects());
+    setDeals(getDeals());
     const me = currentUser();
     const list = getReps();
     setReps(currentLevel() === 1 && !list.includes(me) ? [me, ...list] : list);
@@ -134,6 +134,7 @@ function ProspectsPage() {
     ];
     const saved = await saveDeals(next);
     if (!saved) return false;
+    setDeals(next);
     setDealDrafts((drafts) => ({
       ...drafts,
       [prospect.id]: emptyDealDraft(currentUser(), prospect.name),
@@ -295,7 +296,7 @@ function ProspectsPage() {
             <div className="confirm-strip">
               <div className="cs-msg">
                 {prospectAction.mode === 'delete'
-                  ? 'No opportunities, deals, or proposals are linked to this prospect.'
+                  ? 'No deals or proposals are linked to this prospect.'
                   : 'This prospect cannot be deleted because linked work depends on it.'}
               </div>
               {prospectAction.mode === 'archive' && (
@@ -339,41 +340,46 @@ function ProspectsPage() {
 
       <div className="prospects-grid">
         {shown.length ? (
-          shown.map((p) => (
-            <div className="prospect-card" key={p.id} onClick={() => setOpenId(p.id)}>
-              <div className="prospect-header">
-                <div>
-                  <div className="prospect-name">
-                    {p.watched ? '★ ' : ''}
-                    {p.name}
+          shown.map((p) => {
+            const relatedDeals = dealsForProspect(deals, p);
+            const totalValue = relatedDeals.reduce((sum, deal) => sum + deal.value, 0);
+
+            return (
+              <div className="prospect-card" key={p.id} onClick={() => setOpenId(p.id)}>
+                <div className="prospect-header">
+                  <div>
+                    <div className="prospect-name">
+                      {p.watched ? '★ ' : ''}
+                      {p.name}
+                    </div>
+                    <div className="prospect-type">{p.type}</div>
                   </div>
-                  <div className="prospect-type">{p.type}</div>
-                </div>
-                <span className={`prospect-tag${prospectStatus(p) === 'Inactive' ? ' inactive' : ''}`}>
-                  {prospectStatus(p)}
-                </span>
-              </div>
-              <div className="prospect-meta">
-                <span>🌐 {p.country}</span>
-                <span>👥 {p.employees}</span>
-              </div>
-              <div className="prospect-tags">
-                {(p.tags || []).slice(0, 3).map((t) => (
-                  <span className="tag" key={t}>
-                    {t}
+                  <span className={`prospect-tag${prospectStatus(p) === 'Inactive' ? ' inactive' : ''}`}>
+                    {prospectStatus(p)}
                   </span>
-                ))}
+                </div>
+                <div className="prospect-meta">
+                  <span>🌐 {p.country}</span>
+                  <span>👥 {p.employees}</span>
+                </div>
+                <div className="prospect-tags">
+                  {(p.tags || []).slice(0, 3).map((t) => (
+                    <span className="tag" key={t}>
+                      {t}
+                    </span>
+                  ))}
+                </div>
+                <div className="prospect-footer">
+                  <span className="prospect-opp">
+                    <strong>{relatedDeals.length}</strong> opportunities
+                  </span>
+                  <span style={{ fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 500, color: 'var(--brand-500)' }}>
+                    RM {(totalValue / 1_000_000).toFixed(1)}M
+                  </span>
+                </div>
               </div>
-              <div className="prospect-footer">
-                <span className="prospect-opp">
-                  <strong>{p.opportunities}</strong> opportunities
-                </span>
-                <span style={{ fontSize: 12, fontFamily: 'var(--mono)', fontWeight: 500, color: 'var(--brand-500)' }}>
-                  RM {(p.totalValue || 0).toFixed(1)}M
-                </span>
-              </div>
-            </div>
-          ))
+            );
+          })
         ) : (
           <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: 40, color: 'var(--gray-400)', fontSize: 13 }}>
             No prospects in this industry yet.

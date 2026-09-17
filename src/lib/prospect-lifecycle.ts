@@ -2,13 +2,12 @@ import type { ClosedDeal, Deal, Proposal, Prospect } from './data';
 import { dealsForProspect } from './prospect-deals.ts';
 
 export type ProspectDependencies = {
-  opportunities: number;
   deals: number;
   proposals: number;
 };
 
 export function hasProspectDependencies(dependencies: ProspectDependencies) {
-  return dependencies.opportunities > 0 || dependencies.deals > 0 || dependencies.proposals > 0;
+  return dependencies.deals > 0 || dependencies.proposals > 0;
 }
 
 export function canManageProspect(prospect: Prospect, level: number, userId?: string) {
@@ -27,7 +26,6 @@ export function prospectDependencies(
   const linkedProposals = proposals.filter((proposal) => proposal.prospectId === prospect.id);
 
   return {
-    opportunities: Math.max(0, prospect.opportunities || 0),
     deals: activeDeals.length + historicalDeals.length,
     proposals: linkedProposals.length,
   };

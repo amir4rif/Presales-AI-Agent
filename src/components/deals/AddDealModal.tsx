@@ -80,6 +80,9 @@ export default function AddDealModal({
   const repOptions = draft.rep && !reps.includes(draft.rep)
     ? [draft.rep, ...reps]
     : reps;
+  const modalSubtitle = showOutcomeFields && draft.outcome !== 'Open'
+    ? 'Record a closed deal. Stage and Days in Stage do not apply. Closing this window keeps your draft.'
+    : subtitle;
 
   const set = (key: keyof DealDraft) => (event: { target: { value: string } }) => {
     setError('');
@@ -109,6 +112,14 @@ export default function AddDealModal({
       setError(`Choose the ${draft.outcome === 'Open' ? 'target close date' : 'close date'} before saving.`);
       return;
     }
+    if (draft.outcome !== 'Open' && draft.close > localDateKey()) {
+      setError('Close date cannot be in the future when recording a closed deal.');
+      return;
+    }
+    if (!draft.value.trim()) {
+      setError('Enter a deal value before saving.');
+      return;
+    }
     const value = Number(draft.value);
     if (!Number.isFinite(value) || value < 0) {
       setError('Enter a valid deal value of zero or more.');
@@ -116,9 +127,17 @@ export default function AddDealModal({
     }
     const daysInStage = Number(draft.days);
     if (draft.outcome === 'Open' && (
-      !draft.stage || !draft.days.trim() || !Number.isFinite(daysInStage) || daysInStage < 0
+      !STAGES.some((stage) => String(stage.id) === draft.stage) ||
+      !draft.days.trim() ||
+      !Number.isFinite(daysInStage) ||
+      daysInStage < 0
     )) {
       setError('Choose a stage and enter zero or more days in stage.');
+      return;
+    }
+    if (draft.outcome !== 'Open' &&
+        !DEAL_SOURCES.includes(draft.source as (typeof DEAL_SOURCES)[number])) {
+      setError('Choose a lead source from the fixed list.');
       return;
     }
     if (draft.outcome === 'Lost' && !DEAL_LOSS_REASONS.includes(draft.loss as (typeof DEAL_LOSS_REASONS)[number])) {
@@ -154,7 +173,7 @@ export default function AddDealModal({
       open={open}
       onClose={close}
       title={title}
-      sub={subtitle}
+      sub={modalSubtitle}
       actions={
         <>
           <button

@@ -257,6 +257,13 @@ test('revision-queue and Reject & Close copy describe the live behavior accurate
 
   assert.doesNotMatch(analyticsPage, />AI Learning Loop</);
   assert.doesNotMatch(analyticsPage, /No rejections recorded yet/);
+  assert.match(analyticsPage, /Stage 1 · Approval Rate \(per case\)/);
+  assert.match(analyticsPage, /First-Pass Approval Rate — Monthly/);
+  assert.match(
+    analyticsPage,
+    /Every Stage-1 decision counted separately, including versions later resubmitted\. The Approval Rate card above counts one final outcome per case, so the two numbers differ by design\./
+  );
+  assert.doesNotMatch(analyticsPage, /Approval Rate Trend — Monthly/);
   assert.doesNotMatch(levelThreeDashboard, /title="AI Learning Loop"/);
   assert.doesNotMatch(levelThreeDashboard, /None yet|Nothing sent back yet|Fixable vs dead-end/);
   assert.match(

@@ -147,6 +147,11 @@ test('UI exposes the required actions and never edits proposal outcome independe
   assert.match(pipeline, /executeRemoteDealWorkflow/);
   assert.match(pipeline, /dealDeleteIds/);
   assert.match(addModal, /draft\.outcome === 'Open' && \([\s\S]*Days in Stage/);
+  assert.match(addModal, /!draft\.value\.trim\(\)/);
+  assert.match(addModal, /draft\.close > localDateKey\(\)/);
+  assert.match(addModal, /Close date cannot be in the future when recording a closed deal\./);
+  assert.match(addModal, /Record a closed deal\. Stage and Days in Stage do not apply\./);
+  assert.match(addModal, /DEAL_SOURCES\.includes\(draft\.source/);
   assert.match(addModal, /option value="Disqualified"/);
   assert.match(addModal, /repOptions\.map/);
   assert.match(styles, /\.modal \{[^}]*max-height: 90vh;[^}]*overflow-y: auto;/);

@@ -153,7 +153,7 @@ function AnalyticsPage() {
       cls: hasStageOne && hasStageTwo ? 'gold' : 'is-unavailable',
     },
     {
-      label: 'Stage 1 · Approval Rate',
+      label: 'Stage 1 · Approval Rate (per case)',
       value: hasStageOne ? `${s1.rate}%` : 'Not available',
       sub: hasStageOne ? `${s1.approved} approved / ${s1.judged} judged` : 'Needs an approved or revise decision',
       cls: hasStageOne ? 'kpi-up' : 'is-unavailable',
@@ -466,10 +466,10 @@ function AnalyticsPage() {
 
         <div className="card">
           <div className="card-header">
-            <span className="card-title">Approval Rate Trend — Monthly</span>
+            <span className="card-title">First-Pass Approval Rate — Monthly</span>
           </div>
           <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
-            Approved vs sent back for revision, grouped by review month.
+            Every Stage-1 decision counted separately, including versions later resubmitted. The Approval Rate card above counts one final outcome per case, so the two numbers differ by design.
           </div>
           {approvalSeries.length ? (
             <div className="qtrend" style={{ height: 180 }}>

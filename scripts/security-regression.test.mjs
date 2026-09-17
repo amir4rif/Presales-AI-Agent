@@ -1373,7 +1373,7 @@ test('Add Deal keeps drafts consistently and scopes prospect drafts to the accou
 });
 
 test('prospect removal deletes only empty records and archives linked records', () => {
-  const prospect = { id: 7, name: 'Example Co', opportunities: 0, ownerId: 'owner-a' };
+  const prospect = { id: 7, name: 'Example Co', opportunities: 99, ownerId: 'owner-a' };
   const empty = prospectDependencies(prospect, [], [], []);
   const linked = prospectDependencies(
     prospect,
@@ -1382,9 +1382,9 @@ test('prospect removal deletes only empty records and archives linked records', 
     [{ prospectId: 7, account: 'Another unrelated label' }]
   );
 
-  assert.deepEqual(empty, { opportunities: 0, deals: 0, proposals: 0 });
+  assert.deepEqual(empty, { deals: 0, proposals: 0 });
   assert.equal(hasProspectDependencies(empty), false);
-  assert.deepEqual(linked, { opportunities: 0, deals: 2, proposals: 1 });
+  assert.deepEqual(linked, { deals: 2, proposals: 1 });
   assert.equal(hasProspectDependencies(linked), true);
   assert.equal(canManageProspect(prospect, 1, 'owner-a'), true);
   assert.equal(canManageProspect(prospect, 1, 'owner-b'), false);
@@ -1405,6 +1405,9 @@ test('prospect removal deletes only empty records and archives linked records', 
   );
 
   assert.match(page, /hasProspectDependencies\(dependencies\) \? 'archive' : 'delete'/);
+  assert.match(page, /dealsForProspect\(deals, p\)/);
+  assert.match(page, /relatedDeals\.reduce\(\(sum, deal\) => sum \+ deal\.value, 0\)/);
+  assert.doesNotMatch(page, /p\.opportunities|p\.totalValue/);
   assert.match(page, /saveProspects\([\s\S]*deletedIds: \[target\.id\]/);
   assert.match(page, /<Modal[\s\S]*Delete Prospect[\s\S]*Archive Prospect/);
   assert.doesNotMatch(page, /\bconfirm\s*\(/);
