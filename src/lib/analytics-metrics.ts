@@ -1,24 +1,26 @@
-/** Product policy: analytics remain hidden until this many projects are complete. */
-export const MIN_COMPLETED_PROJECTS_FOR_ANALYTICS = 3;
-export const MIN_CLOSED_DEALS_FOR_RATE = MIN_COMPLETED_PROJECTS_FOR_ANALYTICS;
+import { dealDaysInStage } from './deal-outcomes.ts';
 
-export function analyticsReadiness(completedProjects: number) {
+export function analyticsReadiness(completedProjects: number, requiredProjects: number) {
   const completed = Number.isFinite(completedProjects)
     ? Math.max(0, Math.floor(completedProjects))
     : 0;
-  const required = MIN_COMPLETED_PROJECTS_FOR_ANALYTICS;
+  const required = Number.isInteger(requiredProjects) && requiredProjects > 0
+    ? requiredProjects
+    : Number.POSITIVE_INFINITY;
 
   return {
     completed,
     required,
     remaining: Math.max(required - completed, 0),
     ready: completed >= required,
-    progress: Math.min(Math.round((completed / required) * 100), 100),
+    progress: Number.isFinite(required)
+      ? Math.min(Math.round((completed / required) * 100), 100)
+      : 0,
   };
 }
 
-export function closedDealRate(won: number, total: number) {
-  return total >= MIN_CLOSED_DEALS_FOR_RATE
+export function closedDealRate(won: number, total: number, requiredProjects: number) {
+  return requiredProjects > 0 && total >= requiredProjects
     ? Math.round((won / total) * 100)
     : null;
 }
@@ -90,17 +92,19 @@ export function calculateMonthlyApprovalRates(records: readonly ApprovalHistoryR
 }
 
 type StageDefinition = { id: number; sla: number };
-type ActiveDealStage = { stage: number; daysInStage: number };
+type ActiveDealStage = { stage: number; stageEnteredOn?: string; daysInStage: number };
 
 /** Average current age of active deals in each stage; null means no coverage. */
 export function calculateStageAgeAverages<T extends StageDefinition>(
   stages: readonly T[],
-  deals: readonly ActiveDealStage[]
+  deals: readonly ActiveDealStage[],
+  now = new Date()
 ) {
   return stages.map((stage) => {
     const ages = deals
-      .filter((deal) => deal.stage === stage.id && Number.isFinite(deal.daysInStage) && deal.daysInStage >= 0)
-      .map((deal) => deal.daysInStage);
+      .filter((deal) => deal.stage === stage.id)
+      .map((deal) => dealDaysInStage(deal, now))
+      .filter((days) => Number.isFinite(days) && days >= 0);
     return {
       ...stage,
       dealCount: ages.length,
@@ -136,7 +140,7 @@ export function collectRepNames({
   team
     .filter((member) =>
       member.status?.toLowerCase() === 'active'
-      && (member.level === 1 || member.role === 'Sales Representative' || member.role === 'Pre-Sales')
+      && member.level === 1
     )
     .forEach((member) => add(member.name));
   deals.forEach((deal) => add(deal.rep));

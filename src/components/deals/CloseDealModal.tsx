@@ -3,12 +3,8 @@
 import { useEffect, useId, useState } from 'react';
 import Modal from '@/components/Modal';
 import { fmtRM, type ClosedDealOutcome, type Deal } from '@/lib/data';
-import {
-  DEAL_LOSS_REASONS,
-  DISQUALIFICATION_REASONS,
-  localDateKey,
-} from '@/lib/deal-outcomes';
-import { DEAL_SOURCES } from './AddDealModal';
+import { localDateKey } from '@/lib/deal-outcomes';
+import type { DealFormOptions } from './AddDealModal';
 
 export type CloseDealDraft = {
   outcome: ClosedDealOutcome;
@@ -17,11 +13,11 @@ export type CloseDealDraft = {
   closeDate: string;
 };
 
-function initialDraft(): CloseDealDraft {
+function initialDraft(options: DealFormOptions): CloseDealDraft {
   return {
     outcome: 'Won',
     reason: '',
-    source: DEAL_SOURCES[0],
+    source: options.sources[0] || '',
     closeDate: localDateKey(),
   };
 }
@@ -30,25 +26,27 @@ export default function CloseDealModal({
   open,
   deal,
   level,
+  options,
   onClose,
   onSubmit,
 }: {
   open: boolean;
   deal: Deal | null;
   level: number;
+  options: DealFormOptions;
   onClose: () => void;
   onSubmit: (draft: CloseDealDraft) => Promise<string | null>;
 }) {
   const id = useId();
-  const [draft, setDraft] = useState<CloseDealDraft>(initialDraft);
+  const [draft, setDraft] = useState<CloseDealDraft>(() => initialDraft(options));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!open) return;
-    setDraft(initialDraft());
+    setDraft(initialDraft(options));
     setError('');
-  }, [open, deal?.id]);
+  }, [open, deal?.id, options]);
 
   if (!deal) return null;
 
@@ -62,9 +60,9 @@ export default function CloseDealModal({
         ...current,
         outcome,
         reason: outcome === 'Lost'
-          ? DEAL_LOSS_REASONS[0]
+          ? options.lossReasons[0] || ''
           : outcome === 'Disqualified'
-            ? DISQUALIFICATION_REASONS[0]
+            ? options.disqualificationReasons[0] || ''
             : '',
       };
     });
@@ -79,6 +77,14 @@ export default function CloseDealModal({
   async function submit() {
     if (!draft.closeDate) {
       setError('Choose the close date before continuing.');
+      return;
+    }
+    if (draft.closeDate > localDateKey()) {
+      setError('Close date cannot be in the future.');
+      return;
+    }
+    if (!options.sources.includes(draft.source)) {
+      setError('Choose a lead source from the configured list.');
       return;
     }
     if (draft.outcome === 'Lost' && !draft.reason) {
@@ -151,7 +157,7 @@ export default function CloseDealModal({
         <div className="form-group">
           <label className="form-label" htmlFor={`${id}-reason`}>Loss Reason *</label>
           <select id={`${id}-reason`} className="form-select" value={draft.reason} onChange={set('reason')} disabled={saving}>
-            {DEAL_LOSS_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
+            {options.lossReasons.map((reason) => <option key={reason}>{reason}</option>)}
           </select>
         </div>
       )}
@@ -160,7 +166,7 @@ export default function CloseDealModal({
         <div className="form-group">
           <label className="form-label" htmlFor={`${id}-reason`}>Disqualification Reason *</label>
           <select id={`${id}-reason`} className="form-select" value={draft.reason} onChange={set('reason')} disabled={saving}>
-            {DISQUALIFICATION_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
+            {options.disqualificationReasons.map((reason) => <option key={reason}>{reason}</option>)}
           </select>
         </div>
       )}
@@ -169,7 +175,7 @@ export default function CloseDealModal({
         <div className="form-group">
           <label className="form-label" htmlFor={`${id}-source`}>Lead Source *</label>
           <select id={`${id}-source`} className="form-select" value={draft.source} onChange={set('source')} disabled={saving}>
-            {DEAL_SOURCES.map((source) => <option key={source}>{source}</option>)}
+            {options.sources.map((source) => <option key={source}>{source}</option>)}
           </select>
         </div>
         <div className="form-group">

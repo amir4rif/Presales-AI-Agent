@@ -21,11 +21,8 @@ export async function GET(request: Request) {
   const auth = await requireApiSession();
   if (!auth.ok) return auth.response;
 
-  if (status.dataSource !== 'supabase') {
-    return json({ error: 'Remote hydration is disabled while DATA_SOURCE=seed.' }, 409);
-  }
   if (!status.configured) {
-    return json({ error: 'Supabase mode is selected but its public configuration is incomplete.', ...status }, 503);
+    return json({ error: 'Supabase public configuration is incomplete.', ...status }, 503);
   }
 
   try {

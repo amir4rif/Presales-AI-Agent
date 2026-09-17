@@ -2,28 +2,27 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
-  DISQUALIFICATION_REASONS,
   closedDealIdempotencyId,
   closedDealIdentityKey,
+  dealDaysInStage,
   dealNeedsOutcome,
   dealOutcomeEscalated,
   dealOutcomeOverdueDays,
   outcomeHygieneByRep,
   scoredClosedDeals,
+  stageEnteredDateFromDays,
 } from '../src/lib/deal-outcomes.ts';
+import {
+  dealValueNumber,
+  formatDealValueInput,
+  normalizeDealValueInput,
+} from '../src/lib/deal-inputs.ts';
 import { calculateTwoStageRates } from '../src/lib/stage-rates.ts';
 import { changesBetween } from '../src/lib/data-changes.ts';
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
 
-test('Disqualified is separate, fixed-reason, visible history but never scored', () => {
-  assert.deepEqual(DISQUALIFICATION_REASONS, [
-    'Compliance',
-    'Blacklisted account',
-    'Out of scope',
-    'Wrong product fit',
-  ]);
-
+test('Disqualified is visible history but never scored', () => {
   const history = [
     { outcome: 'Won', id: 'won' },
     { outcome: 'Lost', id: 'lost' },
@@ -53,13 +52,31 @@ test('past target dates flag open deals and escalate on day 14 without changing 
 
   assert.equal(dealNeedsOutcome(justLate, now), true);
   assert.equal(dealOutcomeOverdueDays(justLate, now), 1);
-  assert.equal(dealOutcomeEscalated(thirteenDays, now), false);
-  assert.equal(dealOutcomeEscalated(fourteenDays, now), true);
+  assert.equal(dealOutcomeEscalated(thirteenDays, now, 14), false);
+  assert.equal(dealOutcomeEscalated(fourteenDays, now, 14), true);
   assert.equal(fourteenDays.outcome, 'Open');
-  assert.deepEqual(outcomeHygieneByRep([justLate, thirteenDays, fourteenDays, future], now), [
+  assert.deepEqual(outcomeHygieneByRep([justLate, thirteenDays, fourteenDays, future], now, 14), [
     { rep: 'B', needsOutcome: 1, escalated: 1 },
     { rep: 'A', needsOutcome: 2, escalated: 0 },
   ]);
+});
+
+test('deal value entry keeps digits only, formats thousands, and yields a safe number', () => {
+  assert.equal(normalizeDealValueInput('RM 001,234x'), '1234');
+  assert.equal(formatDealValueInput('2500000'), '2,500,000');
+  assert.equal(dealValueNumber('2,500,000'), 2_500_000);
+  assert.equal(Number.isNaN(dealValueNumber('')), true);
+  assert.equal(Number.isNaN(dealValueNumber('9007199254740992')), true);
+});
+
+test('days in stage are derived from the stored stage-entry date and advance over time', () => {
+  const now = new Date(2026, 8, 17, 12, 0, 0);
+  const nextDay = new Date(2026, 8, 18, 12, 0, 0);
+  const stageEnteredOn = stageEnteredDateFromDays(5, now);
+
+  assert.equal(stageEnteredOn, '2026-09-12');
+  assert.equal(dealDaysInStage({ stageEnteredOn, daysInStage: 999 }, now), 5);
+  assert.equal(dealDaysInStage({ stageEnteredOn, daysInStage: 999 }, nextDay), 6);
 });
 
 test('deal and closed-deal removals require an explicitly confirmed ID', () => {
@@ -138,6 +155,9 @@ test('UI exposes the required actions and never edits proposal outcome independe
   const lifecycle = read('../src/lib/prospect-lifecycle.ts');
   const serverData = read('../src/lib/server/supabase-data.ts');
   const dataChanges = read('../src/lib/data-changes.ts');
+  const prospectPage = read('../src/app/prospects/page.tsx');
+  const prospectDetail = read('../src/components/prospects/ProspectDetail.tsx');
+  const stageMigration = read('../supabase/migrations/20260917015741_add_deal_stage_entered_on.sql');
   const styles = read('../src/app/styles.css');
 
   for (const action of ['Close deal', 'Edit', 'Delete']) {
@@ -146,17 +166,33 @@ test('UI exposes the required actions and never edits proposal outcome independe
   assert.match(pipeline, /Needs Outcome/);
   assert.match(pipeline, /executeRemoteDealWorkflow/);
   assert.match(pipeline, /dealDeleteIds/);
-  assert.match(addModal, /draft\.outcome === 'Open' && \([\s\S]*Days in Stage/);
+  assert.match(addModal, /draft\.outcome === 'Open' && \([\s\S]*draft\.stageEnteredOn/);
   assert.match(addModal, /!draft\.value\.trim\(\)/);
   assert.match(addModal, /draft\.close > localDateKey\(\)/);
   assert.match(addModal, /Close date cannot be in the future when recording a closed deal\./);
-  assert.match(addModal, /Record a closed deal\. Stage and Days in Stage do not apply\./);
-  assert.match(addModal, /DEAL_SOURCES\.includes\(draft\.source/);
+  assert.match(addModal, /Record a closed deal\. Pipeline stage details do not apply\./);
+  assert.match(addModal, /type="text"[\s\S]*inputMode="numeric"[\s\S]*formatDealValueInput\(draft\.value\)/);
+  assert.doesNotMatch(addModal, /type="number"/);
+  assert.match(addModal, /Stage entered on \*/);
+  assert.match(addModal, /stageEnteredOn: localDateKey\(\)/);
+  assert.match(addModal, /close: ''/);
+  assert.doesNotMatch(addModal, /draft\.days/);
+  assert.match(addModal, /options\.sources\.includes\(draft\.source/);
   assert.match(addModal, /option value="Disqualified"/);
   assert.match(addModal, /repOptions\.map/);
   assert.match(styles, /\.modal \{[^}]*max-height: 90vh;[^}]*overflow-y: auto;/);
   assert.match(pipeline, /includeCurrentUser\(list, name\)/);
   assert.match(pipeline, /closedDealIdempotencyId\(identity\)/);
+  assert.match(pipeline, /stageEnteredOn: draft\.stageEnteredOn/);
+  assert.doesNotMatch(pipeline, /draft\.days|daysToClose:\s*90/);
+  assert.match(prospectPage, /stageEnteredOn: draft\.stageEnteredOn/);
+  assert.doesNotMatch(prospectPage, /draft\.days|daysToClose:\s*90/);
+  assert.match(prospectDetail, /displayDealDate\(d\.closeDate\)/);
+  assert.doesNotMatch(prospectDetail, /Date\.now\(\)\s*\+\s*d\.daysToClose/);
+  assert.match(serverData, /stage_entered_on: stageEnteredOn/);
+  assert.match(stageMigration, /add column if not exists stage_entered_on date/);
+  assert.match(stageMigration, /current_date - greatest\(days_in_stage, 0\)/);
+  assert.match(stageMigration, /alter column stage_entered_on set not null/);
   assert.match(approvals, /Proposal outcomes cannot be edited separately/);
   assert.doesNotMatch(approvals, /function saveOutcome/);
   assert.doesNotMatch(prospects, /account|normalizedName/);

@@ -17,12 +17,30 @@ import {
   safeFilenamePart,
 } from '@/lib/docExport';
 import { buildProposalHTML, buildReportHTML, type ProposalData, type ReportData } from '@/lib/docTemplates';
-import { STAGES, currentUser, getDeals, saveProspects, type Deal, type Prospect } from '@/lib/data';
+import {
+  currentUser,
+  getDeals,
+  getProductCatalog,
+  getProspects,
+  saveProspects,
+  type Deal,
+  type Prospect,
+} from '@/lib/data';
 import { dealsForProspect } from '@/lib/prospect-deals';
-import { getSession } from '@/lib/role';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const PAIN_ICONS = ['🟠', '⚠️', '🔴', '📊', '🌐'];
+
+function displayDealDate(date: string | undefined) {
+  if (!date) return '—';
+  const parsed = new Date(`${date}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) return '—';
+  return parsed.toLocaleDateString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    timeZone: 'UTC',
+  });
+}
 
 /* Which sections each tab shows (Doc §3.3 detail view). */
 const TAB_SECTIONS: Record<string, string[]> = {
@@ -39,12 +57,6 @@ type ChatItem =
   | { kind: 'typing' }
   | { kind: 'report'; name: string; html: string; filename: string }
   | { kind: 'proposal'; name: string; html: string; filename: string };
-
-function notesStorageKey(prospectId: Prospect['id']) {
-  const session = getSession();
-  const identity = session?.userId || session?.email || 'seed-user';
-  return `ramssolNotes_${identity}_${prospectId}`;
-}
 
 export default function ProspectDetail({
   prospect,
@@ -68,19 +80,24 @@ export default function ProspectDetail({
   const toast = useToast();
   const p = prospect;
   const [tab, setTab] = useState('overview');
-  const [notes, setNotes] = useState('');
+  const [notes, setNotes] = useState(p.notes || '');
   const [notesSaved, setNotesSaved] = useState('');
+  const [notesSaving, setNotesSaving] = useState(false);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [chat, setChat] = useState<ChatItem[]>([]);
   const [input, setInput] = useState('');
   const [busy, setBusy] = useState(false);
   const feedRef = useRef<HTMLDivElement>(null);
+  const productCatalog = getProductCatalog();
+  const catalogText = productCatalog
+    .map((product) => `${product.category} — ${product.name}: ${product.description}`)
+    .join('\n');
 
   const reloadDeals = useCallback(() => setDeals(getDeals()), []);
 
   useEffect(() => {
-    setNotes(localStorage.getItem(notesStorageKey(p.id)) || '');
-  }, [p.id]);
+    setNotes(p.notes || '');
+  }, [p.id, p.notes]);
   useEffect(reloadDeals, [reloadDeals]);
   useRemoteDataRefresh(reloadDeals);
 
@@ -91,19 +108,37 @@ export default function ProspectDetail({
   const show = TAB_SECTIONS[tab] || TAB_SECTIONS.overview;
   const visible = (id: string) => show.includes(id);
 
-  function toggleWatch() {
+  async function toggleWatch() {
     const next = all.map((x) => (x.id === p.id ? { ...x, watched: !x.watched } : x));
-    saveProspects(next);
-    onChange(next);
+    const saved = await saveProspects(next, { suppressSyncError: true });
+    if (!saved) {
+      toast('The watchlist change was not saved to the database. Please try again.', true);
+      return;
+    }
+    onChange(getProspects());
     toast(p.watched ? 'Removed from watchlist' : '★ Added to your watchlist');
   }
 
-  /* Per-prospect notes stay local until the Lark phase. */
   function onNotes(value: string) {
     setNotes(value);
-    localStorage.setItem(notesStorageKey(p.id), value);
+    setNotesSaved(value === (p.notes || '') ? 'Saved ✓' : 'Unsaved');
+  }
+
+  async function saveNotes() {
+    if (notes === (p.notes || '') || notesSaving) return;
+    setNotesSaving(true);
+    const next = all.map((prospectRow) =>
+      prospectRow.id === p.id ? { ...prospectRow, notes } : prospectRow
+    );
+    const saved = await saveProspects(next, { suppressSyncError: true });
+    setNotesSaving(false);
+    if (!saved) {
+      setNotesSaved('Save failed');
+      toast('The notes were not saved to the database. Please try again.', true);
+      return;
+    }
+    onChange(next);
     setNotesSaved('Saved ✓');
-    setTimeout(() => setNotesSaved(''), 1500);
   }
 
   const relatedDeals = dealsForProspect(deals, p);
@@ -112,31 +147,32 @@ export default function ProspectDetail({
   const dropTyping = () => setChat((c) => c.filter((i) => i.kind !== 'typing'));
 
   async function generateProposal(userMsg: string) {
+    if (!productCatalog.length) {
+      push({ kind: 'bot', text: 'The database product catalog is empty. Ask an administrator to configure it before generating a proposal.' });
+      return;
+    }
     push({ kind: 'typing' });
-    const system = `You are a Sales Proposal AI for Ramssol Group. Generate a structured JSON proposal for a prospect.
+    const system = `You are a Sales Proposal AI for Ramssol Group. Generate a structured JSON proposal using only the supplied database record and its cited research. Never invent company facts, prices, headcount, implementation durations, customer challenges, or product names. Leave unsupported factual fields empty. Use only products in the supplied database catalog. If pricing or timing has not been recorded, use "To be confirmed after scoping" rather than a number.
 Return ONLY valid JSON — no markdown, no backticks, no other text.
 JSON structure:
 {
   "proposalTitle": "Short compelling proposal title mentioning the client",
   "proposalSubtitle": "1 sentence subtitle",
   "executiveSummary": "2-3 sentence summary of the opportunity and why Ramssol is a strong fit",
-  "employeeSize": "best estimate as number range",
-  "engagementType": "e.g. Software Implementation + Managed Services",
+  "employeeSize": "recorded employee size, or empty",
+  "engagementType": "supported engagement type, or empty",
   "keyPainPoints": ["pain point 1", "pain point 2", "pain point 3", "pain point 4"],
   "recommendedSolutions": [
     { "product": "Product name", "reason": "Why it fits this client specifically, 1-2 sentences" }
   ],
   "pricing": {
     "items": [
-      { "item": "Item name", "description": "short description", "cost": "e.g. RM 120,000 (one-time)" }
+      { "item": "Item name", "description": "short description", "cost": "recorded price or To be confirmed after scoping" }
     ],
-    "total": "e.g. RM 350,000 (Year 1)"
+    "total": "recorded total or To be confirmed after scoping"
   },
   "timeline": [
-    { "phase": "Discovery", "duration": "Weeks 1-2", "description": "short description" },
-    { "phase": "Implementation", "duration": "Weeks 3-10", "description": "short description" },
-    { "phase": "Go-Live", "duration": "Week 11", "description": "short description" },
-    { "phase": "Support", "duration": "Ongoing", "description": "short description" }
+    { "phase": "recorded phase name or To be confirmed", "duration": "recorded duration or To be confirmed after scoping", "description": "supported description or empty" }
   ],
   "whyRamssol": [
     { "title": "Short reason title", "detail": "1 sentence detail" }
@@ -152,6 +188,7 @@ Employees: ${p.employees}
 Website: ${p.website}
 Pain Points: ${(p.painPoints || []).join(', ')}
 AI Research available: ${p.aiResearch ? JSON.stringify(p.aiResearch) : 'None'}
+Product catalog from the workspace database: ${catalogText || 'No products are configured'}
 User request: ${userMsg}`;
 
     const raw = await callClaude([{ role: 'user', content: prompt }], system, { maxTokens: 8000 });
@@ -176,17 +213,21 @@ User request: ${userMsg}`;
   }
 
   async function generateReport(userMsg: string) {
+    if (!productCatalog.length) {
+      push({ kind: 'bot', text: 'The database product catalog is empty. Ask an administrator to configure it before generating a report.' });
+      return;
+    }
     push({ kind: 'typing' });
-    const system = `You are a Sales Intelligence AI for Ramssol Group. Generate a structured JSON report for a prospect.
+    const system = `You are a Sales Intelligence AI for Ramssol Group. Generate a structured JSON report using only the supplied database record and its cited research. Never invent or estimate factual company data. Leave unsupported facts empty. Use only products in the supplied database catalog.
 Return ONLY valid JSON — no markdown, no backticks, no other text.
 JSON structure:
 {
   "executiveSummary": "2-3 sentence overview of the company and why they are a good prospect for Ramssol",
-  "financials": { "revenue": "e.g. RM 50M–200M/year", "itSpend": "e.g. RM 2M–5M/year", "hrSpend": "e.g. RM 500K–1M/year" },
-  "employeeSize": "best estimate as number range",
-  "decisionMaker": "most likely decision-maker title and department",
-  "buyingPotential": "High or Medium or Low",
-  "buyingPotentialReason": "1 sentence explanation",
+  "financials": { "revenue": "published revenue or empty", "itSpend": "published IT spend or empty", "hrSpend": "published HR spend or empty" },
+  "employeeSize": "recorded employee size or empty",
+  "decisionMaker": "recorded decision-maker or empty",
+  "buyingPotential": "recorded buying-potential assessment or empty",
+  "buyingPotentialReason": "recorded assessment reason or empty",
   "keyPainPoints": ["pain point 1", "pain point 2", "pain point 3", "pain point 4"],
   "recommendedSolutions": [
     { "product": "Product name", "reason": "Why it fits this client specifically" },
@@ -203,6 +244,7 @@ Employees: ${p.employees}
 Website: ${p.website}
 Pain Points: ${(p.painPoints || []).join(', ')}
 AI Research available: ${p.aiResearch ? JSON.stringify(p.aiResearch) : 'None'}
+Product catalog from the workspace database: ${catalogText || 'No products are configured'}
 User request: ${userMsg}`;
 
     const raw = await callClaude([{ role: 'user', content: prompt }], system, { maxTokens: 6000 });
@@ -245,7 +287,10 @@ User request: ${userMsg}`;
       }
 
       push({ kind: 'typing' });
-      const system = `You are an AI Pre-Sales Consultant for Ramssol Group. Current prospect: ${p.name} (${p.type}). Pain points: ${(p.painPoints || []).join(', ')}. Be concise and sales-focused.
+      const system = `You are an AI Pre-Sales Consultant for Ramssol Group. Use only this database-backed prospect record and its cited research. Do not invent facts, prices, contacts, budgets, technology, or company challenges; say when the record does not contain the answer. Recommend only products from the database catalog.
+
+Prospect record: ${JSON.stringify(p)}
+Product catalog: ${catalogText || 'No products are configured'}
 
 IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, or slide deck — tell them to type something like "generate a PDF proposal for this company" (for a proposal slide deck) or "generate a PDF report for this company" (for an intelligence report), and the system will handle it automatically. Do not try to describe what the document would contain as text.`;
       const reply = await callClaude([{ role: 'user', content: msg }], system);
@@ -257,10 +302,10 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
   }
 
   const QUICK = [
-    { label: 'Research this organization', msg: `Research ${p.name} and identify their biggest technology needs` },
-    { label: 'What are their key challenges?', msg: `What are the key challenges facing ${p.name} and how can Ramssol help?` },
+    { label: 'Summarize recorded research', msg: `Summarize the verified research recorded for ${p.name}` },
+    { label: 'Summarize recorded challenges', msg: `Summarize the challenges recorded for ${p.name}` },
     { label: 'Suggest solutions to pitch', msg: `Suggest the best Ramssol solutions for ${p.name} in the ${p.type} sector` },
-    { label: 'Generate proposal outline', msg: `Generate a full proposal outline for ${p.name} in the ${p.type} sector with pricing` },
+    { label: 'Generate proposal outline', msg: `Generate a proposal outline for ${p.name} using only recorded information` },
   ];
 
   return (
@@ -385,7 +430,7 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
                 )}
                 {p.aiResearch?.estimatedRevenue && (
                   <div>
-                    <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>Est. Revenue</div>
+                    <div style={{ fontSize: 11, color: 'var(--gray-400)' }}>Published Revenue</div>
                     <div style={{ fontSize: 13, fontFamily: 'var(--mono)' }}>
                       {p.aiResearch.estimatedRevenue}
                     </div>
@@ -472,12 +517,7 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
                           </span>
                         </td>
                         <td>{d.rep}</td>
-                        <td>
-                          {new Date(Date.now() + d.daysToClose * 86400000).toLocaleDateString('en-GB', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                        </td>
+                        <td>{displayDealDate(d.closeDate)}</td>
                         <td style={{ fontFamily: 'var(--mono)' }}>{(d.value / 1000000).toFixed(2)}M</td>
                         <td>{d.status === 'On Track' ? '🟢' : d.status === 'At Risk' ? '🟡' : '🔴'}</td>
                       </tr>
@@ -498,11 +538,10 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
             <div className="card" style={{ marginTop: 16, textAlign: 'center', padding: '40px 24px' }}>
               <div style={{ fontSize: 30, marginBottom: 10 }}>📁</div>
               <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--gray-900)' }}>
-                Document storage arrives with Lark Base
+                No documents stored
               </div>
               <div style={{ fontSize: 12.5, color: 'var(--gray-500)', marginTop: 6, lineHeight: 1.6 }}>
-                Proposals, RFP responses and contracts for {p.name} will sync here in the final
-                integration phase.
+                This prospect has no database-backed documents yet.
               </div>
             </div>
           )}
@@ -518,7 +557,9 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
                 rows={9}
                 value={notes}
                 onChange={(e) => onNotes(e.target.value)}
-                placeholder="Meeting notes, next steps, stakeholder observations… saved automatically."
+                onBlur={() => void saveNotes()}
+                disabled={notesSaving}
+                placeholder="Meeting notes, next steps, stakeholder observations…"
               />
             </div>
           )}
@@ -684,5 +725,3 @@ IMPORTANT: If the user asks you to generate a PDF, document, report, proposal, o
     </>
   );
 }
-
-export { STAGES };

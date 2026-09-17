@@ -28,8 +28,12 @@ function itemRecord(value: unknown) {
 function itemKey(collection: DataCollection, value: unknown): string {
   const item = itemRecord(value);
   if (!item) return '';
-  if (collection === 'proposals' || collection === 'prospects') return String(item.id || '');
+  if (collection === 'proposals' || collection === 'prospects' || collection === 'complianceRows') {
+    return String(item.id || '');
+  }
   if (collection === 'team') return String(item.id || item.email || '');
+  if (collection === 'workspaceConfig') return String(item.key || '');
+  if (collection === 'notificationPreferences') return String(item.eventType || '');
   // Deal identity is always its stable ID. Account text is display data and
   // must never become an implicit relationship or mutation key.
   return String(item.id || '');
@@ -74,7 +78,10 @@ export function changesBetween(
         ? new Set((options.closedDealDeleteIds || []).map(String))
       : collection === 'prospects'
         ? new Set((options.prospectDeleteIds || []).map(String))
-        : null;
+        : collection === 'workspaceConfig' || collection === 'notificationPreferences'
+          || collection === 'complianceRows' || collection === 'team'
+          ? new Set<string>()
+          : null;
   const deletes = previous.filter((item) => {
     const key = itemKey(collection, item);
     return !after.has(key) && (!allowedDeletes || allowedDeletes.has(key));

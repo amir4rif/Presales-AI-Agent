@@ -1,9 +1,12 @@
 'use client';
 
-import { isRemoteDataSource } from './data-sync';
+import {
+  getNotificationPreferences,
+  getNotificationRuleDefinitions,
+  saveNotificationPreferences,
+} from './data';
 import { getSession } from './role';
 import { createSupabaseBrowserClient } from './supabase/client';
-import { scopedStorageKey } from './user-storage';
 
 export type NotifType = 'approve' | 'reject' | 'pending';
 
@@ -18,19 +21,7 @@ export type Notif = {
 
 export type NotificationRules = Record<NotifType, boolean>;
 
-const NKEY = 'ramssolNotifCenter';
-const RULES_KEY = 'ramssolNotify';
-let legacyStorageCleared = false;
-
-export const NOTIFICATION_RULES: ReadonlyArray<{
-  id: NotifType;
-  label: string;
-  def: boolean;
-}> = [
-  { id: 'reject', label: 'Notify me when my proposal is rejected', def: true },
-  { id: 'approve', label: 'Notify me when my proposal is approved', def: true },
-  { id: 'pending', label: 'Notify me when a proposal awaits my review', def: true },
-];
+let notificationCache: Notif[] = [];
 
 export const NOTIF_ICONS: Record<NotifType, string> = {
   approve: '✅',
@@ -38,84 +29,48 @@ export const NOTIF_ICONS: Record<NotifType, string> = {
   pending: '📤',
 };
 
-function storageIdentity() {
-  const session = getSession();
-  return session?.userId || session?.email || 'seed-user';
-}
-
-function discardUnscopedLegacyStorage() {
-  if (typeof window === 'undefined' || legacyStorageCleared) return;
-  // Shared values cannot be assigned safely to whichever account signs in
-  // first after this fix, so discard them instead of migrating a data leak.
-  localStorage.removeItem(NKEY);
-  localStorage.removeItem(RULES_KEY);
-  legacyStorageCleared = true;
-}
-
-/** Exported for settings and regression coverage. */
-export function notificationStorageKey(base: 'messages' | 'rules') {
-  discardUnscopedLegacyStorage();
-  return scopedStorageKey(base === 'messages' ? NKEY : RULES_KEY, storageIdentity());
-}
-
 export function getNotificationRules(): NotificationRules {
-  let saved: Partial<NotificationRules> = {};
-  if (typeof window !== 'undefined') {
-    try {
-      const parsed: unknown = JSON.parse(
-        localStorage.getItem(notificationStorageKey('rules')) || '{}'
-      );
-      saved = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
-        ? parsed as Partial<NotificationRules>
-        : {};
-    } catch {
-      saved = {};
-    }
-  }
-
-  return NOTIFICATION_RULES.reduce<NotificationRules>(
+  const saved = new Map(
+    getNotificationPreferences().map((preference) => [preference.eventType, preference.enabled])
+  );
+  return getNotificationRuleDefinitions().reduce<NotificationRules>(
     (rules, definition) => {
-      rules[definition.id] = saved[definition.id] ?? definition.def;
+      rules[definition.id] = saved.get(definition.id) ?? definition.defaultEnabled;
       return rules;
     },
-    { approve: true, reject: true, pending: true }
+    { approve: false, reject: false, pending: false }
   );
 }
 
-export function saveNotificationRules(rules: NotificationRules) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(notificationStorageKey('rules'), JSON.stringify(rules));
-  window.dispatchEvent(new Event('rams:notif-rules'));
+export async function saveNotificationRules(rules: NotificationRules) {
+  const saved = await saveNotificationPreferences(
+    getNotificationRuleDefinitions().map((definition) => ({
+      eventType: definition.id,
+      enabled: rules[definition.id],
+    }))
+  );
+  if (saved) window.dispatchEvent(new Event('rams:notif-rules'));
+  return saved;
 }
 
 function enabledNotificationTypes() {
   const current = getNotificationRules();
-  return NOTIFICATION_RULES
+  return getNotificationRuleDefinitions()
     .map((rule) => rule.id)
     .filter((type) => current[type]);
 }
 
 export function getNotifs(): Notif[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const stored = JSON.parse(
-      localStorage.getItem(notificationStorageKey('messages')) || '[]'
-    ) as Notif[];
-    const enabled = new Set(enabledNotificationTypes());
-    return stored.filter((notification) => enabled.has(notification.type));
-  } catch {
-    return [];
-  }
+  const enabled = new Set(enabledNotificationTypes());
+  return notificationCache.filter((notification) => enabled.has(notification.type));
 }
 
 export function saveNotifs(list: Notif[]) {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(notificationStorageKey('messages'), JSON.stringify(list.slice(0, 30)));
+  notificationCache = list.slice(0, 30);
 }
 
 /** Load the current recipient's durable rows, caching only under their key. */
 export async function loadNotifs(): Promise<Notif[]> {
-  if (!isRemoteDataSource()) return getNotifs();
   const enabled = enabledNotificationTypes();
   if (!enabled.length) return [];
 
@@ -144,8 +99,6 @@ export async function loadNotifs(): Promise<Notif[]> {
 export async function markAllNotifsRead() {
   const cached = getNotifs().map((notification) => ({ ...notification, read: true }));
   saveNotifs(cached);
-  if (!isRemoteDataSource()) return cached;
-
   const enabled = enabledNotificationTypes();
   if (!enabled.length) return cached;
   const response = await createSupabaseBrowserClient()
@@ -161,7 +114,6 @@ export async function markAllNotifsRead() {
 
 export async function clearNotifs() {
   saveNotifs([]);
-  if (!isRemoteDataSource()) return;
   const userId = getSession()?.userId;
   if (!userId) throw new Error('Could not identify the notification recipient.');
   const response = await createSupabaseBrowserClient()
@@ -181,7 +133,7 @@ export function subscribeToNotifications(onChange: () => void) {
   window.addEventListener('rams:notif-rules', onChange);
 
   const userId = getSession()?.userId;
-  if (!isRemoteDataSource() || !userId) {
+  if (!userId) {
     return () => {
       window.removeEventListener('rams:notif', onChange);
       window.removeEventListener('rams:notif-rules', onChange);

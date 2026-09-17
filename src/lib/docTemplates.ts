@@ -65,9 +65,9 @@ export function buildReportHTML(inputData: ReportData, inputProspect: Prospect):
   const data = escapeDocumentData(inputData);
   const prospect = escapeDocumentData(inputProspect);
   const date = new Date().toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'});
-  const pot   = (data.buyingPotential || 'Medium').trim();
-  const potColor  = pot==='High' ? '#0A6650' : pot==='Low' ? '#A32D2D' : '#BA7517';
-  const potBg     = pot==='High' ? '#E7F9F2' : pot==='Low' ? '#FEF2F2' : '#FEF9EC';
+  const pot   = (data.buyingPotential || '—').trim();
+  const potColor  = pot==='High' ? '#0A6650' : pot==='Low' ? '#A32D2D' : pot==='Medium' ? '#BA7517' : '#6B7280';
+  const potBg     = pot==='High' ? '#E7F9F2' : pot==='Low' ? '#FEF2F2' : pot==='Medium' ? '#FEF9EC' : '#F4F6F8';
   const pains     = arrayOf<string>(data.keyPainPoints).map((p) =>`<li style="margin-bottom:6px">${p}</li>`).join('');
   const solutions = arrayOf<Solution>(data.recommendedSolutions).map((s, i) =>`
     <div style="display:flex;gap:12px;padding:10px 0;border-bottom:1px solid #F0EFF0">
@@ -104,9 +104,9 @@ export function buildReportHTML(inputData: ReportData, inputProspect: Prospect):
     <div style="font-size:10px;font-weight:700;color:#00B4A0;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:12px">Financial Intelligence</div>
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
       ${[
-        ['Est. Annual Revenue',    data.financials?.revenue    || data.estimatedRevenue    || '—'],
-        ['Est. IT Spending',       data.financials?.itSpend    || data.estimatedITSpend    || '—'],
-        ['Est. HR Spending',       data.financials?.hrSpend    || data.estimatedHRSpend    || '—'],
+        ['Annual Revenue',         data.financials?.revenue    || data.estimatedRevenue    || '—'],
+        ['IT Spending',            data.financials?.itSpend    || data.estimatedITSpend    || '—'],
+        ['HR Spending',            data.financials?.hrSpend    || data.estimatedHRSpend    || '—'],
         ['Employee Size',          data.employeeSize           || prospect.employees       || '—'],
       ].map(([label, val]: string[]) =>`
         <div style="background:#F4F6F8;border-radius:8px;padding:14px 16px;border-top:3px solid #1B2A4A">
@@ -208,12 +208,12 @@ export function buildProposalHTML(inputData: ProposalData, inputProspect: Prospe
   const slideSummary = S(`
     ${slideHeader('Executive Summary', 'Why We’re Here')}
     <div style="padding:32px 72px 0">
-      <div style="font-size:17px;line-height:1.9;color:#374151;background:#F8F9FA;border-left:4px solid ${teal};border-radius:8px;padding:24px 28px;max-width:1080px">${data.executiveSummary || `${prospect.name} is a ${prospect.type} organisation positioned to benefit from Ramssol's HR & enterprise technology solutions.`}</div>
+      <div style="font-size:17px;line-height:1.9;color:#374151;background:#F8F9FA;border-left:4px solid ${teal};border-radius:8px;padding:24px 28px;max-width:1080px">${data.executiveSummary || 'No executive summary is available from the recorded information.'}</div>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:32px">
         ${[
           ['Industry', prospect.type || '—'],
           ['Employee Size', data.employeeSize || prospect.employees || '—'],
-          ['Engagement Type', data.engagementType || 'Software + Advisory'],
+          ['Engagement Type', data.engagementType || '—'],
         ].map(([l, v]: string[]) =>`
         <div style="background:#F4F6F8;border-radius:8px;padding:18px 20px;border-top:3px solid ${navy}">
           <div style="font-size:10px;font-weight:700;color:#6B7280;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px">${l}</div>
@@ -272,7 +272,7 @@ export function buildProposalHTML(inputData: ProposalData, inputProspect: Prospe
       </table>
       <div style="display:flex;justify-content:flex-end;margin-top:18px;max-width:1140px">
         <div style="background:${navy};border-radius:8px;padding:16px 28px;text-align:right">
-          <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.5px">Total Estimated Investment</div>
+          <div style="font-size:10px;font-weight:700;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.5px">Total Investment</div>
           <div style="font-size:22px;font-weight:700;color:white;font-family:'Courier New',monospace;margin-top:4px">${data.pricing?.total || '—'}</div>
         </div>
       </div>
@@ -290,7 +290,7 @@ export function buildProposalHTML(inputData: ProposalData, inputProspect: Prospe
     </div>`).join('');
   const slideTimeline = S(`
     ${slideHeader('Roadmap', 'Implementation Timeline')}
-    <div style="padding:56px 72px 0;display:flex;gap:24px">${phases || '<div style="font-size:14px;color:#6B7280">Timeline to be confirmed after kickoff</div>'}</div>
+    <div style="padding:56px 72px 0;display:flex;gap:24px">${phases || '<div style="font-size:14px;color:#6B7280">No implementation timeline has been confirmed.</div>'}</div>
     ${pageFooter(6)}`, {pageBreak:true});
 
   // ── Slide 7: Why Ramssol ──
@@ -316,7 +316,7 @@ export function buildProposalHTML(inputData: ProposalData, inputProspect: Prospe
       <div>
         <div style="font-size:12px;font-weight:700;color:${tealLight};letter-spacing:2px;text-transform:uppercase;margin-bottom:12px">Let's Move Forward</div>
         <div style="font-size:30px;font-weight:700;color:white;margin-bottom:28px">Next Steps</div>
-        <div style="background:rgba(255,255,255,0.06);border-radius:12px;padding:24px 28px;max-width:820px">${steps || '<div style="font-size:14px;color:rgba(255,255,255,0.7)">Schedule a follow-up discussion</div>'}</div>
+        <div style="background:rgba(255,255,255,0.06);border-radius:12px;padding:24px 28px;max-width:820px">${steps || '<div style="font-size:14px;color:rgba(255,255,255,0.7)">No next steps have been recorded.</div>'}</div>
       </div>
       <div style="display:flex;justify-content:space-between;align-items:flex-end">
         <div>

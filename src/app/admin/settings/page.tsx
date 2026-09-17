@@ -9,28 +9,28 @@ import { useCallback, useEffect, useState } from 'react';
 import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
 import {
-  STAGES,
   currentUser,
+  getAccessRoles,
   getProposals,
+  getNotificationRuleDefinitions,
+  getStages,
   getTeam,
+  saveWorkspaceConfigValue,
   saveTeam,
+  type AccessRole,
+  type Stage,
   type TeamMember,
 } from '@/lib/data';
-import { LEVEL_NAME, ROLE_LEVELS, getSession, levelForRole, setSession, type Level } from '@/lib/role';
+import { getSession, setSession, type Level } from '@/lib/role';
 import { useIntegrations } from '@/lib/useIntegrations';
-import { isRemoteDataSource } from '@/lib/data-sync';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 import {
-  NOTIFICATION_RULES,
   getNotificationRules,
   saveNotificationRules,
   type NotificationRules,
   type NotifType,
 } from '@/lib/notify';
-
-const ROLES = Object.keys(ROLE_LEVELS);
-const SLA_KEY = 'ramssolStageSLA';
 
 const TABS = [
   { id: 'profile', label: 'My Profile' },
@@ -44,10 +44,10 @@ type TabId = (typeof TABS)[number]['id'];
 const OK_STYLE = { background: 'rgba(52, 211, 153, 0.2)', color: '#34D399' };
 const ERR_STYLE = { background: 'rgba(239, 68, 68, 0.2)', color: '#F87171' };
 
-function LevelBadge({ level }: { level: Level }) {
+function LevelBadge({ level, label }: { level: Level; label?: string }) {
   return (
     <span className={`level-badge level-${level}`}>
-      L{level} · {LEVEL_NAME[level]}
+      L{level}{label ? ` · ${label}` : ''}
     </span>
   );
 }
@@ -72,55 +72,73 @@ function SettingsPage() {
   const [tab, setTab] = useState<TabId>('profile');
   const { ai, supabase, loading } = useIntegrations();
 
-  const [profile, setProfile] = useState({ name: '', email: '', role: 'Sales Representative' });
+  const [profile, setProfile] = useState({ name: '', email: '', role: '' });
   const [profileStatus, setProfileStatus] = useState<{ ok: boolean; msg: string } | null>(null);
   const [pw, setPw] = useState({ current: '', next: '', confirm: '' });
   const [pwStatus, setPwStatus] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const [team, setTeam] = useState<TeamMember[]>([]);
+  const [roles, setRoles] = useState<AccessRole[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [invite, setInvite] = useState({ email: '', role: 'Sales Representative' });
+  const [invite, setInvite] = useState({ email: '', role: '' });
 
   const [sla, setSla] = useState<Record<number, number>>({});
   const [slaStatus, setSlaStatus] = useState<string | null>(null);
 
-  const [notify, setNotify] = useState<NotificationRules>({
-    approve: true,
-    reject: true,
-    pending: true,
-  });
+  const [notify, setNotify] = useState<NotificationRules>(() => getNotificationRules());
   const [notifyStatus, setNotifyStatus] = useState<string | null>(null);
 
-  const loadTeam = useCallback(() => setTeam(getTeam()), []);
+  const loadWorkspace = useCallback(() => {
+    setTeam(getTeam());
+    const nextRoles = getAccessRoles();
+    setRoles(nextRoles);
+    setInvite((current) => current.role
+      ? current
+      : {
+          ...current,
+          role: nextRoles.find((role) => role.default)?.role || nextRoles[0]?.role || '',
+        });
+    setStages(getStages());
+    setNotify(getNotificationRules());
+  }, []);
 
   useEffect(() => {
     const sess = getSession();
     setProfile({
       name: currentUser(),
-      email: sess?.email || 'user@ramssol.com',
-      role: sess?.role || 'Sales Representative',
+      email: sess?.email || '',
+      role: sess?.role || '',
     });
-    loadTeam();
-    try {
-      setSla(JSON.parse(localStorage.getItem(SLA_KEY) || '{}'));
-    } catch {
-      setSla({});
-    }
-    setNotify(getNotificationRules());
-  }, [loadTeam]);
-  useRemoteDataRefresh(loadTeam);
+    loadWorkspace();
+  }, [loadWorkspace]);
+  useRemoteDataRefresh(loadWorkspace);
 
-  const profileLevel = levelForRole(profile.role);
+  const levelForRole = (role: string) =>
+    roles.find((definition) => definition.role === role)?.level;
+  const levelLabel = (level: Level) =>
+    roles.find((definition) => definition.level === level)?.label;
+  const roleNames = roles.map((definition) => definition.role);
+  const profileLevel = levelForRole(profile.role) || getSession()?.level || 1;
 
-  function saveProfile() {
+  async function saveProfile() {
     const session = getSession();
     const name = profile.name.trim() || currentUser();
+    const selectedLevel = levelForRole(profile.role);
+    if (!selectedLevel) {
+      setProfileStatus({ ok: false, msg: 'Choose a configured role.' });
+      return;
+    }
     const next = team.map((member) =>
       member.id === session?.userId || member.email === session?.email
-        ? { ...member, name, role: profile.role, level: levelForRole(profile.role) }
+        ? { ...member, name, role: profile.role, level: selectedLevel }
         : member
     );
-    saveTeam(next);
+    const saved = await saveTeam(next);
+    if (!saved) {
+      setProfileStatus({ ok: false, msg: '❌ Profile was not saved to the database.' });
+      return;
+    }
     setTeam(next);
     const names = name.split(/\s+/);
     if (session) {
@@ -129,7 +147,7 @@ function SettingsPage() {
         firstName: names[0] || '',
         lastName: names.slice(1).join(' '),
         role: profile.role,
-        level: levelForRole(profile.role),
+        level: selectedLevel,
       });
     }
     setProfileStatus({ ok: true, msg: '✅ Profile updated.' });
@@ -143,10 +161,6 @@ function SettingsPage() {
     }
     if (pw.next !== pw.confirm) {
       setPwStatus({ ok: false, msg: '❌ New passwords do not match.' });
-      return;
-    }
-    if (!isRemoteDataSource()) {
-      setPwStatus({ ok: false, msg: 'Password changes are unavailable in the offline seed demo.' });
       return;
     }
     const client = createSupabaseBrowserClient();
@@ -166,21 +180,18 @@ function SettingsPage() {
   }
 
   function removeMember(index: number) {
-    if (isRemoteDataSource()) {
-      alert('Remove authentication users in Supabase Auth. This screen only manages application access levels.');
-      return;
-    }
-    const next = team.slice();
-    next.splice(index, 1);
-    saveTeam(next);
-    setTeam(next);
+    void index;
+    alert('Remove authentication users in Supabase Auth. This screen only manages application access levels.');
   }
 
-  function changeMemberRole(index: number, role: string) {
+  async function changeMemberRole(index: number, role: string) {
+    const level = levelForRole(role);
+    if (!level) return;
     const next = team.map((member, memberIndex) =>
-      memberIndex === index ? { ...member, role, level: levelForRole(role) } : member
+      memberIndex === index ? { ...member, role, level } : member
     );
-    saveTeam(next);
+    const saved = await saveTeam(next);
+    if (!saved) return;
     setTeam(next);
   }
 
@@ -189,42 +200,37 @@ function SettingsPage() {
       alert('Please enter an email address.');
       return;
     }
-    if (isRemoteDataSource()) {
-      alert('Ask the teammate to create an account first. Their profile will appear here for role assignment.');
-      return;
-    }
-    const next: TeamMember[] = [
-      ...team,
-      {
-        name: invite.email.split('@')[0],
-        email: invite.email.trim(),
-        role: invite.role,
-        status: 'pending',
-        lastActive: '—',
-      },
-    ];
-    saveTeam(next);
-    setTeam(next);
-    setInviteOpen(false);
-    setInvite({ email: '', role: 'Sales Representative' });
+    alert('Ask the teammate to create an account first. Their database profile will appear here for role assignment.');
   }
 
-  function saveStages() {
-    const map: Record<number, number> = {};
-    STAGES.forEach((s) => {
-      const v = Number(sla[s.id] ?? s.sla);
-      if (v > 0) map[s.id] = v;
-    });
-    localStorage.setItem(SLA_KEY, JSON.stringify(map));
-    setSlaStatus('✅ SLA thresholds saved.');
+  async function saveStages() {
+    const next = stages.map((stage) => ({
+      ...stage,
+      sla: Number(sla[stage.id] ?? stage.sla),
+    }));
+    if (next.some((stage) => !Number.isFinite(stage.sla) || stage.sla <= 0)) {
+      setSlaStatus('Enter a positive SLA for every stage.');
+      return;
+    }
+    const saved = await saveWorkspaceConfigValue('pipeline_stages', next);
+    if (!saved) {
+      setSlaStatus('SLA thresholds were not saved to the database.');
+      return;
+    }
+    setStages(next);
+    setSla({});
+    setSlaStatus('✅ SLA thresholds saved to the database.');
     setTimeout(() => setSlaStatus(null), 2000);
   }
 
-  function toggleNotify(id: NotifType, value: boolean) {
+  async function toggleNotify(id: NotifType, value: boolean) {
     const next = { ...notify, [id]: value };
     setNotify(next);
-    saveNotificationRules(next);
-    setNotifyStatus('✅ Notification rules saved.');
+    const saved = await saveNotificationRules(next);
+    if (!saved) setNotify(notify);
+    setNotifyStatus(saved
+      ? '✅ Notification rules saved to the database.'
+      : 'Notification rules were not saved to the database.');
     setTimeout(() => setNotifyStatus(null), 1800);
   }
 
@@ -241,13 +247,18 @@ function SettingsPage() {
       downloadCSV('team_access_levels.csv', [
         ['Name', 'Email', 'Role', 'Access Level', 'Level Name', 'Status'],
         ...team.map((m) => [
-          m.name, m.email, m.role, levelForRole(m.role), LEVEL_NAME[levelForRole(m.role)], m.status,
+          m.name,
+          m.email,
+          m.role,
+          m.level || levelForRole(m.role),
+          levelLabel((m.level || levelForRole(m.role) || 1) as Level),
+          m.status,
         ]),
       ]);
     } else {
       downloadCSV('pipeline_stages_sla.csv', [
         ['#', 'Stage', 'SLA (days)', 'Win Probability %'],
-        ...STAGES.map((s) => [s.id, s.name, sla[s.id] ?? s.sla, Math.round(s.prob * 100)]),
+        ...stages.map((s) => [s.id, s.name, sla[s.id] ?? s.sla, Math.round(s.prob * 100)]),
       ]);
     }
   }
@@ -331,7 +342,7 @@ function SettingsPage() {
                     value={profile.role}
                     onChange={(e) => setProfile((p) => ({ ...p, role: e.target.value }))}
                   >
-                    {ROLES.map((r) => (
+                    {roleNames.map((r) => (
                       <option key={r}>{r}</option>
                     ))}
                   </select>
@@ -339,7 +350,7 @@ function SettingsPage() {
                 <div className="form-group">
                   <label className="form-label">Access Level</label>
                   <div>
-                    <LevelBadge level={profileLevel} />
+                    <LevelBadge level={profileLevel} label={levelLabel(profileLevel)} />
                   </div>
                 </div>
                 {profileStatus && (
@@ -424,11 +435,14 @@ function SettingsPage() {
                     <td style={{ color: 'var(--gray-500)' }}>{m.email}</td>
                     <td>
                       <select value={m.role} onChange={(event) => changeMemberRole(i, event.target.value)}>
-                        {ROLES.map((role) => <option key={role}>{role}</option>)}
+                        {roleNames.map((role) => <option key={role}>{role}</option>)}
                       </select>
                     </td>
                     <td>
-                      <LevelBadge level={m.level || levelForRole(m.role)} />
+                      <LevelBadge
+                        level={(m.level || levelForRole(m.role) || 1) as Level}
+                        label={levelLabel((m.level || levelForRole(m.role) || 1) as Level)}
+                      />
                     </td>
                     <td>
                       <span className={`status-badge ${m.status === 'active' ? 'status-completed' : 'status-review'}`}>
@@ -453,17 +467,15 @@ function SettingsPage() {
 
           {/* Access model reference (Doc §2) */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 12, marginTop: 16 }}>
-            {[
-              { lvl: 1 as Level, name: 'Data Entry', desc: 'Submit prospect data, update deal records, and view own assigned pipeline only.' },
-              { lvl: 2 as Level, name: 'Reviewer', desc: 'Review and validate Level 1 submissions. Edit records, view team-wide pipeline.' },
-              { lvl: 3 as Level, name: 'Administrator', desc: 'Full system access — approve records, configure settings, export reports, manage users.' },
-            ].map((r) => (
-              <div className="card" style={{ padding: 16 }} key={r.lvl}>
+            {[1, 2, 3].map((level) => roles.find((role) => role.level === level)).filter(
+              (role): role is AccessRole => Boolean(role)
+            ).map((r) => (
+              <div className="card" style={{ padding: 16 }} key={r.level}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <span className={`level-badge level-${r.lvl}`}>Level {r.lvl}</span>
-                  <strong style={{ fontSize: 13 }}>{r.name}</strong>
+                  <span className={`level-badge level-${r.level}`}>Level {r.level}</span>
+                  <strong style={{ fontSize: 13 }}>{r.label}</strong>
                 </div>
-                <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{r.desc}</div>
+                <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>{r.description}</div>
               </div>
             ))}
           </div>
@@ -493,7 +505,7 @@ function SettingsPage() {
                 </tr>
               </thead>
               <tbody>
-                {STAGES.map((s) => (
+                {stages.map((s) => (
                   <tr key={s.id}>
                     <td style={{ fontFamily: 'var(--mono)' }}>{s.id}</td>
                     <td>{s.name}</td>
@@ -558,27 +570,21 @@ function SettingsPage() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
                 <div style={{ fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5 }}>
                   Set the project URL and publishable key in <code>.env.local</code>, apply the checked-in
-                  migration, then switch <code>DATA_SOURCE</code> from <code>seed</code> to <code>supabase</code>.
+                  migrations. Supabase is the application&apos;s only runtime data source.
                   The publishable key is safe for the browser; RLS protects every row.
                 </div>
                 <div className="cfg-row">
                   <span className={`cfg-dot ${supabase?.ready ? 'cfg-ok' : 'cfg-warn'}`} />
                   <div className="cfg-info">
                     <div className="cfg-name">
-                      {supabase?.dataSource === 'seed'
-                        ? 'Prepared — seed mode active'
-                        : supabase?.ready
-                          ? 'Supabase mode ready'
-                          : 'Supabase needs configuration'}
+                      {supabase?.ready ? 'Supabase ready' : 'Supabase needs configuration'}
                     </div>
                     <div className="cfg-sub">
                       {loading
                         ? 'Checking…'
-                        : supabase?.dataSource === 'seed'
-                          ? 'No remote request is made. Lark code remains archived in the repository for a future switch.'
-                          : supabase?.ready
-                            ? 'Public configuration is present. Auth and RLS are enforced during use.'
-                            : `Missing: ${supabase?.missing?.join(', ') || 'Supabase public values'}.`}
+                        : supabase?.ready
+                          ? 'Public configuration is present. Auth and RLS are enforced during use.'
+                          : `Missing: ${supabase?.missing?.join(', ') || 'Supabase public values'}.`}
                     </div>
                   </div>
                 </div>
@@ -600,7 +606,7 @@ function SettingsPage() {
                 These preferences apply only to this signed-in account. Every listed event has live recipient delivery.
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                {NOTIFICATION_RULES.map((r) => (
+                {getNotificationRuleDefinitions().map((r) => (
                   <label
                     key={r.id}
                     style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 13, color: 'var(--text-secondary)', cursor: 'pointer' }}
@@ -678,7 +684,7 @@ function SettingsPage() {
             value={invite.role}
             onChange={(e) => setInvite((v) => ({ ...v, role: e.target.value }))}
           >
-            {ROLES.map((r) => (
+            {roleNames.map((r) => (
               <option key={r}>{r}</option>
             ))}
           </select>

@@ -2,21 +2,24 @@
 /* Level 2 · Reviewer — team-wide visibility, review queue first. */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { STAGES, fmtRM, type Stats } from '@/lib/data';
-import { dealNeedsOutcome, dealOutcomeEscalated, dealOutcomeOverdueDays } from '@/lib/deal-outcomes';
+import { fmtRM, type Stats } from '@/lib/data';
+import {
+  dealDaysInStage,
+  dealNeedsOutcome,
+  dealOutcomeEscalated,
+  dealOutcomeOverdueDays,
+} from '@/lib/deal-outcomes';
 import { greeting } from '@/lib/useStats';
 import { ActionStrip, Card, Empty, KpiRow, RepBars, plural, rankReps } from './shared';
-
-/* Only call out a leader or a laggard once there are enough closed deals
-   for the gap to mean anything. */
-const CONFIDENT = 3;
 
 export default function LevelTwo({ s }: { s: Stats }) {
   const router = useRouter();
   const queue = s.cur.filter((p) => p.status === 'Pending Review');
   const disqualificationQueue = s.deals.filter((deal) => deal.pendingDisqualificationReason);
   const ranked = rankReps(s.closed);
-  const eligible = ranked.filter((r) => r.w + r.l >= CONFIDENT);
+  const eligible = ranked.filter(
+    (r) => s.minimumCompletedProjects > 0 && r.w + r.l >= s.minimumCompletedProjects
+  );
   const best = eligible[0];
   const worst = eligible.length > 1 ? eligible[eligible.length - 1] : null;
 
@@ -94,7 +97,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
         <ActionStrip
           icon="!"
           title={`${s.escalatedOutcomeDeals.length} overdue deal${s.escalatedOutcomeDeals.length === 1 ? ' has' : 's have'} escalated to you`}
-          sub="These deals are still Open and scored in pipeline value, but their target close dates passed at least 14 days ago."
+          sub={`These deals are still Open and scored in pipeline value, but their target close dates passed at least ${s.outcomeEscalationDays} days ago.`}
           cta="Resolve outcomes"
           href="/pipeline"
         />
@@ -107,7 +110,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
           { l: 'Post-Approval Win', v: `${s.winRate}%`, sub: `${s.won}W / ${s.won + s.lost} decided`, c: 'kpi-up' },
           { l: 'Team Pipeline', v: fmtRM(s.pipelineValue), sub: `${s.deals.length} open deals` },
           { l: 'Weighted', v: fmtRM(s.weighted), sub: 'Probability-adjusted' },
-          { l: 'Needs Outcome', v: s.needsOutcome.length, sub: `${s.escalatedOutcomeDeals.length} escalated at 14+ days`, c: s.needsOutcome.length ? 'kpi-danger' : '' },
+          { l: 'Needs Outcome', v: s.needsOutcome.length, sub: `${s.escalatedOutcomeDeals.length} escalated at ${s.outcomeEscalationDays}+ days`, c: s.needsOutcome.length ? 'kpi-danger' : '' },
         ]}
       />
 
@@ -134,7 +137,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
         </Card>
 
         <Card title="Team Performance" link="Full analytics" linkHref="/analytics">
-          <RepBars ranked={ranked} />
+          <RepBars ranked={ranked} minimum={s.minimumCompletedProjects} />
         </Card>
       </div>
 
@@ -142,7 +145,8 @@ export default function LevelTwo({ s }: { s: Stats }) {
         <Card title="Deals Needing Attention" link="Open pipeline" linkHref="/pipeline">
           {s.attentionDeals.length ? (
             s.attentionDeals.slice(0, 6).map((d, i) => {
-              const st = STAGES[d.stage - 1];
+              const st = s.stages.find((stage) => stage.id === d.stage);
+              const daysInStage = dealDaysInStage(d);
               const needsOutcome = dealNeedsOutcome(d);
               return (
                 <div
@@ -160,8 +164,8 @@ export default function LevelTwo({ s }: { s: Stats }) {
                     <div className="activity-name">{d.account}</div>
                     <div className="activity-desc">
                       {d.rep} · {needsOutcome
-                        ? `Needs Outcome · ${dealOutcomeOverdueDays(d)}d overdue${dealOutcomeEscalated(d) ? ' · escalated' : ''}`
-                        : `${st?.name || `Stage ${d.stage}`} · ${d.daysInStage}d of ${st?.sla}d SLA`}
+                        ? `Needs Outcome · ${dealOutcomeOverdueDays(d)}d overdue${dealOutcomeEscalated(d, new Date(), s.outcomeEscalationDays) ? ' · escalated' : ''}`
+                        : `${st?.name || `Stage ${d.stage}`} · ${daysInStage}d of ${st?.sla}d SLA`}
                     </div>
                   </div>
                   <div className="activity-right">
@@ -194,7 +198,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
                 ) : (
                   <>
                     <strong>Not enough closed deals to rank the team yet</strong> — at least{' '}
-                    {CONFIDENT} per rep are needed.
+                    {s.minimumCompletedProjects} per rep are needed.
                   </>
                 )}
               </div>
@@ -240,7 +244,7 @@ export default function LevelTwo({ s }: { s: Stats }) {
         </Card>
       </div>
 
-      <Card title="Outcome Hygiene by Rep" note="Open deals past their target close date; escalation begins at 14 days overdue.">
+      <Card title="Outcome Hygiene by Rep" note={`Open deals past their target close date; escalation begins at ${s.outcomeEscalationDays} days overdue.`}>
         {s.outcomeHygiene.length ? (
           <div className="hygiene-table" role="table" aria-label="Outcome hygiene counts by salesperson">
             <div className="hygiene-row hygiene-head" role="row">

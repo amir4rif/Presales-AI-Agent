@@ -1242,7 +1242,9 @@ test('prospect research uses a separate Gemini key and Google Search grounding',
   assert.match(envExample, /RESEARCH_GEMINI_API_KEY=/);
   assert.match(envCheck, /RESEARCH_GEMINI_API_KEY/);
   assert.match(prospectModal, /dangerouslySetInnerHTML=\{\{ __html: groundedWeb\.searchEntryPointHtml \}\}/);
-  assert.match(prospectModal, /setResearch\(parsed\)/);
+  assert.match(prospectModal, /setResearch\(\{ \.\.\.parsed, sources: web\.sources \|\| \[\] \}\)/);
+  assert.match(prospectModal, /Never infer, estimate, or invent a value/);
+  assert.doesNotMatch(prospectModal, /always commit to your best estimate/i);
 });
 
 test('profile-name fallback rejects ambiguity while explicit IDs remain authoritative', async () => {
@@ -1362,8 +1364,8 @@ test('Add Deal keeps drafts consistently and scopes prospect drafts to the accou
   assert.match(modal, />\s*Close\s*</);
   assert.doesNotMatch(modal, />\s*Cancel\s*</);
   assert.match(prospectPage, /const \[dealDrafts, setDealDrafts\] = useState<Record<number, DealDraft>>/);
-  assert.match(prospectPage, /dealDrafts\[open\.id\] \|\| emptyDealDraft\(currentUser\(\), open\.name\)/);
-  assert.match(prospectPage, /\[open\.id\]: emptyDealDraft\(currentUser\(\), open\.name\)/);
+  assert.match(prospectPage, /dealDrafts\[open\.id\][\s\S]*\|\| emptyDealDraft\(currentUser\(\), open\.name, dealOptions\)/);
+  assert.match(prospectPage, /\[prospect\.id\]: emptyDealDraft\(currentUser\(\), prospect\.name, dealOptions\)/);
   assert.match(prospectPage, /prospectId: prospect\.id/);
   assert.doesNotMatch(prospectPage, /key=\{open\.id\}/);
   assert.match(prospectPage, /<AddDealModal/);
@@ -1432,4 +1434,43 @@ test('prospect names are trimmed at both the client and database boundaries', ()
   assert.match(modal, /const companyName = f\.name\.trim\(\)/);
   assert.match(migration, /new\.name := btrim\(new\.name\)/);
   assert.match(migration, /add column prospect_id bigint references public\.prospects\(id\)/);
+});
+
+test('runtime business records and catalogs have no bundled or browser-storage fallback', () => {
+  const data = readFileSync(new URL('../src/lib/data.ts', import.meta.url), 'utf8');
+  const sync = readFileSync(new URL('../src/lib/data-sync.ts', import.meta.url), 'utf8');
+  const login = readFileSync(new URL('../src/app/login/page.tsx', import.meta.url), 'utf8');
+  const prospectModal = readFileSync(
+    new URL('../src/components/prospects/AddProspectModal.tsx', import.meta.url),
+    'utf8'
+  );
+  const prospectDetail = readFileSync(
+    new URL('../src/components/prospects/ProspectDetail.tsx', import.meta.url),
+    'utf8'
+  );
+  const serverData = readFileSync(
+    new URL('../src/lib/server/supabase-data.ts', import.meta.url),
+    'utf8'
+  );
+  const supabaseConfig = readFileSync(new URL('../supabase/config.toml', import.meta.url), 'utf8');
+  const databaseMigration = readFileSync(
+    new URL('../supabase/migrations/20260917022305_database_backed_workspace_data.sql', import.meta.url),
+    'utf8'
+  );
+
+  assert.doesNotMatch(data, /ACTIVE_DEALS|CLOSED_DEALS|TEAM_SEED|PROSPECT_SEED|PROPOSAL_SEED/);
+  assert.doesNotMatch(data, /localStorage/);
+  assert.doesNotMatch(sync, /localStorage/);
+  assert.doesNotMatch(login, /password-free|demo persona|seed persona/i);
+  assert.doesNotMatch(prospectModal, /best estimate|always commit|plausible/i);
+  assert.doesNotMatch(prospectDetail, /"duration": "Weeks?\s+\d|"duration": "Week\s+\d/i);
+  assert.match(serverData, /\.from\('prospects'\)[\s\S]*\.select\('id, owner_id, name,/);
+  assert.doesNotMatch(serverData, /\.from\('prospects'\)\.select\('\*'\)/);
+  assert.match(supabaseConfig, /\[db\.seed\][\s\S]*enabled = false[\s\S]*sql_paths = \[\]/);
+  assert.match(databaseMigration, /create table public\.workspace_config/);
+  assert.doesNotMatch(databaseMigration, /insert into public\.deals/);
+  assert.match(
+    databaseMigration,
+    /Links decisions only to persisted deals and never fabricates a deal from proposal display fields/
+  );
 });

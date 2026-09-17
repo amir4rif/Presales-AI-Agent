@@ -73,9 +73,6 @@ function safeWorkflowMessage(error: SupabaseDataError) {
 
 export async function POST(request: Request) {
   const status = getSupabaseStatus();
-  if (status.dataSource !== 'supabase') {
-    return json({ error: 'Remote persistence is disabled while DATA_SOURCE=seed.' }, 409);
-  }
   if (!status.configured) {
     return json({ error: 'Supabase mode is selected but its public configuration is incomplete.' }, 503);
   }

@@ -7,7 +7,7 @@ export default defineConfig([
   ...nextTypeScript,
   {
     rules: {
-      // Existing pages intentionally hydrate browser-owned seed data after mount.
+      // Protected pages hydrate their Supabase-backed cache after mount.
       // Removing this exception requires a broader server-state refactor.
       'react-hooks/set-state-in-effect': 'off',
       // Pipeline projections use the current date as their display baseline.

@@ -60,6 +60,7 @@ type DealRow = {
   account: string;
   expected_close_date: string;
   stage: number;
+  stage_entered_on: string;
   days_in_stage: number;
   days_to_close: number;
   value: number;
@@ -114,8 +115,6 @@ type ProspectRow = {
   status: string;
   tags: string[];
   employees: string;
-  opportunities: number;
-  total_value: number;
   pain_points: string[];
   contact: string | null;
   authority: string | null;
@@ -126,6 +125,34 @@ type ProspectRow = {
   current_module: string | null;
   ai_research: Json | null;
   watched: boolean;
+  notes: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type WorkspaceConfigRow = {
+  key: string;
+  value: Json;
+  updated_at: string;
+};
+
+type NotificationPreferenceRow = {
+  user_id: string;
+  event_type: string;
+  enabled: boolean;
+  updated_at: string;
+};
+
+type ComplianceRow = {
+  id: number;
+  owner_id: string;
+  document_name: string;
+  row_number: number;
+  requirement: string;
+  answer: string;
+  confidence: string | null;
+  reason: string;
+  source_reference: string;
   created_at: string;
   updated_at: string;
 };
@@ -182,6 +209,24 @@ export type Database = {
         Row: NotificationRow;
         Insert: Insert<NotificationRow> & Pick<NotificationRow, 'recipient_id' | 'proposal_id' | 'event_type' | 'title'>;
         Update: Pick<NotificationRow, 'read_at'>;
+        Relationships: [];
+      };
+      workspace_config: {
+        Row: WorkspaceConfigRow;
+        Insert: Insert<WorkspaceConfigRow> & Pick<WorkspaceConfigRow, 'key' | 'value'>;
+        Update: Update<WorkspaceConfigRow>;
+        Relationships: [];
+      };
+      notification_preferences: {
+        Row: NotificationPreferenceRow;
+        Insert: Insert<NotificationPreferenceRow> & Pick<NotificationPreferenceRow, 'event_type'>;
+        Update: Update<NotificationPreferenceRow>;
+        Relationships: [];
+      };
+      compliance_rows: {
+        Row: ComplianceRow;
+        Insert: Insert<ComplianceRow> & Pick<ComplianceRow, 'document_name' | 'row_number' | 'requirement'>;
+        Update: Update<ComplianceRow>;
         Relationships: [];
       };
     };

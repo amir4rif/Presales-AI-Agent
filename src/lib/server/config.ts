@@ -24,11 +24,6 @@ function positiveInt(name: string, fallback: number, ceiling: number): number {
   return Math.min(value, ceiling);
 }
 
-function dataSource(): DataSource {
-  const value = env('DATA_SOURCE') || env('NEXT_PUBLIC_DATA_SOURCE') || 'seed';
-  return value === 'supabase' ? 'supabase' : 'seed';
-}
-
 function aiProvider(): AiProvider {
   return env('AI_PROVIDER') === 'anthropic' ? 'anthropic' : 'gemini';
 }
@@ -104,7 +99,7 @@ export function getSupabaseConfig() {
   return {
     url: env('NEXT_PUBLIC_SUPABASE_URL'),
     publishableKey: env('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY'),
-    dataSource: dataSource(),
+    dataSource: 'supabase' as DataSource,
   };
 }
 
@@ -116,9 +111,9 @@ export function getSupabaseStatus() {
   ].filter((name): name is string => Boolean(name));
   return {
     configured: missing.length === 0,
-    ready: config.dataSource === 'seed' || missing.length === 0,
+    ready: missing.length === 0,
     dataSource: config.dataSource,
-    missing: config.dataSource === 'supabase' ? missing : [],
+    missing,
   };
 }
 

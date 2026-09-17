@@ -2,17 +2,18 @@
 
 import {
   DATA_COLLECTIONS,
-  STORAGE_KEY_BY_COLLECTION,
   type DataCollection,
   type DataSource,
 } from './integrations';
+import {
+  clearCollectionCache,
+  replaceCollectionCache,
+} from './data-cache';
 import { changesBetween, type DataChangeOptions } from './data-changes';
 import { LatestRequestCoordinator, SerialTaskCoordinator } from './latest-request';
 import { setSession } from './role';
 import { createSupabaseBrowserClient } from './supabase/client';
 
-const SOURCE_KEY = 'ramssolDataSource';
-const REMOTE_COLLECTIONS_KEY = 'ramssolRemoteCollections';
 let syncQueue: Promise<void> = Promise.resolve();
 let initialization: Promise<DataLayerStatus> | null = null;
 let initializationRequest = 0;
@@ -22,6 +23,8 @@ let hydrationCoordinator = new LatestRequestCoordinator();
 let proposalTransactionCoordinator = new SerialTaskCoordinator();
 const requestControllers = new Set<AbortController>();
 const canonicalCollections: Partial<Record<DataCollection, unknown[]>> = {};
+let activeSource: DataSource | null = null;
+let activeCollections = new Set<DataCollection>();
 
 /** Last collection payload confirmed by Supabase, never the optimistic cache. */
 export function confirmedCollectionSnapshot<T>(collection: DataCollection): readonly T[] | null {
@@ -81,7 +84,7 @@ export type DealWorkflowResult = {
 
 export function executeRemoteDealWorkflow(command: DealWorkflowCommand) {
   if (!isRemoteDataSource()) {
-    throw new DataLayerError('The remote deal workflow is unavailable in seed mode.');
+    throw new DataLayerError('The database connection is not initialized.');
   }
 
   return runDataTransaction(async () => {
@@ -164,15 +167,7 @@ async function controlledFetch(input: RequestInfo | URL, init?: RequestInit) {
 }
 
 function remoteCollections(): DataCollection[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const value = JSON.parse(localStorage.getItem(REMOTE_COLLECTIONS_KEY) || '[]');
-    return Array.isArray(value)
-      ? value.filter((item): item is DataCollection => DATA_COLLECTIONS.includes(item))
-      : [];
-  } catch {
-    return [];
-  }
+  return [...activeCollections];
 }
 
 export function isRemoteCollection(collection: DataCollection) {
@@ -180,7 +175,7 @@ export function isRemoteCollection(collection: DataCollection) {
 }
 
 export function isRemoteDataSource() {
-  return typeof window !== 'undefined' && localStorage.getItem(SOURCE_KEY) === 'supabase';
+  return typeof window !== 'undefined' && activeSource === 'supabase';
 }
 
 async function responseJson(response: Response) {
@@ -219,11 +214,11 @@ function cacheRemotePayload(payload: RemotePayload) {
   for (const collection of DATA_COLLECTIONS) {
     const items = payload.collections[collection] as unknown[];
     canonicalCollections[collection] = items;
-    localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(items));
+    replaceCollectionCache(collection, items);
   }
   cacheProfile(payload.profile);
-  localStorage.setItem(SOURCE_KEY, 'supabase');
-  localStorage.setItem(REMOTE_COLLECTIONS_KEY, JSON.stringify(DATA_COLLECTIONS));
+  activeSource = 'supabase';
+  activeCollections = new Set(DATA_COLLECTIONS);
   window.dispatchEvent(new Event('rams:data-changed'));
 }
 
@@ -285,28 +280,13 @@ async function initialize(request: number): Promise<DataLayerStatus> {
   const statusResponse = await controlledFetch('/api/data', { cache: 'no-store' });
   const status = await responseJson(statusResponse);
   assertCurrentInitialization(generation, request);
-  if (!statusResponse.ok ||
-      (status.dataSource !== 'seed' && status.dataSource !== 'supabase')) {
+  if (!statusResponse.ok || status.dataSource !== 'supabase') {
     throw new DataLayerError(
       typeof status.error === 'string' ? status.error : 'Could not read the server data configuration.'
     );
   }
 
   const source = status.dataSource as DataSource;
-  const previousSource = localStorage.getItem(SOURCE_KEY);
-
-  if (source === 'seed') {
-    if (previousSource === 'supabase') {
-      DATA_COLLECTIONS.forEach((collection) =>
-        localStorage.removeItem(STORAGE_KEY_BY_COLLECTION[collection])
-      );
-    }
-    localStorage.setItem(SOURCE_KEY, 'seed');
-    localStorage.setItem(REMOTE_COLLECTIONS_KEY, '[]');
-    DATA_COLLECTIONS.forEach((collection) => delete canonicalCollections[collection]);
-    return { source, ready: true };
-  }
-
   if (!status.ready) {
     const missing = Array.isArray(status.missing) ? status.missing.join(', ') : 'Supabase settings';
     throw new DataLayerError(`Supabase mode is selected, but these values are missing: ${missing}.`);
@@ -348,11 +328,9 @@ export function resetDataLayer() {
   refreshing = null;
   syncQueue = Promise.resolve();
   DATA_COLLECTIONS.forEach((collection) => delete canonicalCollections[collection]);
-  DATA_COLLECTIONS.forEach((collection) =>
-    localStorage.removeItem(STORAGE_KEY_BY_COLLECTION[collection])
-  );
-  localStorage.removeItem(REMOTE_COLLECTIONS_KEY);
-  localStorage.removeItem(SOURCE_KEY);
+  clearCollectionCache();
+  activeCollections.clear();
+  activeSource = null;
 }
 
 async function refreshRemoteData() {
@@ -384,7 +362,7 @@ function emitSync(collection: DataCollection, ok: boolean, message?: string) {
 function restoreCanonicalCollection(collection: DataCollection) {
   const canonical = canonicalCollections[collection];
   if (!canonical) return;
-  localStorage.setItem(STORAGE_KEY_BY_COLLECTION[collection], JSON.stringify(canonical));
+  replaceCollectionCache(collection, canonical);
   window.dispatchEvent(new Event('rams:data-changed'));
   window.dispatchEvent(new Event('rams:remote-data'));
 }
@@ -396,8 +374,13 @@ export function queueDataSync(
   next: unknown[],
   options: DataChangeOptions = {}
 ) {
-  if (typeof window === 'undefined' || !isRemoteDataSource()) return Promise.resolve(true);
-  if (!isRemoteCollection(collection)) return Promise.resolve(true);
+  if (typeof window === 'undefined') return Promise.resolve(false);
+  if (!isRemoteDataSource() || !isRemoteCollection(collection)) {
+    replaceCollectionCache(collection, previous);
+    window.dispatchEvent(new Event('rams:data-changed'));
+    emitSync(collection, false, 'The database connection is not initialized. Refresh and try again.');
+    return Promise.resolve(false);
+  }
   const changes = changesBetween(collection, previous, next, options);
   if (!changes.upserts.length && !changes.deletes.length) return Promise.resolve(true);
   const generation = dataLayerGeneration;
@@ -457,10 +440,12 @@ export function queueDataSync(
   );
 }
 
-/* Only tables people edit concurrently need live pushes: proposals (shared review)
-   and deals (pipeline, worked by multiple reps). Prospects, closed deals, and
-   profiles are single-actor edits and refresh on save without realtime. */
-const REALTIME_TABLES = ['proposals', 'deals'] as const;
+const REALTIME_TABLES = [
+  'proposals',
+  'deals',
+  'workspace_config',
+  'compliance_rows',
+] as const;
 
 export function subscribeToRemoteChanges() {
   if (!isRemoteDataSource()) return () => undefined;

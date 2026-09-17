@@ -8,53 +8,61 @@ import RequireLevel from '@/components/RequireLevel';
 import Modal from '@/components/Modal';
 import { useToast } from '@/components/Toast';
 import AddDealModal, {
-  DEAL_SOURCES as SOURCES,
   emptyDealDraft,
+  type DealFormOptions,
   type DealDraft,
 } from '@/components/deals/AddDealModal';
 import CloseDealModal, {
   type CloseDealDraft,
 } from '@/components/deals/CloseDealModal';
 import {
-  STAGES as BASE_STAGES,
   currentLevel,
   currentUser,
   currentUserId,
   fmtRM,
   getClosedDeals,
   getDeals,
-  ensureProposalStore,
+  getAnalyticsMinimum,
+  getDealLossReasons,
+  getDealSources,
+  getDisqualificationReasons,
+  getPipelineSettings,
   getReps,
+  getStages,
   profileIdForName,
   saveClosedDeals,
   saveDeals,
-  saveProposals,
   type ClosedDeal,
   type Deal,
+  type PipelineSettings,
+  type Stage,
 } from '@/lib/data';
-import {
-  MIN_CLOSED_DEALS_FOR_RATE,
-  closedDealRate,
-} from '@/lib/analytics-metrics';
+import { closedDealRate } from '@/lib/analytics-metrics';
 import {
   closedDealIdempotencyId,
   closedDealIdentityKey,
+  dealDaysInStage,
   dealNeedsOutcome,
   dealOutcomeEscalated,
   dealOutcomeOverdueDays,
   daysUntilDealClose,
   scoredClosedDeals,
+  stageEnteredDateFromDays,
 } from '@/lib/deal-outcomes';
+import { dealValueNumber } from '@/lib/deal-inputs';
 import {
   DataLayerError,
   executeRemoteDealWorkflow,
-  isRemoteDataSource,
-  runDataTransaction,
 } from '@/lib/data-sync';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const MOVEMENT_CLASS: Record<string, string> = { Advanced: 'movement-up', Held: 'movement-held', Regressed: 'movement-down' };
 const MOVEMENT_ICON: Record<string, string> = { Advanced: '▲', Held: '—', Regressed: '▼' };
+const TIER_CLASS: Record<PipelineSettings['valueBands'][number]['tone'], string> = {
+  high: 'tier-hi',
+  medium: 'tier-mid',
+  low: 'tier-lo',
+};
 
 const statusClass = (s: string) => (s === 'On Track' ? 'comply-yes' : s === 'At Risk' ? 'comply-wip' : 'comply-no');
 const stageClass = (n: number) => (n >= 6 ? 'stage-negotiation' : n >= 4 ? 'stage-proposal' : 'stage-qualification');
@@ -76,7 +84,12 @@ function PipelinePage() {
   const [reps, setReps] = useState<string[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
   const [closed, setClosed] = useState<ClosedDeal[]>([]);
-  const [stages, setStages] = useState(BASE_STAGES);
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
+  const [lossReasons, setLossReasons] = useState<string[]>([]);
+  const [disqualificationReasons, setDisqualificationReasons] = useState<string[]>([]);
+  const [pipelineSettings, setPipelineSettings] = useState<PipelineSettings | null>(null);
+  const [minimumClosedDeals, setMinimumClosedDeals] = useState(0);
 
   const [tab, setTab] = useState<'pipeline' | 'winrate'>('pipeline');
   const [repFilter, setRepFilter] = useState('all');
@@ -97,6 +110,12 @@ function PipelinePage() {
   const reload = useCallback(() => {
     setDeals(getDeals());
     setClosed(getClosedDeals());
+    setStages(getStages());
+    setSources(getDealSources());
+    setLossReasons(getDealLossReasons());
+    setDisqualificationReasons(getDisqualificationReasons());
+    setPipelineSettings(getPipelineSettings());
+    setMinimumClosedDeals(getAnalyticsMinimum());
     const name = currentUser();
     const list = getReps();
     setReps(includeCurrentUser(list, name));
@@ -109,18 +128,20 @@ function PipelinePage() {
     setMe(name);
     reload();
     setForm((f) => ({ ...f, rep: name }));
-    /* Stages come from the shared store, with any custom SLA thresholds
-       saved by an administrator in Settings → Pipeline & SLA applied. */
-    try {
-      const saved = JSON.parse(localStorage.getItem('ramssolStageSLA') || '{}');
-      setStages(BASE_STAGES.map((s) => ({ ...s, sla: saved[s.id] || s.sla })));
-    } catch {
-      setStages(BASE_STAGES);
-    }
   }, [reload]);
   useRemoteDataRefresh(reload);
 
-  const stageOf = useCallback((d: Deal) => stages[d.stage - 1], [stages]);
+  const dealOptions = useMemo<DealFormOptions>(() => ({
+    stages,
+    sources,
+    lossReasons,
+    disqualificationReasons,
+  }), [stages, sources, lossReasons, disqualificationReasons]);
+
+  const stageOf = useCallback(
+    (deal: Deal) => stages.find((stage) => stage.id === deal.stage),
+    [stages]
+  );
 
   /* Level-scoped view of closed deals. */
   const visibleClosed = useMemo(
@@ -153,7 +174,7 @@ function PipelinePage() {
   /* ── KPIs ─────────────────────────────────────────────── */
   const total = filtered.reduce((a, d) => a + d.value, 0);
   const weighted = filtered.reduce((a, d) => a + d.value * (stageOf(d)?.prob || 0), 0);
-  const stalled = filtered.filter((d) => d.daysInStage > (stageOf(d)?.sla ?? Infinity)).length;
+  const stalled = filtered.filter((d) => dealDaysInStage(d) > (stageOf(d)?.sla ?? Infinity)).length;
   const needsOutcome = filtered.filter((deal) => dealNeedsOutcome(deal));
 
   const kpis = [
@@ -193,7 +214,7 @@ function PipelinePage() {
   const lost = visibleClosed.filter((d) => d.outcome === 'Lost');
   const wonValue = won.reduce((a, d) => a + d.value, 0);
   const lostValue = lost.reduce((a, d) => a + d.value, 0);
-  const overallRate = closedDealRate(won.length, scoredClosed.length);
+  const overallRate = closedDealRate(won.length, scoredClosed.length, minimumClosedDeals);
 
   const quarters: Record<string, { won: number; lost: number }> = {};
   scoredClosed.forEach((d) => {
@@ -215,7 +236,12 @@ function PipelinePage() {
     return reps
       .map((rep) => {
         const r = acc[rep] || { w: 0, l: 0 };
-        return { rep, rate: closedDealRate(r.w, r.w + r.l), w: r.w, l: r.l };
+        return {
+          rep,
+          rate: closedDealRate(r.w, r.w + r.l, minimumClosedDeals),
+          w: r.w,
+          l: r.l,
+        };
       })
       .sort((a, b) =>
         Number(b.rate !== null) - Number(a.rate !== null)
@@ -224,11 +250,15 @@ function PipelinePage() {
       );
   })();
 
-  const tiers = [
-    { name: '< RM 2M', cls: 'tier-hi', test: (v: number) => v < 2000000 },
-    { name: 'RM 2M – 3.5M', cls: 'tier-mid', test: (v: number) => v >= 2000000 && v <= 3500000 },
-    { name: '> RM 3.5M', cls: 'tier-lo', test: (v: number) => v > 3500000 },
-  ];
+  const tiers = (pipelineSettings?.valueBands || []).map((band) => ({
+    name: band.label,
+    cls: TIER_CLASS[band.tone],
+    test: (value: number) =>
+      (band.minInclusive == null || value >= band.minInclusive)
+      && (band.minExclusive == null || value > band.minExclusive)
+      && (band.maxInclusive == null || value <= band.maxInclusive)
+      && (band.maxExclusive == null || value < band.maxExclusive),
+  }));
 
   const sourceRates = (() => {
     const acc: Record<string, { w: number; l: number }> = {};
@@ -237,9 +267,9 @@ function PipelinePage() {
       if (d.outcome === 'Won') s.w++;
       else if (d.outcome === 'Lost') s.l++;
     });
-    return SOURCES.filter((s) => acc[s]).map((s) => ({
+    return sources.filter((s) => acc[s]).map((s) => ({
       source: s,
-      rate: closedDealRate(acc[s].w, acc[s].w + acc[s].l),
+      rate: closedDealRate(acc[s].w, acc[s].w + acc[s].l, minimumClosedDeals),
       ...acc[s],
     }));
   })();
@@ -260,11 +290,11 @@ function PipelinePage() {
 
   function dealDraft(deal: Deal): DealDraft {
     return {
-      ...emptyDealDraft(deal.rep, deal.account),
+      ...emptyDealDraft(deal.rep, deal.account, dealOptions),
       opportunityId: deal.opportunityId || '',
       stage: String(deal.stage),
       value: String(deal.value),
-      days: String(deal.daysInStage),
+      stageEnteredOn: deal.stageEnteredOn || stageEnteredDateFromDays(deal.daysInStage),
       close: deal.closeDate || '',
       outcome: 'Open',
       notes: deal.notes,
@@ -276,57 +306,10 @@ function PipelinePage() {
     setEditForm(dealDraft(deal));
   }
 
-  async function archiveSeedDeal(
-    deal: Deal,
-    draft: CloseDealDraft,
-    approval?: { requestedById?: string; requestedBy?: string; requestedAt?: string }
-  ) {
-    const now = new Date().toISOString();
-    const historical: ClosedDeal = {
-      id: deal.id,
-      ownerId: deal.ownerId,
-      prospectId: deal.prospectId,
-      caseId: deal.caseId,
-      opportunityId: deal.opportunityId,
-      rep: deal.rep,
-      account: deal.account,
-      value: deal.value,
-      closeDate: draft.closeDate,
-      source: draft.source || 'Manual',
-      outcome: draft.outcome,
-      lossReason: draft.outcome === 'Lost' ? draft.reason : '',
-      disqualificationReason: draft.outcome === 'Disqualified' ? draft.reason : undefined,
-      closedById: meId,
-      closedBy: me,
-      closedAt: now,
-      disqualificationRequestedById: approval?.requestedById,
-      disqualificationRequestedBy: approval?.requestedBy,
-      disqualificationRequestedAt: approval?.requestedAt,
-      disqualificationApprovedById: draft.outcome === 'Disqualified' ? meId : undefined,
-      disqualificationApprovedBy: draft.outcome === 'Disqualified' ? me : undefined,
-      disqualificationApprovedAt: draft.outcome === 'Disqualified' ? now : undefined,
-    };
-    const nextClosed = [...closed.filter((item) => item.id !== deal.id), historical];
-    const proposals = ensureProposalStore();
-    const nextProposals = proposals.map((proposal) =>
-      proposal.dealId === deal.id && proposal.status === 'Approved' &&
-      (!proposal.outcome || proposal.outcome === 'Pending')
-        ? { ...proposal, outcome: draft.outcome }
-        : proposal
-    );
-    const nextDeals = deals.filter((item) => item.id !== deal.id);
-
-    await saveClosedDeals(nextClosed);
-    if (nextProposals.some((proposal, index) => proposal !== proposals[index])) {
-      await saveProposals(nextProposals);
-    }
-    await saveDeals(nextDeals, { dealDeleteIds: deal.id ? [deal.id] : [] });
-    setClosed(nextClosed);
-    setDeals(nextDeals);
-  }
-
   async function addDeal(draft: DealDraft) {
-    const value = Number(draft.value) || 0;
+    if (!pipelineSettings) return 'Pipeline settings are unavailable. Refresh and try again.';
+    const value = dealValueNumber(draft.value);
+    if (!Number.isFinite(value)) return 'Enter a valid deal value before saving.';
     const ownerId = ownerIdFor(draft.rep);
 
     if (draft.outcome !== 'Open') {
@@ -339,13 +322,14 @@ function PipelinePage() {
           rep: draft.rep,
           account: draft.account.trim(),
           outcome: 'Open',
-          stage: 1,
+          stage: stages[0]?.id || Number(draft.stage),
+          stageEnteredOn: draft.stageEnteredOn,
           daysInStage: 0,
           daysToClose: daysUntilDealClose({ closeDate: draft.close, daysToClose: 0 }),
           closeDate: draft.close,
           value,
-          movement: 'Advanced',
-          status: 'On Track',
+          movement: pipelineSettings.defaultMovement,
+          status: pipelineSettings.defaultStatus,
           notes: '',
           pendingDisqualificationReason: draft.disqualificationReason,
           pendingCloseSource: draft.source,
@@ -359,13 +343,13 @@ function PipelinePage() {
         if (!saved) return false;
         reload();
         setAddOpen(false);
-        setForm(emptyDealDraft(me));
+        setForm(emptyDealDraft(me, '', dealOptions));
         toast('Disqualification requested · awaiting Level 2 approval');
         return true;
       }
 
       // Manual closed-deal entry → feeds the Win Rate view (Doc §4.13).
-      const closeDate = draft.close || new Date().toISOString().slice(0, 10);
+      const closeDate = draft.close;
       const identity = {
         rep: draft.rep,
         account: draft.account,
@@ -407,7 +391,7 @@ function PipelinePage() {
       if (!saved) return false;
       reload();
       setAddOpen(false);
-      setForm(emptyDealDraft(me));
+      setForm(emptyDealDraft(me, '', dealOptions));
       setTab('winrate');
       toast('Closed deal added');
       return true;
@@ -424,12 +408,13 @@ function PipelinePage() {
         account: draft.account.trim(),
         outcome: 'Open',
         stage: Number(draft.stage),
-        daysInStage: Number(draft.days) || 0,
-        daysToClose: daysUntilDealClose({ closeDate: draft.close, daysToClose: 90 }),
+        stageEnteredOn: draft.stageEnteredOn,
+        daysInStage: dealDaysInStage({ stageEnteredOn: draft.stageEnteredOn, daysInStage: 0 }),
+        daysToClose: daysUntilDealClose({ closeDate: draft.close, daysToClose: 0 }),
         closeDate: draft.close,
         value,
-        movement: 'Advanced',
-        status: 'On Track',
+        movement: pipelineSettings.defaultMovement,
+        status: pipelineSettings.defaultStatus,
         notes: draft.notes.trim(),
       },
     ];
@@ -437,13 +422,15 @@ function PipelinePage() {
     if (!saved) return false;
     reload();
     setAddOpen(false);
-    setForm(emptyDealDraft(me));
+    setForm(emptyDealDraft(me, '', dealOptions));
     toast('Deal added to the pipeline');
     return true;
   }
 
   async function editDeal(draft: DealDraft) {
     if (!editing) return false;
+    const value = dealValueNumber(draft.value);
+    if (!Number.isFinite(value)) return 'Enter a valid deal value before saving.';
     const next = deals.map((deal) => deal.id === editing.id
       ? {
           ...deal,
@@ -452,10 +439,11 @@ function PipelinePage() {
           account: draft.account.trim(),
           opportunityId: draft.opportunityId.trim() || undefined,
           stage: Number(draft.stage),
-          daysInStage: Number(draft.days) || 0,
+          stageEnteredOn: draft.stageEnteredOn,
+          daysInStage: dealDaysInStage({ stageEnteredOn: draft.stageEnteredOn, daysInStage: 0 }),
           daysToClose: daysUntilDealClose({ closeDate: draft.close, daysToClose: 0 }),
           closeDate: draft.close,
-          value: Number(draft.value) || 0,
+          value,
           notes: draft.notes.trim(),
         }
       : deal);
@@ -472,53 +460,22 @@ function PipelinePage() {
     if (!deal?.id) return 'This deal has no stable ID. Refresh the pipeline and try again.';
 
     try {
-      if (isRemoteDataSource()) {
-        if (!deal.updatedAt) return 'This deal is missing its version token. Refresh the pipeline and try again.';
-        const result = await executeRemoteDealWorkflow({
-          action: 'close',
-          dealId: deal.id,
-          outcome: draft.outcome,
-          reason: draft.reason,
-          source: draft.source,
-          closeDate: draft.closeDate,
-          expectedUpdatedAt: deal.updatedAt,
-        });
-        reload();
-        setClosing(null);
-        toast(result.status === 'pending_approval'
-          ? 'Disqualification requested · awaiting Level 2 approval'
-          : `${draft.outcome} recorded · deal moved to closed history`);
-        if (result.status === 'closed') setTab('winrate');
-        return null;
-      }
-
-      await runDataTransaction(async () => {
-        if (draft.outcome === 'Disqualified' && level === 1) {
-          const next = deals.map((item) => item.id === deal.id
-            ? {
-                ...item,
-                pendingDisqualificationReason: draft.reason,
-                pendingCloseSource: draft.source,
-                pendingCloseDate: draft.closeDate,
-                closeRequestedById: meId,
-                closeRequestedBy: me,
-                closeRequestedAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              }
-            : item);
-          await saveDeals(next);
-          setDeals(next);
-          return;
-        }
-        await archiveSeedDeal(deal, draft);
+      if (!deal.updatedAt) return 'This deal is missing its version token. Refresh the pipeline and try again.';
+      const result = await executeRemoteDealWorkflow({
+        action: 'close',
+        dealId: deal.id,
+        outcome: draft.outcome,
+        reason: draft.reason,
+        source: draft.source,
+        closeDate: draft.closeDate,
+        expectedUpdatedAt: deal.updatedAt,
       });
+      reload();
       setClosing(null);
-      if (draft.outcome === 'Disqualified' && level === 1) {
-        toast('Disqualification requested · awaiting Level 2 approval');
-      } else {
-        setTab('winrate');
-        toast(`${draft.outcome} recorded · deal moved to closed history`);
-      }
+      toast(result.status === 'pending_approval'
+        ? 'Disqualification requested · awaiting Level 2 approval'
+        : `${draft.outcome} recorded · deal moved to closed history`);
+      if (result.status === 'closed') setTab('winrate');
       return null;
     } catch (error) {
       return error instanceof DataLayerError || error instanceof Error
@@ -533,42 +490,14 @@ function PipelinePage() {
     setWorkflowSaving(true);
     setWorkflowError('');
     try {
-      if (isRemoteDataSource()) {
-        if (!deal.updatedAt) throw new Error('This deal is missing its version token. Refresh the pipeline and try again.');
-        await executeRemoteDealWorkflow({
-          action: 'review-disqualification',
-          dealId: deal.id,
-          approve,
-          expectedUpdatedAt: deal.updatedAt,
-        });
-        reload();
-      } else if (approve) {
-        await runDataTransaction(() => archiveSeedDeal(deal, {
-          outcome: 'Disqualified',
-          reason: deal.pendingDisqualificationReason || '',
-          source: deal.pendingCloseSource || 'Manual',
-          closeDate: deal.pendingCloseDate || new Date().toISOString().slice(0, 10),
-        }, {
-          requestedById: deal.closeRequestedById,
-          requestedBy: deal.closeRequestedBy,
-          requestedAt: deal.closeRequestedAt,
-        }));
-      } else {
-        const next = deals.map((item) => item.id === deal.id
-          ? {
-              ...item,
-              pendingDisqualificationReason: undefined,
-              pendingCloseSource: undefined,
-              pendingCloseDate: undefined,
-              closeRequestedById: undefined,
-              closeRequestedBy: undefined,
-              closeRequestedAt: undefined,
-              updatedAt: new Date().toISOString(),
-            }
-          : item);
-        await saveDeals(next);
-        setDeals(next);
-      }
+      if (!deal.updatedAt) throw new Error('This deal is missing its version token. Refresh the pipeline and try again.');
+      await executeRemoteDealWorkflow({
+        action: 'review-disqualification',
+        dealId: deal.id,
+        approve,
+        expectedUpdatedAt: deal.updatedAt,
+      });
+      reload();
       setReviewing(null);
       toast(approve ? 'Disqualification approved · deal closed' : 'Disqualification declined · deal remains open');
     } catch (error) {
@@ -651,13 +580,17 @@ function PipelinePage() {
               <div className="wh-label">Overall Win Rate</div>
               <div className="wh-sub">
                 {overallRate === null
-                  ? `Needs at least ${MIN_CLOSED_DEALS_FOR_RATE} scored deals · ${scoredClosed.length} recorded`
+                  ? `Needs at least ${minimumClosedDeals} scored deals · ${scoredClosed.length} recorded`
                   : `${won.length} won of ${scoredClosed.length} scored deals · disqualified deals are excluded`}
               </div>
             </div>
             <div className="wh-spark">
               {qKeys.map((k) => {
-                const r = closedDealRate(quarters[k].won, quarters[k].won + quarters[k].lost);
+                const r = closedDealRate(
+                  quarters[k].won,
+                  quarters[k].won + quarters[k].lost,
+                  minimumClosedDeals
+                );
                 if (r === null) return null;
                 return (
                   <div className="bar" key={k} style={{ height: Math.max(r * 0.42, 4) }} title={`${k}: ${r}%`} />
@@ -748,7 +681,8 @@ function PipelinePage() {
                 {tableDeals.length ? (
                   tableDeals.map((d, i) => {
                     const s = stageOf(d);
-                    const isStalled = s && d.daysInStage > s.sla;
+                    const daysInStage = dealDaysInStage(d);
+                    const isStalled = s && daysInStage > s.sla;
                     const isOutcomeDue = dealNeedsOutcome(d);
                     const overdueDays = dealOutcomeOverdueDays(d);
                     const pendingRequest = Boolean(d.pendingDisqualificationReason);
@@ -766,21 +700,21 @@ function PipelinePage() {
                             ...(isStalled ? { color: 'var(--red-700)', fontWeight: 500 } : {}),
                           }}
                         >
-                          {d.daysInStage}d {isStalled ? '⚠️' : ''}
+                          {daysInStage}d {isStalled ? '⚠️' : ''}
                         </td>
                         <td style={{ fontFamily: 'var(--mono)', fontWeight: 500 }}>{fmtRM(d.value)}</td>
                         <td
                           style={
-                            closeDays <= 14
+                            pipelineSettings && closeDays <= pipelineSettings.closeDateCriticalDays
                               ? { color: 'var(--red-700)', fontWeight: 500 }
-                              : closeDays <= 30
+                              : pipelineSettings && closeDays <= pipelineSettings.closeDateWarningDays
                                 ? { color: 'var(--amber-600)' }
                                 : undefined
                           }
                         >
                           <div>{d.closeDate || '—'}</div>
                           {isOutcomeDue && (
-                            <span className={`needs-outcome-badge${dealOutcomeEscalated(d) ? ' escalated' : ''}`}>
+                            <span className={`needs-outcome-badge${dealOutcomeEscalated(d, new Date(), pipelineSettings?.outcomeEscalationDays || 0) ? ' escalated' : ''}`}>
                               Needs Outcome · {overdueDays}d overdue
                             </span>
                           )}
@@ -840,7 +774,7 @@ function PipelinePage() {
                 label: 'Overall Win Rate',
                 value: overallRate === null ? 'Not available' : `${overallRate}%`,
                 sub: overallRate === null
-                  ? `Needs at least ${MIN_CLOSED_DEALS_FOR_RATE} closed deals`
+                  ? `Needs at least ${minimumClosedDeals} closed deals`
                   : `${won.length}W / ${lost.length}L`,
                 cls: overallRate === null ? 'is-unavailable' : 'kpi-up',
               },
@@ -867,7 +801,7 @@ function PipelinePage() {
                 <span className="card-title">Win Rate by Salesperson</span>
               </div>
               <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
-                Rates appear after at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per salesperson.
+                Rates appear after at least {minimumClosedDeals} closed deals per salesperson.
               </div>
               {repRates.length ? (
                 repRates.map((r) => (
@@ -877,12 +811,12 @@ function PipelinePage() {
                       <div className="hbar-fill" style={{ width: `${r.rate || 0}%` }} />
                     </div>
                     <div className={`hbar-val${r.rate === null ? ' is-unavailable' : ''}`}>
-                      {r.rate === null ? `${r.w + r.l}/${MIN_CLOSED_DEALS_FOR_RATE} deals` : `${r.rate}% · ${r.w}W/${r.l}L`}
+                      {r.rate === null ? `${r.w + r.l}/${minimumClosedDeals} deals` : `${r.rate}% · ${r.w}W/${r.l}L`}
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="empty-hint">Needs at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals to compare salespeople.</div>
+                <div className="empty-hint">Needs at least {minimumClosedDeals} closed deals to compare salespeople.</div>
               )}
             </div>
 
@@ -893,13 +827,13 @@ function PipelinePage() {
               {qKeys.length ? (
                 <>
                   <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
-                    Rates appear with at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per quarter.
+                    Rates appear with at least {minimumClosedDeals} closed deals per quarter.
                   </div>
                   <div className="qtrend">
                     {qKeys.map((k) => {
                       const { won: w, lost: l } = quarters[k];
                       const t = w + l;
-                      const rate = closedDealRate(w, t);
+                      const rate = closedDealRate(w, t, minimumClosedDeals);
                       const h = (t / maxTotal) * 150;
                       return (
                         <div className="qtrend-col" key={k} title={`${w} won, ${l} lost`}>
@@ -929,7 +863,7 @@ function PipelinePage() {
                   </div>
                 </>
               ) : (
-                <div className="empty-hint">Needs at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals to show a trend.</div>
+                <div className="empty-hint">Needs at least {minimumClosedDeals} closed deals to show a trend.</div>
               )}
             </div>
           </div>
@@ -943,7 +877,7 @@ function PipelinePage() {
                 {tiers.map((t) => {
                   const g = scoredClosed.filter((d) => t.test(d.value));
                   const w = g.filter((d) => d.outcome === 'Won').length;
-                  const rate = closedDealRate(w, g.length);
+                  const rate = closedDealRate(w, g.length, minimumClosedDeals);
                   return (
                     <div className={`tier-card ${t.cls}`} key={t.name}>
                       <div className="t-name">{t.name}</div>
@@ -952,7 +886,7 @@ function PipelinePage() {
                       </div>
                       <div className="t-sub">
                         {rate === null
-                          ? `Needs ${MIN_CLOSED_DEALS_FOR_RATE} closed deals · ${g.length} recorded`
+                          ? `Needs ${minimumClosedDeals} closed deals · ${g.length} recorded`
                           : `${w}W / ${g.length - w}L`}
                       </div>
                     </div>
@@ -966,7 +900,7 @@ function PipelinePage() {
                 <span className="card-title">Win Rate by Lead Source</span>
               </div>
               <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
-                Rates appear after at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per source.
+                Rates appear after at least {minimumClosedDeals} closed deals per source.
               </div>
               {sourceRates.length ? (
                 sourceRates.map((s) => (
@@ -976,12 +910,12 @@ function PipelinePage() {
                       <div className="hbar-fill" style={{ width: `${s.rate || 0}%` }} />
                     </div>
                     <div className={`hbar-val${s.rate === null ? ' is-unavailable' : ''}`}>
-                      {s.rate === null ? `${s.w + s.l}/${MIN_CLOSED_DEALS_FOR_RATE} deals` : `${s.rate}% · ${s.w}W/${s.l}L`}
+                      {s.rate === null ? `${s.w + s.l}/${minimumClosedDeals} deals` : `${s.rate}% · ${s.w}W/${s.l}L`}
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="empty-hint">Needs at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals to compare lead sources.</div>
+                <div className="empty-hint">Needs at least {minimumClosedDeals} closed deals to compare lead sources.</div>
               )}
             </div>
           </div>
@@ -1058,11 +992,12 @@ function PipelinePage() {
         open={addOpen}
         draft={form}
         reps={reps}
+        options={dealOptions}
         repLocked={level === 1}
         showOutcomeFields
         onDraftChange={setForm}
         onClose={() => setAddOpen(false)}
-        onClear={() => setForm(emptyDealDraft(me || currentUser()))}
+        onClear={() => setForm(emptyDealDraft(me || currentUser(), '', dealOptions))}
         onSubmit={addDeal}
       />
 
@@ -1070,6 +1005,7 @@ function PipelinePage() {
         open={Boolean(editing)}
         draft={editForm}
         reps={reps}
+        options={dealOptions}
         repLocked={level === 1}
         opportunityLocked={Boolean(editing?.caseId)}
         title="Edit deal"
@@ -1087,6 +1023,7 @@ function PipelinePage() {
         open={Boolean(closing)}
         deal={closing}
         level={level}
+        options={dealOptions}
         onClose={() => setClosing(null)}
         onSubmit={closeDeal}
       />

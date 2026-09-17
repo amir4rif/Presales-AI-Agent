@@ -37,6 +37,7 @@ const PROPOSAL_WORKFLOW_MESSAGES = [
   'This deal already has a live proposal case. Close or supersede it before attaching another.',
   'The selected deal is no longer open or is outside your pipeline.',
   'The linked deal is no longer open. Refresh the approval queue and try again.',
+  'No live deal matches this legacy proposal. Open a deal in Pipeline and create a new proposal from that deal.',
   'A new linked proposal must be a first-version Draft for one live deal.',
   'A new proposal needs an id.',
   'Proposal sections must be a JSON object.',
@@ -76,9 +77,6 @@ export async function PUT(
   if (!isDataCollection(collection)) return json({ error: 'Unknown data collection.' }, 404);
 
   const status = getSupabaseStatus();
-  if (status.dataSource !== 'supabase') {
-    return json({ error: 'Remote persistence is disabled while DATA_SOURCE=seed.' }, 409);
-  }
   if (!status.configured) {
     return json({ error: 'Supabase mode is selected but its public configuration is incomplete.' }, 503);
   }

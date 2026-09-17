@@ -27,27 +27,18 @@ import {
   currentUserId,
   ensureProposalStore,
   fmtRM,
-  getClosedDeals,
-  getDeals,
+  getProposalRejectionReasons,
   profileIdForName,
-  saveClosedDeals,
-  saveDeals,
   saveProposals,
-  type ClosedDeal,
   type Proposal,
+  type ProposalRejectionReason,
   type ProposalStatus,
 } from '@/lib/data';
-import { addCalendarDays, localDateKey } from '@/lib/deal-outcomes';
 import {
   initializeDataLayer,
-  isRemoteDataSource,
   runProposalDataTransaction,
 } from '@/lib/data-sync';
-import {
-  isLiveProposalCase,
-  latestLiveProposalVersions,
-  rejectionReasonStats,
-} from '@/lib/proposal-lifecycle';
+import { latestLiveProposalVersions, rejectionReasonStats } from '@/lib/proposal-lifecycle';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -61,24 +52,6 @@ const SECTION_LABELS: Record<string, string> = {
   nextsteps: 'Next Steps',
 };
 const SECTION_ORDER = Object.keys(SECTION_LABELS);
-
-const REJECTION_REASONS = [
-  'Pricing too high',
-  'Scope mismatch',
-  'Wrong product fit',
-  'Missing information',
-  'Compliance',
-  'Blacklisted account',
-  'Formatting/quality',
-  'Out of scope',
-  'Other',
-];
-const CLOSE_REASONS = new Set([
-  'Compliance',
-  'Blacklisted account',
-  'Out of scope',
-  'Wrong product fit',
-]);
 
 const isRejected = (status: string) =>
   status === 'Reject & Revise' || status === 'Reject & Close';
@@ -102,13 +75,10 @@ function outcomePillClass(outcome: string) {
 const todayStr = () =>
   new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 
-const rnd3 = () => String(Math.floor(Math.random() * 900) + 100);
-const generateCaseId = () => `CASE-${new Date().getFullYear()}-${rnd3()}`;
-const generateOppId = () => `OPP-${new Date().getFullYear()}-${rnd3()}`;
-
 function ApprovalsPage() {
   const toast = useToast();
   const [store, setStore] = useState<Proposal[]>([]);
+  const [rejectionReasons, setRejectionReasons] = useState<ProposalRejectionReason[]>([]);
   const [tab, setTab] = useState('Pending Review');
   const [reviewingId, setReviewingId] = useState<string | null>(null);
   const [reason, setReason] = useState('');
@@ -118,11 +88,12 @@ function ApprovalsPage() {
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
-  const reload = useCallback(() => setStore(ensureProposalStore()), []);
+  const reload = useCallback(() => {
+    setStore(ensureProposalStore());
+    setRejectionReasons(getProposalRejectionReasons());
+  }, []);
   const reconcileWithRemote = useCallback(async () => {
-    if (isRemoteDataSource()) {
-      await initializeDataLayer({ force: true }).catch(() => undefined);
-    }
+    await initializeDataLayer({ force: true }).catch(() => undefined);
     reload();
   }, [reload]);
   useEffect(() => {
@@ -161,11 +132,19 @@ function ApprovalsPage() {
 
   const sortedRejectionReasons = useMemo(() => {
     const { reasons } = rejectionReasonStats(store);
-    return REJECTION_REASONS
-      .map((value, index) => ({ value, index, count: reasons[value] || 0 }))
+    return rejectionReasons
+      .map((definition, index) => ({
+        value: definition.label,
+        index,
+        count: reasons[definition.label] || 0,
+      }))
       .sort((a, b) => b.count - a.count || a.index - b.index)
       .map((item) => item.value);
-  }, [store]);
+  }, [store, rejectionReasons]);
+  const closeReasons = useMemo(
+    () => new Set(rejectionReasons.filter((item) => item.terminal).map((item) => item.label)),
+    [rejectionReasons]
+  );
 
   const tabs = [
     { key: 'Pending Review', label: 'Pending', count: pending.length },
@@ -207,7 +186,7 @@ function ApprovalsPage() {
         toast('⚠️ This proposal was already changed elsewhere. The latest status is now shown.', true);
         return null;
       }
-      let next = currentStore.map((p) => {
+      const next = currentStore.map((p) => {
         if (p.id !== id) return p;
         const updated: Proposal = {
           ...p,
@@ -224,108 +203,8 @@ function ApprovalsPage() {
           // in only when absent — an existing Case ID ties versions together.
           updated.outcome = updated.outcome || 'Pending';
         }
-        if (!isRemoteDataSource() && (decision === 'Approved' || decision === 'Reject & Close')) {
-          updated.caseId = updated.caseId || generateCaseId();
-          updated.opportunityId = updated.opportunityId || generateOppId();
-        }
         return updated;
       });
-
-      if (!isRemoteDataSource() && (decision === 'Approved' || decision === 'Reject & Close')) {
-        const proposal = next.find((item) => item.id === id)!;
-        const currentDeals = getDeals();
-        const now = new Date().toISOString();
-        let linked = proposal.dealId
-          ? currentDeals.find((deal) => deal.id === proposal.dealId)
-          : currentDeals.find((deal) => deal.opportunityId === proposal.opportunityId);
-        if (proposal.dealId && !linked) {
-          throw new Error('The linked deal is no longer open. Refresh the approval queue and try again.');
-        }
-        const linkAction: NonNullable<Proposal['dealLinkAction']> = proposal.dealLinkAction ||
-          (linked ? 'attached' : 'created');
-
-        if (linked) {
-          const conflictingCase = currentStore.find((item) =>
-            item.id !== proposal.id &&
-            item.dealId === linked?.id &&
-            item.caseId !== proposal.caseId &&
-            isLiveProposalCase(item)
-          );
-          if (conflictingCase) {
-            throw new Error('This deal already has a live proposal case. Close or supersede it before attaching another.');
-          }
-          linked = {
-            ...linked,
-            caseId: proposal.caseId,
-            opportunityId: proposal.opportunityId || linked.opportunityId,
-            prospectId: proposal.prospectId ?? linked.prospectId,
-            updatedAt: now,
-          };
-        } else {
-          linked = {
-            id: crypto.randomUUID(),
-            ownerId: proposal.ownerId || profileIdForName(proposal.owner),
-            prospectId: proposal.prospectId,
-            caseId: proposal.caseId,
-            opportunityId: proposal.opportunityId,
-            rep: proposal.owner,
-            account: proposal.company,
-            outcome: 'Open',
-            stage: 1,
-            daysInStage: 0,
-            daysToClose: 90,
-            closeDate: addCalendarDays(localDateKey(), 90),
-            value: proposal.value,
-            movement: 'Advanced',
-            status: 'On Track',
-            notes: '',
-            updatedAt: now,
-          };
-        }
-
-        next = next.map((item) => item.id === id
-          ? {
-              ...item,
-              dealId: linked!.id,
-              dealLinkAction: linkAction,
-              dealLinkedAt: item.dealLinkedAt || now,
-              outcome: decision === 'Reject & Close' ? 'Disqualified' : item.outcome,
-            }
-          : item);
-
-        const otherDeals = currentDeals.filter((deal) => deal.id !== linked!.id);
-        if (decision === 'Reject & Close') {
-          const historical: ClosedDeal = {
-            id: linked.id,
-            ownerId: linked.ownerId,
-            prospectId: linked.prospectId,
-            caseId: proposal.caseId,
-            opportunityId: proposal.opportunityId || linked.opportunityId,
-            rep: linked.rep,
-            account: linked.account,
-            value: linked.value,
-            closeDate: localDateKey(),
-            source: 'Proposal',
-            outcome: 'Disqualified',
-            lossReason: '',
-            disqualificationReason: why,
-            closedById: currentUserId(),
-            closedBy: who,
-            closedAt: now,
-            disqualificationRequestedById: proposal.ownerId,
-            disqualificationRequestedBy: proposal.owner,
-            disqualificationRequestedAt: proposal.submittedDate,
-            disqualificationApprovedById: currentUserId(),
-            disqualificationApprovedBy: who,
-            disqualificationApprovedAt: now,
-          };
-          const currentClosed = getClosedDeals();
-          await saveClosedDeals([...currentClosed.filter((deal) => deal.id !== linked!.id), historical]);
-          await saveDeals(otherDeals, { dealDeleteIds: linked.id ? [linked.id] : [] });
-        } else {
-          await saveDeals([...otherDeals, linked]);
-        }
-      }
 
       const persisted = await saveProposals(next);
       if (!persisted) {
@@ -345,7 +224,7 @@ function ApprovalsPage() {
       setReasonError('Please select a rejection reason.');
       return;
     }
-    if (decision === 'Reject & Close' && !CLOSE_REASONS.has(reason)) {
+    if (decision === 'Reject & Close' && !closeReasons.has(reason)) {
       setReasonError('This reason is fixable. Use Reject & Revise instead.');
       return;
     }
@@ -355,7 +234,7 @@ function ApprovalsPage() {
 
   async function executeConfirmed() {
     if (!pendingDecision || !reviewing || savingRef.current) return;
-    if (pendingDecision === 'Reject & Close' && !CLOSE_REASONS.has(reason)) {
+    if (pendingDecision === 'Reject & Close' && !closeReasons.has(reason)) {
       setPendingDecision(null);
       setReasonError('This reason is fixable. Use Reject & Revise instead.');
       return;
@@ -580,8 +459,8 @@ function ApprovalsPage() {
                 </button>
                 <button
                   className="row-btn reject lg"
-                  disabled={saving || !CLOSE_REASONS.has(reason)}
-                  title={CLOSE_REASONS.has(reason)
+                  disabled={saving || !closeReasons.has(reason)}
+                  title={closeReasons.has(reason)
                     ? 'Structural rejection — case ends and its linked deal is disqualified'
                     : 'Available only for compliance, blacklist, out-of-scope, or wrong-product-fit reasons'}
                   onClick={() => requestConfirm('Reject & Close')}

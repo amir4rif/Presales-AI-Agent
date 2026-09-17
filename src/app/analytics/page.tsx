@@ -5,20 +5,20 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import RequireLevel from '@/components/RequireLevel';
 import {
-  STAGES,
   ensureProposalStore,
   fmtRM,
+  getAnalyticsMinimum,
   getClosedDeals,
   getDeals,
   getReps,
+  getStages,
   pct,
   type ClosedDeal,
   type Deal,
   type Proposal,
+  type Stage,
 } from '@/lib/data';
 import {
-  MIN_CLOSED_DEALS_FOR_RATE,
-  MIN_COMPLETED_PROJECTS_FOR_ANALYTICS,
   analyticsReadiness,
   calculateMonthlyApprovalRates,
   calculateStageAgeAverages,
@@ -49,12 +49,16 @@ function AnalyticsPage() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [reps, setReps] = useState<string[]>([]);
   const [store, setStore] = useState<Proposal[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [minimumCompletedProjects, setMinimumCompletedProjects] = useState(0);
   const [loaded, setLoaded] = useState(false);
 
   const reload = useCallback(() => {
     setClosed(getClosedDeals());
     setDeals(getDeals());
     setReps(getReps());
+    setStages(getStages());
+    setMinimumCompletedProjects(getAnalyticsMinimum());
     setStore(ensureProposalStore());
     setLoaded(true);
   }, []);
@@ -77,7 +81,7 @@ function AnalyticsPage() {
   }
 
   const scoredClosed = scoredClosedDeals(closed);
-  const readiness = analyticsReadiness(scoredClosed.length);
+  const readiness = analyticsReadiness(scoredClosed.length, minimumCompletedProjects);
   if (!readiness.ready) {
     const projectWord = readiness.remaining === 1 ? 'project' : 'projects';
     return (
@@ -86,11 +90,11 @@ function AnalyticsPage() {
         <section className="analytics-readiness" aria-labelledby="analytics-readiness-title">
           <div className="analytics-readiness-copy">
             <h2 id="analytics-readiness-title">
-              Analytics will appear after {MIN_COMPLETED_PROJECTS_FOR_ANALYTICS} completed projects
+              Analytics will appear after {readiness.required} completed projects
             </h2>
             <p>
-              A completed project is a Pipeline deal saved with a final Won or Lost outcome. Once the third is
-              recorded, every card and chart on this page is calculated from saved data only.
+              A completed project is a Pipeline deal saved with a final Won or Lost outcome. Once the
+              configured minimum is recorded, every card and chart on this page is calculated from saved data only.
             </p>
           </div>
 
@@ -196,7 +200,7 @@ function AnalyticsPage() {
         const r = repsByName[rep] || { won: 0, lost: 0 };
         return {
           rep,
-          rate: closedDealRate(r.won, r.won + r.lost),
+          rate: closedDealRate(r.won, r.won + r.lost, minimumCompletedProjects),
           w: r.won,
           l: r.lost,
         };
@@ -209,7 +213,7 @@ function AnalyticsPage() {
   })();
 
   /* ── VELOCITY vs SLA ────────────────────────────────────── */
-  const stageAverages = calculateStageAgeAverages(STAGES, deals);
+  const stageAverages = calculateStageAgeAverages(stages, deals);
   const maxDays = Math.max(...stageAverages.map((s) => Math.max(s.avgDays || 0, s.sla)), 1);
   const { reasons } = rejectionReasonStats(store);
 
@@ -289,13 +293,13 @@ function AnalyticsPage() {
           {qKeys.length ? (
             <>
               <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
-                Rates appear with at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per quarter.
+                Rates appear with at least {minimumCompletedProjects} closed deals per quarter.
               </div>
               <div className="qtrend">
                 {qKeys.map((k) => {
                   const { won, lost } = quarters[k];
                   const total = won + lost;
-                  const rate = closedDealRate(won, total);
+                  const rate = closedDealRate(won, total, minimumCompletedProjects);
                   const h = (total / maxTotal) * 150;
                   return (
                     <div className="qtrend-col" key={k} title={`${won} won, ${lost} lost`}>
@@ -325,7 +329,7 @@ function AnalyticsPage() {
               </div>
             </>
           ) : (
-            <div className="empty-hint">Needs at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals to show a trend.</div>
+            <div className="empty-hint">Needs at least {minimumCompletedProjects} closed deals to show a trend.</div>
           )}
         </div>
 
@@ -334,7 +338,7 @@ function AnalyticsPage() {
             <span className="card-title">Comparative Performance — by Salesperson</span>
           </div>
           <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
-            Rates appear after at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per salesperson.
+            Rates appear after at least {minimumCompletedProjects} closed deals per salesperson.
           </div>
           {repRows.length ? (
             repRows.map((r) => {
@@ -348,13 +352,13 @@ function AnalyticsPage() {
                     <div className="hbar-fill" style={{ width: `${r.rate || 0}%` }} />
                   </div>
                   <div className={`hbar-val${r.rate === null ? ' is-unavailable' : ''}`}>
-                    {r.rate === null ? `${r.w + r.l}/${MIN_CLOSED_DEALS_FOR_RATE} deals` : `${r.rate}% · ${r.w}W/${r.l}L`}
+                    {r.rate === null ? `${r.w + r.l}/${minimumCompletedProjects} deals` : `${r.rate}% · ${r.w}W/${r.l}L`}
                   </div>
                 </div>
               );
             })
           ) : (
-            <div className="empty-hint">Needs at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals to compare salespeople.</div>
+            <div className="empty-hint">Needs at least {minimumCompletedProjects} closed deals to compare salespeople.</div>
           )}
         </div>
       </div>

@@ -8,7 +8,6 @@ import {
 } from '../src/lib/proposal-lifecycle.ts';
 import { calculateTwoStageRates } from '../src/lib/stage-rates.ts';
 import {
-  MIN_COMPLETED_PROJECTS_FOR_ANALYTICS,
   analyticsReadiness,
   calculateMonthlyApprovalRates,
   calculateStageAgeAverages,
@@ -78,28 +77,27 @@ test('legacy proposals without a Case ID remain separate cases', () => {
 });
 
 test('closed-deal rates wait for a three-deal sample', () => {
-  assert.equal(closedDealRate(0, 0), null);
-  assert.equal(closedDealRate(2, 2), null);
-  assert.equal(closedDealRate(2, 3), 67);
+  assert.equal(closedDealRate(0, 0, 3), null);
+  assert.equal(closedDealRate(2, 2, 3), null);
+  assert.equal(closedDealRate(2, 3, 3), 67);
 });
 
-test('analytics remain gated until three completed projects', () => {
-  assert.equal(MIN_COMPLETED_PROJECTS_FOR_ANALYTICS, 3);
-  assert.deepEqual(analyticsReadiness(0), {
+test('analytics use the supplied database-backed completion threshold', () => {
+  assert.deepEqual(analyticsReadiness(0, 3), {
     completed: 0,
     required: 3,
     remaining: 3,
     ready: false,
     progress: 0,
   });
-  assert.deepEqual(analyticsReadiness(2), {
+  assert.deepEqual(analyticsReadiness(2, 3), {
     completed: 2,
     required: 3,
     remaining: 1,
     ready: false,
     progress: 67,
   });
-  assert.deepEqual(analyticsReadiness(3), {
+  assert.deepEqual(analyticsReadiness(3, 3), {
     completed: 3,
     required: 3,
     remaining: 0,
@@ -134,6 +132,20 @@ test('stage age averages use active deals and expose missing coverage', () => {
     { id: 1, name: 'Prospecting', sla: 7, dealCount: 2, avgDays: 5.5 },
     { id: 2, name: 'Qualified', sla: 14, dealCount: 0, avgDays: null },
   ]);
+});
+
+test('stage age averages advance from stage-entered dates instead of frozen snapshots', () => {
+  const stages = [{ id: 1, name: 'Prospecting', sla: 7 }];
+  const deals = [{ stage: 1, stageEnteredOn: '2026-09-12', daysInStage: 999 }];
+
+  assert.equal(
+    calculateStageAgeAverages(stages, deals, new Date(2026, 8, 17, 12, 0, 0))[0].avgDays,
+    5
+  );
+  assert.equal(
+    calculateStageAgeAverages(stages, deals, new Date(2026, 8, 18, 12, 0, 0))[0].avgDays,
+    6
+  );
 });
 
 test('salesperson choices come from live profiles and owned records', () => {

@@ -1,17 +1,21 @@
 'use client';
 
-import { useId, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import Modal from '@/components/Modal';
-import { STAGES, type DealOutcome } from '@/lib/data';
+import { type DealOutcome, type Stage } from '@/lib/data';
+import { localDateKey } from '@/lib/deal-outcomes';
 import {
-  DEAL_LOSS_REASONS,
-  DISQUALIFICATION_REASONS,
-  addCalendarDays,
-  localDateKey,
-} from '@/lib/deal-outcomes';
+  dealValueNumber,
+  formatDealValueInput,
+  normalizeDealValueInput,
+} from '@/lib/deal-inputs';
 
-export const DEAL_SOURCES = ['Inbound', 'Outbound', 'Partner'] as const;
-export { DEAL_LOSS_REASONS, DISQUALIFICATION_REASONS };
+export type DealFormOptions = {
+  stages: Stage[];
+  sources: string[];
+  lossReasons: string[];
+  disqualificationReasons: string[];
+};
 
 export type DealDraft = {
   rep: string;
@@ -19,7 +23,7 @@ export type DealDraft = {
   opportunityId: string;
   stage: string;
   value: string;
-  days: string;
+  stageEnteredOn: string;
   source: string;
   close: string;
   outcome: DealOutcome;
@@ -28,19 +32,23 @@ export type DealDraft = {
   notes: string;
 };
 
-export function emptyDealDraft(rep: string, account = ''): DealDraft {
+export function emptyDealDraft(
+  rep: string,
+  account = '',
+  options?: DealFormOptions
+): DealDraft {
   return {
     rep,
     account,
     opportunityId: '',
-    stage: '1',
+    stage: options?.stages[0] ? String(options.stages[0].id) : '',
     value: '',
-    days: '',
-    source: DEAL_SOURCES[0],
-    close: addCalendarDays(localDateKey(), 90),
+    stageEnteredOn: localDateKey(),
+    source: options?.sources[0] || '',
+    close: '',
     outcome: 'Open',
-    loss: DEAL_LOSS_REASONS[0],
-    disqualificationReason: DISQUALIFICATION_REASONS[0],
+    loss: options?.lossReasons[0] || '',
+    disqualificationReason: options?.disqualificationReasons[0] || '',
     notes: '',
   };
 }
@@ -49,6 +57,7 @@ export default function AddDealModal({
   open,
   draft,
   reps,
+  options,
   repLocked = false,
   opportunityLocked = false,
   showOutcomeFields = false,
@@ -63,6 +72,7 @@ export default function AddDealModal({
   open: boolean;
   draft: DealDraft;
   reps: string[];
+  options: DealFormOptions;
   repLocked?: boolean;
   opportunityLocked?: boolean;
   showOutcomeFields?: boolean;
@@ -81,12 +91,30 @@ export default function AddDealModal({
     ? [draft.rep, ...reps]
     : reps;
   const modalSubtitle = showOutcomeFields && draft.outcome !== 'Open'
-    ? 'Record a closed deal. Stage and Days in Stage do not apply. Closing this window keeps your draft.'
+    ? 'Record a closed deal. Pipeline stage details do not apply. Closing this window keeps your draft.'
     : subtitle;
+
+  useEffect(() => {
+    if (!open) return;
+    const next = {
+      ...draft,
+      stage: draft.stage || (options.stages[0] ? String(options.stages[0].id) : ''),
+      source: draft.source || options.sources[0] || '',
+      loss: draft.loss || options.lossReasons[0] || '',
+      disqualificationReason:
+        draft.disqualificationReason || options.disqualificationReasons[0] || '',
+    };
+    if (JSON.stringify(next) !== JSON.stringify(draft)) onDraftChange(next);
+  }, [open, draft, options, onDraftChange]);
 
   const set = (key: keyof DealDraft) => (event: { target: { value: string } }) => {
     setError('');
     onDraftChange({ ...draft, [key]: event.target.value });
+  };
+
+  const setDealValue = (event: { target: { value: string } }) => {
+    setError('');
+    onDraftChange({ ...draft, value: normalizeDealValueInput(event.target.value) });
   };
 
   function close() {
@@ -109,7 +137,7 @@ export default function AddDealModal({
       return;
     }
     if (!draft.close) {
-      setError(`Choose the ${draft.outcome === 'Open' ? 'target close date' : 'close date'} before saving.`);
+      setError('Choose the close date before saving.');
       return;
     }
     if (draft.outcome !== 'Open' && draft.close > localDateKey()) {
@@ -120,33 +148,34 @@ export default function AddDealModal({
       setError('Enter a deal value before saving.');
       return;
     }
-    const value = Number(draft.value);
+    const value = dealValueNumber(draft.value);
     if (!Number.isFinite(value) || value < 0) {
       setError('Enter a valid deal value of zero or more.');
       return;
     }
-    const daysInStage = Number(draft.days);
     if (draft.outcome === 'Open' && (
-      !STAGES.some((stage) => String(stage.id) === draft.stage) ||
-      !draft.days.trim() ||
-      !Number.isFinite(daysInStage) ||
-      daysInStage < 0
+      !options.stages.some((stage) => String(stage.id) === draft.stage) ||
+      !draft.stageEnteredOn
     )) {
-      setError('Choose a stage and enter zero or more days in stage.');
+      setError('Choose a stage and a valid stage-entered date.');
+      return;
+    }
+    if (draft.outcome === 'Open' && draft.stageEnteredOn > localDateKey()) {
+      setError('Stage entered on cannot be in the future.');
       return;
     }
     if (draft.outcome !== 'Open' &&
-        !DEAL_SOURCES.includes(draft.source as (typeof DEAL_SOURCES)[number])) {
-      setError('Choose a lead source from the fixed list.');
+        !options.sources.includes(draft.source)) {
+      setError('Choose a lead source from the configured list.');
       return;
     }
-    if (draft.outcome === 'Lost' && !DEAL_LOSS_REASONS.includes(draft.loss as (typeof DEAL_LOSS_REASONS)[number])) {
-      setError('Choose a loss reason from the fixed list.');
+    if (draft.outcome === 'Lost' && !options.lossReasons.includes(draft.loss)) {
+      setError('Choose a loss reason from the configured list.');
       return;
     }
     if (draft.outcome === 'Disqualified' &&
-        !DISQUALIFICATION_REASONS.includes(draft.disqualificationReason as (typeof DISQUALIFICATION_REASONS)[number])) {
-      setError('Choose a disqualification reason from the fixed list.');
+        !options.disqualificationReasons.includes(draft.disqualificationReason)) {
+      setError('Choose a disqualification reason from the configured list.');
       return;
     }
 
@@ -230,7 +259,7 @@ export default function AddDealModal({
           className="form-input"
           value={draft.opportunityId}
           onChange={set('opportunityId')}
-          placeholder="OPP-2026-0101"
+          placeholder="Optional opportunity ID"
           disabled={saving || opportunityLocked}
         />
       </div>
@@ -264,7 +293,7 @@ export default function AddDealModal({
               onChange={set('stage')}
               disabled={saving}
             >
-              {STAGES.map((stage) => (
+              {options.stages.map((stage) => (
                 <option value={String(stage.id)} key={stage.id}>
                   {stage.id} – {stage.name}
                 </option>
@@ -277,24 +306,24 @@ export default function AddDealModal({
               <input
                 id={`${id}-value`}
                 className="form-input"
-                type="number"
-                min="0"
-                value={draft.value}
-                onChange={set('value')}
-                placeholder="3000000"
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9,]*"
+                value={formatDealValueInput(draft.value)}
+                onChange={setDealValue}
+                placeholder="Enter amount in RM"
                 disabled={saving}
               />
             </div>
             <div className="form-group">
-              <label className="form-label" htmlFor={`${id}-days`}>Days in Stage *</label>
+              <label className="form-label" htmlFor={`${id}-stage-entered`}>Stage entered on *</label>
               <input
-                id={`${id}-days`}
+                id={`${id}-stage-entered`}
                 className="form-input"
-                type="number"
-                min="0"
-                value={draft.days}
-                onChange={set('days')}
-                placeholder="0"
+                type="date"
+                value={draft.stageEnteredOn}
+                max={localDateKey()}
+                onChange={set('stageEnteredOn')}
                 disabled={saving}
               />
             </div>
@@ -309,11 +338,12 @@ export default function AddDealModal({
             <input
               id={`${id}-value`}
               className="form-input"
-              type="number"
-              min="0"
-              value={draft.value}
-              onChange={set('value')}
-              placeholder="3000000"
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9,]*"
+              value={formatDealValueInput(draft.value)}
+              onChange={setDealValue}
+              placeholder="Enter amount in RM"
               disabled={saving}
             />
           </div>
@@ -326,7 +356,7 @@ export default function AddDealModal({
               onChange={set('source')}
               disabled={saving}
             >
-              {DEAL_SOURCES.map((source) => (
+              {options.sources.map((source) => (
                 <option key={source}>{source}</option>
               ))}
             </select>
@@ -335,9 +365,7 @@ export default function AddDealModal({
       )}
 
       <div className="form-group">
-        <label className="form-label" htmlFor={`${id}-close`}>
-          {draft.outcome === 'Open' ? 'Target Close Date *' : 'Close Date *'}
-        </label>
+        <label className="form-label" htmlFor={`${id}-close`}>Close Date *</label>
         <input
           id={`${id}-close`}
           className="form-input"
@@ -352,7 +380,7 @@ export default function AddDealModal({
         <div className="form-group">
           <label className="form-label" htmlFor={`${id}-loss`}>Loss Reason *</label>
           <select id={`${id}-loss`} className="form-select" value={draft.loss} onChange={set('loss')} disabled={saving}>
-            {DEAL_LOSS_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
+            {options.lossReasons.map((reason) => <option key={reason}>{reason}</option>)}
           </select>
         </div>
       )}
@@ -367,7 +395,7 @@ export default function AddDealModal({
             onChange={set('disqualificationReason')}
             disabled={saving}
           >
-            {DISQUALIFICATION_REASONS.map((reason) => <option key={reason}>{reason}</option>)}
+            {options.disqualificationReasons.map((reason) => <option key={reason}>{reason}</option>)}
           </select>
         </div>
       )}

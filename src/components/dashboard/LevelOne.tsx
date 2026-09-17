@@ -2,15 +2,15 @@
 /* Level 1 · Data Entry — scoped to the signed-in rep's own work. */
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { STAGES, fmtRM, type Stats } from '@/lib/data';
-import { dealNeedsOutcome, dealOutcomeOverdueDays } from '@/lib/deal-outcomes';
+import { fmtRM, type Stats } from '@/lib/data';
+import { dealDaysInStage, dealNeedsOutcome, dealOutcomeOverdueDays } from '@/lib/deal-outcomes';
 import { greeting } from '@/lib/useStats';
 import { ActionStrip, Arrow, BADGE, Card, DOT, Empty } from './shared';
 
 const QUICK = [
-  { n: '01', title: 'Research a Prospect', desc: 'Let the AI Sales Agent profile a company, its pain points and buying potential.', cta: 'Open Prospects', href: '/prospects' },
+  { n: '01', title: 'Research a Prospect', desc: 'Use verified public sources to add cited company facts without filling unsupported fields.', cta: 'Open Prospects', href: '/prospects' },
   { n: '02', title: 'Draft a Proposal',    desc: 'Generate a starter draft from one of your active deals, then submit it for review.', cta: 'New Proposal', href: '/proposals' },
-  { n: '03', title: 'Complete an RFP',     desc: 'Upload a compliance form and let AI fill it from the knowledge base.',          cta: 'Upload RFP',    href: '/compliance' },
+  { n: '03', title: 'Review an RFP',       desc: 'Open persisted compliance answers and review their supporting sources.',       cta: 'Open RFPs',     href: '/compliance' },
   { n: '04', title: 'Update My Deals',     desc: 'Keep your assigned opportunities and stages current.',                          cta: 'My Pipeline',   href: '/pipeline' },
 ];
 
@@ -155,8 +155,9 @@ export default function LevelOne({ s }: { s: Stats }) {
           <div className="row-list">
             {s.myDeals.length ? (
               s.myDeals.slice().sort((a, b) => Number(dealNeedsOutcome(b)) - Number(dealNeedsOutcome(a))).slice(0, 5).map((d, i) => {
-                const st = STAGES[d.stage - 1];
-                const late = st && d.daysInStage > st.sla;
+                const st = s.stages.find((stage) => stage.id === d.stage);
+                const daysInStage = dealDaysInStage(d);
+                const late = st && daysInStage > st.sla;
                 const needsOutcome = dealNeedsOutcome(d);
                 return (
                   <div
@@ -169,7 +170,7 @@ export default function LevelOne({ s }: { s: Stats }) {
                     <div className="activity-info">
                       <div className="activity-name">{d.account}</div>
                       <div className="activity-desc">
-                        {st?.name || `Stage ${d.stage}`} · {d.daysInStage}d in stage
+                        {st?.name || `Stage ${d.stage}`} · {daysInStage}d in stage
                         {late ? ` · past ${st.sla}d SLA` : ''}
                         {needsOutcome ? ` · Needs Outcome (${dealOutcomeOverdueDays(d)}d overdue)` : ''}
                       </div>

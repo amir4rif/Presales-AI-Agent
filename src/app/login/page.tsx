@@ -1,10 +1,9 @@
 'use client';
-/* Supabase Auth is the active login path. Seed mode keeps an offline,
-   password-free persona picker so the demo remains usable without keys. */
+/* Supabase Auth is the only login and identity source. */
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { HOME, clearSession, setSession, getSession, type Level } from '@/lib/role';
+import { HOME, clearSession } from '@/lib/role';
 import { resetDataLayer } from '@/lib/data-sync';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 const EyeIcon = () => (
@@ -47,16 +46,10 @@ const Arrow = ({ id }: { id: string }) => (
 
 type Alert = { type: 'error' | 'success'; msg: string } | null;
 
-/* Password-free Level 2/3 personas are a local-dev convenience only.
-   process.env.NODE_ENV is inlined at build time, so production can never
-   take the rendering branch. The handler repeats the guard as a second
-   protection in case this UI is refactored later. */
-const SEED_DEMO_ENABLED = process.env.NODE_ENV !== 'production';
-
 export default function LoginPage() {
   const router = useRouter();
   const [tab, setTab] = useState<'login' | 'register'>('login');
-  const [source, setSource] = useState<'loading' | 'seed' | 'supabase'>('loading');
+  const [source, setSource] = useState<'loading' | 'supabase' | 'error'>('loading');
   const [busy, setBusy] = useState(false);
 
   const [loginAlert, setLoginAlert] = useState<Alert>(null);
@@ -81,21 +74,22 @@ export default function LoginPage() {
       .then((response) => response.json())
       .then(async (status) => {
         if (!alive) return;
-        const nextSource = status.dataSource === 'supabase' ? 'supabase' : 'seed';
-        setSource(nextSource);
-        if (nextSource === 'seed' && getSession()) router.replace(HOME);
-        if (nextSource === 'supabase') {
-          const { data } = await createSupabaseBrowserClient().auth.getClaims();
-          if (data?.claims?.sub) {
-            router.replace(HOME);
-          } else {
-            clearSession();
-            resetDataLayer();
-          }
+        if (status.dataSource !== 'supabase' || !status.ready) {
+          throw new Error('Supabase authentication is not configured.');
+        }
+        setSource('supabase');
+        const { data } = await createSupabaseBrowserClient().auth.getClaims();
+        if (data?.claims?.sub) {
+          router.replace(HOME);
+        } else {
+          clearSession();
+          resetDataLayer();
         }
       })
       .catch(() => {
-        if (alive) setLoginAlert({ type: 'error', msg: 'Could not read the login configuration.' });
+        if (!alive) return;
+        setSource('error');
+        setLoginAlert({ type: 'error', msg: 'Supabase authentication is unavailable.' });
       });
     return () => {
       alive = false;
@@ -194,18 +188,6 @@ export default function LoginPage() {
       : { type: 'success', msg: 'Password reset instructions have been sent.' });
   }, [email]);
 
-  function continueSeed(
-    firstName: string,
-    lastName: string,
-    role: string,
-    level: Level,
-    emailAddress: string
-  ) {
-    if (!SEED_DEMO_ENABLED) return;
-    setSession({ firstName, lastName, role, level, email: emailAddress });
-    router.replace(HOME);
-  }
-
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Enter') return;
@@ -261,32 +243,18 @@ export default function LoginPage() {
             {source !== 'supabase' ? (
               <div className="form-view active">
                 <div className="form-title">
-                  {source === 'loading' ? 'Checking your workspace…' : 'Offline seed demo'}
+                  {source === 'loading' ? 'Checking your workspace…' : 'Database connection unavailable'}
                 </div>
                 <div className="form-subtitle">
                   {source === 'loading'
                     ? 'Reading the server configuration.'
-                    : SEED_DEMO_ENABLED
-                      ? 'Choose a password-free test persona. Remote authorization is disabled in seed mode.'
-                      : 'This deployment has no authentication configured.'}
+                    : 'Sign-in requires the configured Supabase database and authentication service.'}
                 </div>
-                {source === 'seed' && (SEED_DEMO_ENABLED ? (
-                  <div style={{ display: 'grid', gap: 10 }}>
-                    <button className="btn-primary" onClick={() => continueSeed('Lim', 'LG', 'Sales Representative', 1, 'lim.lg@ramssol.com')}>
-                      Continue as Level 1 · Sales Rep
-                    </button>
-                    <button className="btn-secondary" onClick={() => continueSeed('Sharon', 'Lim', 'Sales Manager', 2, 'sharon@ramssol.com')}>
-                      Continue as Level 2 · Reviewer
-                    </button>
-                    <button className="btn-secondary" onClick={() => continueSeed('Brian', 'Liew', 'Sales Operations', 3, 'brian.liew@ramssol.com')}>
-                      Continue as Level 3 · Administrator
-                    </button>
-                  </div>
-                ) : (
+                {source === 'error' && (
                   <div className="alert error" style={{ display: 'block' }}>
-                    Set DATA_SOURCE=supabase and complete the Supabase configuration to enable sign-in.
+                    {loginAlert?.msg || 'Supabase authentication is unavailable.'}
                   </div>
-                ))}
+                )}
               </div>
             ) : (
               <>
@@ -422,8 +390,8 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="demo-hint">
-                New accounts start as <strong>Level 1 · Sales Representative</strong>. A Level 3 administrator can assign reviewer or administrator access after signup.
+              <div className="signup-hint">
+                New-account access is assigned from the workspace&rsquo;s database configuration. An administrator can update it after signup.
               </div>
 
               <div className="field">

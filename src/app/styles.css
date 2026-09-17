@@ -1327,8 +1327,8 @@ body::after {
    <style> override on dashboard-l1.html) */
 #action-required { --strip-accent: #FB923C; }
 
-/* Login demo hint (was a <style> block in login.html) */
-.demo-hint { margin-top: 14px; padding: 11px 13px; background: var(--brand-50); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 11.5px; color: var(--brand-400); line-height: 1.6; }
+/* Login signup hint */
+.signup-hint { margin-top: 14px; padding: 11px 13px; background: var(--brand-50); border: 1px solid rgba(59,130,246,0.3); border-radius: 8px; font-size: 11.5px; color: var(--brand-400); line-height: 1.6; }
 
 /* ── Proposals page (was a <style> block in proposals.html) ── */
 .proposals-list-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: hidden; }

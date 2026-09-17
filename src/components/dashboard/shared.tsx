@@ -4,7 +4,6 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
 import type { ProposalStatus } from '@/lib/data';
-import { MIN_CLOSED_DEALS_FOR_RATE } from '@/lib/analytics-metrics';
 
 export const BADGE: Record<ProposalStatus, string> = {
   'Approved': 'status-completed',
@@ -134,7 +133,13 @@ export function rankReps(closed: { rep: string; outcome: 'Won' | 'Lost' | 'Disqu
     .sort((a, b) => b.rate - a.rate || b.w + b.l - (a.w + a.l));
 }
 
-export function RepBars({ ranked }: { ranked: ReturnType<typeof rankReps> }) {
+export function RepBars({
+  ranked,
+  minimum,
+}: {
+  ranked: ReturnType<typeof rankReps>;
+  minimum: number;
+}) {
   if (!ranked.length) {
     return (
       <Empty>
@@ -146,10 +151,10 @@ export function RepBars({ ranked }: { ranked: ReturnType<typeof rankReps> }) {
   return (
     <>
       <div className="an-card-sub" style={{ margin: '-10px 0 10px' }}>
-        Rates appear after at least {MIN_CLOSED_DEALS_FOR_RATE} closed deals per salesperson.
+        Rates appear after at least {minimum} closed deals per salesperson.
       </div>
       {ranked.map((r) => {
-        const eligible = r.w + r.l >= MIN_CLOSED_DEALS_FOR_RATE;
+        const eligible = minimum > 0 && r.w + r.l >= minimum;
         return (
           <div className="hbar-row" key={r.rep}>
             <div className="hbar-name" title={r.rep}>
@@ -161,7 +166,7 @@ export function RepBars({ ranked }: { ranked: ReturnType<typeof rankReps> }) {
             <div className={`hbar-val${eligible ? '' : ' is-unavailable'}`}>
               {eligible
                 ? `${r.rate}% · ${r.w}W/${r.l}L`
-                : `${r.w + r.l}/${MIN_CLOSED_DEALS_FOR_RATE} deals`}
+                : `${r.w + r.l}/${minimum} deals`}
             </div>
           </div>
         );

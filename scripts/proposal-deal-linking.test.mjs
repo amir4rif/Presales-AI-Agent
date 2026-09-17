@@ -39,6 +39,19 @@ test('the picker offers only visible deals without a live proposal case', () => 
   assert.equal(isLiveProposalCase({ status: 'Approved', outcome: 'Disqualified' }), false);
 });
 
+test('the picker stays empty when every deal already has a live proposal', () => {
+  const deals = [
+    { id: 'deal-one' },
+    { id: 'deal-two' },
+  ];
+  const proposals = [
+    { dealId: 'deal-one', status: 'Draft' },
+    { dealId: 'deal-two', status: 'Pending Review' },
+  ];
+
+  assert.deepEqual(dealsAvailableForProposal(deals, proposals), []);
+});
+
 test('proposal deal visibility mirrors Pipeline ownership scope', () => {
   const deals = [
     { id: 'own', ownerId: 'user-1', rep: 'Rep One' },
@@ -113,7 +126,8 @@ test('new proposal creation is deal-first, ID-linked, and database-atomic', () =
   assert.match(page, /const proposalDealPool = useMemo\([\s\S]*dealsAvailableForProposal\(visibleDeals, store\)/);
   assert.match(page, /company: selected\.account,[\s\S]*deal: selected\.account,[\s\S]*value: selected\.value/);
   assert.match(page, /dealId: selected\.id/);
-  assert.match(page, /deal\.id === selected\.id \? \{ \.\.\.deal, caseId/);
+  assert.match(page, /caseId: ''/);
+  assert.doesNotMatch(page, /saveDeals|isRemoteDataSource/);
   assert.match(page, /const canonical = ensureProposalStore\(\)\.find\([\s\S]*setEditingId\(canonical\.id\)/);
   assert.match(serverData, /if \(dealId\) row\.deal_id = dealId/);
   assert.match(writer, /client\.rpc\('create_proposal_for_deal'/);
@@ -128,8 +142,8 @@ test('new proposal creation is deal-first, ID-linked, and database-atomic', () =
   assert.match(migration, /if new\.deal_id is not null then[\s\S]*where deal\.id = new\.deal_id/);
   assert.match(migration, /grant execute on function public\.create_proposal_for_deal[\s\S]*to authenticated/);
 
-  assert.match(approvals, /proposal\.dealId[\s\S]*deal\.id === proposal\.dealId/);
-  assert.doesNotMatch(approvals, /currentDeals\.find\([^\n]*(?:account|company)/);
+  assert.match(approvals, /const persisted = await saveProposals\(next\)/);
+  assert.doesNotMatch(approvals, /getDeals|saveDeals|isRemoteDataSource/);
   assert.doesNotMatch(migration, /lower\([^\n]*(?:account|company)|(?:account|company)[^\n]*lower\(/i);
 });
 
@@ -137,7 +151,8 @@ test('the picker has honest empty, busy, and keyboard-focus states', () => {
   const page = read('../src/app/proposals/page.tsx');
   const css = read('../src/app/styles.css');
 
-  assert.match(page, /Every visible deal already has a live proposal case/);
+  assert.match(page, /Every deal already has a live proposal\./);
+  assert.match(page, /Open a new deal in Pipeline first\./);
   assert.match(page, /No live deals are available yet/);
   assert.match(page, /disabled=\{listSaving\}/);
   assert.match(page, /aria-label=\{`Create a proposal for \$\{deal\.account\}`\}/);

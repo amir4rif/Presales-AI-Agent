@@ -29,18 +29,9 @@ function jsonError(error: string, status: number): ApiSessionResult {
  * Route-level authentication for protected APIs. The proxy performs the same
  * check, but keeping it here means a matcher or platform regression cannot
  * expose provider keys, generated data, or integration records.
- *
- * Seed mode is intentionally available only to the local development server.
  */
 export async function requireApiSession(minimumLevel = 1): Promise<ApiSessionResult> {
   const status = getSupabaseStatus();
-
-  if (status.dataSource === 'seed') {
-    if (process.env.NODE_ENV !== 'production') {
-      return { ok: true, userId: 'seed-development', level: 3, supabase: null };
-    }
-    return jsonError('Server authentication is not configured.', 503);
-  }
   if (!status.configured) {
     return jsonError('Server authentication is not configured.', 503);
   }

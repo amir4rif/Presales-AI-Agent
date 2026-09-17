@@ -1,13 +1,17 @@
 'use client';
 /* Prospects workspace (Doc §3.3) — grid, detail view and Add Deal.
 
-   saveProspects/saveDeals are the shared data boundary. They stay local in
-   seed mode and queue server-side Lark persistence in Lark mode. */
+   All records and business catalogs are hydrated from and persisted to
+   Supabase through the shared data boundary. */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Modal from '@/components/Modal';
 import RequireLevel from '@/components/RequireLevel';
 import { useToast } from '@/components/Toast';
-import AddDealModal, { emptyDealDraft, type DealDraft } from '@/components/deals/AddDealModal';
+import AddDealModal, {
+  emptyDealDraft,
+  type DealDraft,
+  type DealFormOptions,
+} from '@/components/deals/AddDealModal';
 import AddProspectModal, { type ProspectForm } from '@/components/prospects/AddProspectModal';
 import ProspectDetail from '@/components/prospects/ProspectDetail';
 import {
@@ -15,16 +19,27 @@ import {
   currentUser,
   currentUserId,
   getClosedDeals,
+  getDealLossReasons,
+  getDealSources,
   getDeals,
+  getDisqualificationReasons,
+  getProductCatalog,
+  getPipelineSettings,
   getProposals,
+  getProspectOptions,
   getProspects,
   getReps,
+  getStages,
   profileIdForName,
   saveDeals,
   saveProspects,
   type AIResearch,
   type Deal,
+  type ProductCatalogItem,
+  type PipelineSettings,
   type Prospect,
+  type ProspectOptions,
+  type Stage,
 } from '@/lib/data';
 import {
   canManageProspect,
@@ -34,7 +49,8 @@ import {
 } from '@/lib/prospect-lifecycle';
 import { dealsForProspect } from '@/lib/prospect-deals';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
-import { daysUntilDealClose } from '@/lib/deal-outcomes';
+import { dealDaysInStage, daysUntilDealClose } from '@/lib/deal-outcomes';
+import { dealValueNumber } from '@/lib/deal-inputs';
 
 type ProspectAction = {
   prospectId: number;
@@ -60,6 +76,19 @@ function ProspectsPage() {
   const toast = useToast();
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
+  const [sources, setSources] = useState<string[]>([]);
+  const [lossReasons, setLossReasons] = useState<string[]>([]);
+  const [disqualificationReasons, setDisqualificationReasons] = useState<string[]>([]);
+  const [prospectOptions, setProspectOptions] = useState<ProspectOptions>({
+    industries: [],
+    employeeSizes: [],
+    itBudgetRanges: [],
+    hrBudgetRanges: [],
+    buyingTimelines: [],
+  });
+  const [productCatalog, setProductCatalog] = useState<ProductCatalogItem[]>([]);
+  const [pipelineSettings, setPipelineSettings] = useState<PipelineSettings | null>(null);
   const [industry, setIndustry] = useState('all');
   const [openId, setOpenId] = useState<number | null>(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -75,9 +104,16 @@ function ProspectsPage() {
   const reload = useCallback(() => {
     setProspects(getProspects());
     setDeals(getDeals());
+    setStages(getStages());
+    setSources(getDealSources());
+    setLossReasons(getDealLossReasons());
+    setDisqualificationReasons(getDisqualificationReasons());
+    setProspectOptions(getProspectOptions());
+    setProductCatalog(getProductCatalog());
+    setPipelineSettings(getPipelineSettings());
     const me = currentUser();
     const list = getReps();
-    setReps(currentLevel() === 1 && !list.includes(me) ? [me, ...list] : list);
+    setReps(me && !list.some((rep) => rep.toLowerCase() === me.toLowerCase()) ? [me, ...list] : list);
   }, []);
 
   useEffect(() => {
@@ -93,21 +129,32 @@ function ProspectsPage() {
   );
   const shown = industry === 'all' ? prospects : prospects.filter((p) => p.type === industry);
   const open = openId != null ? prospects.find((p) => p.id === openId) || null : null;
+  const dealOptions = useMemo<DealFormOptions>(() => ({
+    stages,
+    sources,
+    lossReasons,
+    disqualificationReasons,
+  }), [stages, sources, lossReasons, disqualificationReasons]);
 
-  function handleAdd(p: Prospect, _form: ProspectForm, research: AIResearch | null) {
+  async function handleAdd(p: Prospect, _form: ProspectForm, research: AIResearch | null) {
     const prospect: Prospect = {
       ...p,
       ownerId: p.ownerId || currentUserId(),
       status: 'Active',
     };
     const next = [...prospects, prospect];
-    void saveProspects(next);
-    setProspects(next);
+    const saved = await saveProspects(next);
+    if (!saved) return false;
+    setProspects(getProspects());
     setAddOpen(false);
     toast(`✅ Prospect added${research ? ' with AI research attached' : ''}`);
+    return true;
   }
 
   async function addDeal(draft: DealDraft, prospect: Prospect) {
+    if (!pipelineSettings) return 'Pipeline settings are unavailable. Refresh and try again.';
+    const value = dealValueNumber(draft.value);
+    if (!Number.isFinite(value)) return 'Enter a valid deal value before saving.';
     const repId = draft.rep === currentUser()
       ? currentUserId() || profileIdForName(draft.rep)
       : profileIdForName(draft.rep);
@@ -120,12 +167,13 @@ function ProspectsPage() {
       account: draft.account.trim(),
       outcome: 'Open',
       stage: Number(draft.stage),
-      daysInStage: Number(draft.days) || 1,
-      daysToClose: daysUntilDealClose({ closeDate: draft.close, daysToClose: 90 }),
+      stageEnteredOn: draft.stageEnteredOn,
+      daysInStage: dealDaysInStage({ stageEnteredOn: draft.stageEnteredOn, daysInStage: 0 }),
+      daysToClose: daysUntilDealClose({ closeDate: draft.close, daysToClose: 0 }),
       closeDate: draft.close,
-      value: Number(draft.value) || 0,
-      movement: 'Advanced',
-      status: 'On Track',
+      value,
+      movement: pipelineSettings.defaultMovement,
+      status: pipelineSettings.defaultStatus,
       notes: draft.notes.trim(),
     };
     const next: Deal[] = [
@@ -137,7 +185,7 @@ function ProspectsPage() {
     setDeals(next);
     setDealDrafts((drafts) => ({
       ...drafts,
-      [prospect.id]: emptyDealDraft(currentUser(), prospect.name),
+      [prospect.id]: emptyDealDraft(currentUser(), prospect.name, dealOptions),
     }));
     setDealOpen(false);
     toast('✅ Deal added to the pipeline');
@@ -222,7 +270,8 @@ function ProspectsPage() {
       : hasProspectDependencies(dependencies)
         ? 'archive'
         : 'delete';
-    const draft = dealDrafts[open.id] || emptyDealDraft(currentUser(), open.name);
+    const draft = dealDrafts[open.id]
+      || emptyDealDraft(currentUser(), open.name, dealOptions);
 
     return (
       <>
@@ -241,6 +290,7 @@ function ProspectsPage() {
           draft={draft}
           onClose={() => setDealOpen(false)}
           reps={reps}
+          options={dealOptions}
           repLocked={level === 1}
           onDraftChange={(nextDraft) =>
             setDealDrafts((drafts) => ({ ...drafts, [open.id]: nextDraft }))
@@ -248,7 +298,7 @@ function ProspectsPage() {
           onClear={() =>
             setDealDrafts((drafts) => ({
               ...drafts,
-              [open.id]: emptyDealDraft(currentUser(), open.name),
+              [open.id]: emptyDealDraft(currentUser(), open.name, dealOptions),
             }))
           }
           onSubmit={(nextDraft) => addDeal(nextDraft, open)}
@@ -387,7 +437,13 @@ function ProspectsPage() {
         )}
       </div>
 
-      <AddProspectModal open={addOpen} onClose={() => setAddOpen(false)} onAdd={handleAdd} />
+      <AddProspectModal
+        open={addOpen}
+        options={prospectOptions}
+        productCatalog={productCatalog}
+        onClose={() => setAddOpen(false)}
+        onAdd={handleAdd}
+      />
     </>
   );
 }

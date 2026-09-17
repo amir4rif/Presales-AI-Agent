@@ -31,8 +31,6 @@ export default function LevelThree({ s }: { s: Stats }) {
     : 1;
   const totalRej = Object.values(s.reasons).reduce((a, b) => a + b, 0);
 
-  const sla = typeof window !== 'undefined' ? localStorage.getItem('ramssolStageSLA') : null;
-
   /* `text: true` renders the value as a phrase — the 22px mono numeric
      treatment made a reason like "Pricing too high" look like broken data. */
   const loop = [
@@ -64,21 +62,21 @@ export default function LevelThree({ s }: { s: Stats }) {
       name: 'Supabase Database & Auth',
       sub: loading
         ? 'Checking…'
-        : supabase?.dataSource === 'seed'
-          ? 'Integration prepared — offline seed data remains active'
-          : supabase?.ready
-            ? 'Public configuration present — Auth and RLS active'
-            : `Missing: ${supabase?.missing?.join(', ') || 'Supabase public values'}`,
+        : supabase?.ready
+          ? 'Public configuration present — Auth and RLS active'
+          : `Missing: ${supabase?.missing?.join(', ') || 'Supabase public values'}`,
     },
     {
-      ok: !!sla,
+      ok: s.stages.length > 0,
       name: 'Pipeline SLA Thresholds',
-      sub: sla ? 'Custom thresholds saved' : 'Using default stage SLAs',
+      sub: s.stages.length ? `${s.stages.length} database stages configured` : 'No stages configured',
     },
     {
       ok: team.length > 0,
       name: 'User Directory',
-      sub: team.length ? `${team.length} members across 3 access levels` : 'No members yet',
+      sub: team.length
+        ? `${team.length} members across ${new Set(team.map((member) => member.level).filter(Boolean)).size} access levels`
+        : 'No members yet',
     },
   ];
 
@@ -180,7 +178,7 @@ export default function LevelThree({ s }: { s: Stats }) {
 
       <div className="analytics-grid">
         <Card title="Organisation Performance" link="Full analytics" linkHref="/analytics">
-          <RepBars ranked={rankReps(s.closed)} />
+          <RepBars ranked={rankReps(s.closed)} minimum={s.minimumCompletedProjects} />
         </Card>
 
         <Card title="Recent System Activity" link="All approvals" linkHref="/admin/approvals">

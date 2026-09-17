@@ -6,7 +6,7 @@ import Sidebar from './Sidebar';
 import Topbar from './Topbar';
 import { useToast } from './Toast';
 import { titleFor } from '@/lib/nav';
-import { LEVEL_NAME, currentLevel, currentRole, currentUser, getSession, type Level } from '@/lib/role';
+import { currentLevel, currentRole, currentUser, type Level } from '@/lib/role';
 import { initializeDataLayer, subscribeToRemoteChanges, type DataLayerStatus } from '@/lib/data-sync';
 
 const BARE_ROUTES = ['/login', '/auth/update-password'];
@@ -28,10 +28,6 @@ export default function AppShell({ children }: { children: ReactNode }) {
     try {
       const data = await initializeDataLayer({ force });
       setDataStatus(data);
-      if (data.source === 'seed' && !getSession()) {
-        router.replace('/login');
-        return;
-      }
       setIdentity({ name: currentUser(), role: currentRole(), level: currentLevel() });
     } catch (error) {
       setIdentity(null);
@@ -47,9 +43,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
     const denied = sessionStorage.getItem('ramssolDenied');
     if (denied) {
       sessionStorage.removeItem('ramssolDenied');
-      const level = Number(denied) as Level;
       setTimeout(
-        () => toast(`That area is limited to ${LEVEL_NAME[level] || 'a higher level'} (Level ${denied}).`, true),
+        () => toast(`That area requires Level ${denied} access.`, true),
         300
       );
     }
@@ -85,8 +80,8 @@ export default function AppShell({ children }: { children: ReactNode }) {
             {bootError}
           </p>
           <p style={{ color: 'var(--text-secondary)', fontSize: 12, lineHeight: 1.6, marginBottom: 18 }}>
-            Set <code>DATA_SOURCE=seed</code> to use the offline demo, or complete the Supabase values in{' '}
-            <code>.env.local</code> and restart the server.
+            Complete the Supabase values in <code>.env.local</code>, apply the checked-in database
+            migrations, and restart the server.
           </p>
           <button className="btn-primary" onClick={() => void boot(true)}>Retry</button>
         </div>

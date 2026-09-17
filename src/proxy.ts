@@ -10,14 +10,11 @@ export async function proxy(request: NextRequest) {
     request.nextUrl.searchParams.get('all') !== '1';
   const publicPath =
     pathname.startsWith('/login') || pathname.startsWith('/auth') || publicReadiness;
-  const dataSource = process.env.DATA_SOURCE || process.env.NEXT_PUBLIC_DATA_SOURCE || 'seed';
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
 
-  if (dataSource !== 'supabase' || !url || !key) {
-    if (process.env.NODE_ENV !== 'production' || publicPath) {
-      return NextResponse.next({ request });
-    }
+  if (!url || !key) {
+    if (publicPath) return NextResponse.next({ request });
     if (pathname.startsWith('/api/')) {
       return NextResponse.json(
         { error: 'Server authentication is not configured.' },

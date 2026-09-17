@@ -8,14 +8,13 @@ import Modal from '@/components/Modal';
 import { useToast } from '@/components/Toast';
 import { callClaude, isAiError } from '@/lib/ai';
 import { parseJsonReply } from '@/lib/docExport';
-import type { AIResearch, Prospect } from '@/lib/data';
+import type {
+  AIResearch,
+  ProductCatalogItem,
+  Prospect,
+  ProspectOptions,
+} from '@/lib/data';
 import { researchCompany, type ResearchResult } from '@/lib/research';
-
-const INDUSTRIES = ['Banking & Finance', 'Healthcare', 'Government', 'Education', 'Manufacturing', 'Retail & FMCG', 'NGO / Non-profit', 'Technology', 'Logistics & Supply Chain', 'Telecommunications', 'Property & Construction', 'Oil & Gas', 'Other'];
-const EMP_SIZES = ['1 – 50', '51 – 200', '201 – 500', '501 – 1,000', '1,001 – 5,000', '5,001 – 10,000', '10,000+'];
-const IT_BUDGETS = ['Below RM 500K', 'RM 500K – RM 1M', 'RM 1M – RM 3M', 'RM 3M – RM 10M', 'RM 10M – RM 50M', 'Above RM 50M'];
-const HR_BUDGETS = ['Below RM 200K', 'RM 200K – RM 500K', 'RM 500K – RM 1M', 'RM 1M – RM 3M', 'RM 3M – RM 10M', 'Above RM 10M'];
-const TIMELINES = ['Immediate (within 1 month)', 'Short-term (1 – 3 months)', 'Medium-term (3 – 6 months)', 'Long-term (6 – 12 months)', 'Future planning (12+ months)'];
 
 const EMPTY = {
   name: '', industry: '', location: '', website: '', empSize: '',
@@ -43,12 +42,20 @@ function matchOption(options: string[], text?: string) {
 
 export default function AddProspectModal({
   open,
+  options,
+  productCatalog,
   onClose,
   onAdd,
 }: {
   open: boolean;
+  options: ProspectOptions;
+  productCatalog: ProductCatalogItem[];
   onClose: () => void;
-  onAdd: (p: Prospect, form: Form, research: AIResearch | null) => void;
+  onAdd: (
+    p: Prospect,
+    form: Form,
+    research: AIResearch | null
+  ) => Promise<boolean | string> | boolean | string;
 }) {
   const toast = useToast();
   const [f, setF] = useState<Form>(EMPTY);
@@ -62,6 +69,12 @@ export default function AddProspectModal({
   const [outline, setOutline] = useState<string | null>(null);
   const [recommending, setRecommending] = useState(false);
   const [outlining, setOutlining] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const catalogText = productCatalog
+    .map((product) =>
+      `${product.category} — ${product.name}: ${product.description}. Best fit: ${product.fit}.`
+    )
+    .join('\n');
 
   const set = (k: keyof Form) => (e: { target: { value: string } }) =>
     setF((prev) => ({ ...prev, [k]: e.target.value }));
@@ -86,10 +99,32 @@ export default function AddProspectModal({
     }
     setAutofilling(true);
 
-    const system = `You are an AI research assistant for Ramssol Group's pre-sales team. Given only a company name and (optionally) a website, provide your single best-effort estimate for each requested field, using typical patterns for that company's industry, size and country when you don't have certain information. Never leave a field vague like "unknown" — always commit to your best estimate. Return ONLY valid JSON, no markdown, no extra text, no commentary.`;
+    const web = await researchCompany(
+      `${f.name} ${f.website || ''} company profile employees technology`,
+      f.location
+    ) as ResearchResult & { searchEntryPointHtml?: string };
+    if (web.error || !web.configured || !web.summary || !web.sources?.length) {
+      setAutofilling(false);
+      toast(
+        web.error || 'Verified web research is required for autofill. Fill the fields manually.',
+        true
+      );
+      return;
+    }
+    setGroundedWeb({
+      summary: web.summary,
+      sources: web.sources,
+      searchEntryPointHtml: web.searchEntryPointHtml,
+    });
+
+    const system = `You extract prospect facts from verified web research for Ramssol Group's pre-sales team. Use only the supplied research. Never infer, estimate, or invent a value. Return an empty string for every field the sources do not support. Return ONLY valid JSON, no markdown, no extra text, no commentary.`;
 
     const prompt = `Company Name: ${f.name}
 Website: ${f.website || 'Not provided'}
+
+Verified research:
+${web.summary}
+Sources: ${JSON.stringify(web.sources)}
 
 Return ONLY this JSON object (no markdown, no backticks, no trailing commentary):
 {
@@ -107,17 +142,17 @@ Return ONLY this JSON object (no markdown, no backticks, no trailing commentary)
 }
 
 Field rules:
-- industry: exactly one of ${INDUSTRIES.join(', ')}
+- industry: one of ${options.industries.join(', ')} only when supported; otherwise empty
 - location: "City, Country"
-- employeeSize: exactly one of ${EMP_SIZES.join(', ')}
-- currentSystem: likely incumbent HR/IT system, e.g. SAP, Oracle, Workday, In-house, Excel-based
-- currentModule: likely function in use, e.g. Payroll, Recruitment, ERP, Core Banking
-- itBudget: exactly one of ${IT_BUDGETS.join(', ')}
-- hrBudget: exactly one of ${HR_BUDGETS.join(', ')}
-- contactPosition: a plausible day-to-day point-of-contact title, e.g. "Head of HR" (do NOT invent a person's name)
-- authorityPosition: a plausible final decision-maker title, e.g. "CHRO" or "CIO" (do NOT invent a person's name)
-- painPoints: 2-4 short lines, each a likely pain point for a company like this, separated by \\n, no numbering
-- timeline: exactly one of ${TIMELINES.join(', ')}, Unknown / Not specified`;
+- employeeSize: one of ${options.employeeSizes.join(', ')} only when supported; otherwise empty
+- currentSystem: only a system explicitly identified in the verified research; otherwise empty
+- currentModule: only a function explicitly identified in the verified research; otherwise empty
+- itBudget: one of ${options.itBudgetRanges.join(', ')} only when supported; otherwise empty
+- hrBudget: one of ${options.hrBudgetRanges.join(', ')} only when supported; otherwise empty
+- contactPosition: a documented point-of-contact title; otherwise empty
+- authorityPosition: a documented decision-maker title; otherwise empty
+- painPoints: only challenges explicitly supported by the verified research, separated by \\n; otherwise empty
+- timeline: one of ${options.buyingTimelines.join(', ')} only when supported; otherwise empty`;
 
     const raw = await callClaude([{ role: 'user', content: prompt }], system);
     setAutofilling(false);
@@ -131,18 +166,23 @@ Field rules:
     // Only empty fields are filled in — never overwrite what the rep typed.
     setF((prev) => ({
       ...prev,
-      industry: prev.industry || matchOption(INDUSTRIES, data.industry),
+      industry: prev.industry || matchOption(options.industries, data.industry),
       location: prev.location || data.location || '',
-      empSize: prev.empSize || matchOption(EMP_SIZES, data.employeeSize),
+      empSize: prev.empSize || matchOption(options.employeeSizes, data.employeeSize),
       currSystem: prev.currSystem || data.currentSystem || '',
       currModule: prev.currModule || data.currentModule || '',
-      itBudget: prev.itBudget || matchOption(IT_BUDGETS, data.itBudget),
-      hrBudget: prev.hrBudget || matchOption(HR_BUDGETS, data.hrBudget),
+      itBudget: prev.itBudget || matchOption(options.itBudgetRanges, data.itBudget),
+      hrBudget: prev.hrBudget || matchOption(options.hrBudgetRanges, data.hrBudget),
       contactPos: prev.contactPos || data.contactPosition || '',
       authPos: prev.authPos || data.authorityPosition || '',
-      timeline: prev.timeline || matchOption(TIMELINES, data.timeline),
+      timeline: prev.timeline || matchOption(options.buyingTimelines, data.timeline),
       pain: prev.pain || data.painPoints || '',
     }));
+    setResearch({
+      companyBackground: web.summary,
+      sources: web.sources,
+      raw: web.summary,
+    });
     toast('✨ Autofilled by AI — please review before saving');
   }
 
@@ -158,40 +198,37 @@ Field rules:
     setGroundingError(null);
     setResearchError(null);
 
-    const system = `You are an expert AI Sales Intelligence Agent for Ramssol Group, a Malaysian B2B technology company specialising in enterprise software:
-- RAMS PeopleTech: HCM/HR consulting (Oracle Fusion HCM, Darwinbox, Hono.ai, RAMCO Payce)
-- RAMS A.I.Tech: AI, IoT, cloud solutions (iFlytek, Tencent Cloud partnerships)
-- RAMS AutoTech: Robotic process automation and industrial automation
-- RAMS EduTech: Education technology platforms
-- RAMS MarTech: Marketing technology and CRM solutions
+    const system = `You are an expert AI Sales Intelligence Agent for Ramssol Group, a Malaysian B2B technology company.
 
-You help Ramssol's pre-sales team qualify prospects and win deals in Malaysia and Southeast Asia.
+Current product catalog from the workspace database:
+${catalogText}
+
+Use only the verified web research and the user-entered prospect fields. Never invent or estimate factual company data. Leave unsupported factual fields empty and explain that evidence was unavailable.
 IMPORTANT: Return ONLY valid JSON, no markdown, no extra text.`;
 
     const web = await researchCompany(
       `${f.name} ${f.website || ''} company profile revenue employees technology`,
-      f.location || 'Malaysia'
+      f.location
     ) as ResearchResult & { searchEntryPointHtml?: string };
-    if (web.error) {
-      setGroundingError(web.error);
-      toast(`⚠️ Web grounding unavailable — ${web.error}`, true);
+    if (web.error || !web.configured || !web.summary || !web.sources?.length) {
+      const message = web.error || 'Verified web research is not configured.';
+      setResearching(false);
+      setGroundingError(message);
+      toast(`⚠️ Web grounding unavailable — ${message}`, true);
+      return;
     }
-    if (web.configured && web.summary) {
-      setGroundedWeb({
-        summary: web.summary,
-        sources: web.sources || [],
-        searchEntryPointHtml: web.searchEntryPointHtml,
-      });
-    }
-    const verifiedContext = web.configured && web.summary
-      ? `\nVerified web research (use this as the factual source of truth):\n${web.summary}\nSources: ${JSON.stringify(web.sources || [])}\n`
-      : '\nNo verified web research is available for this run. Clearly label financial and headcount values as estimates.\n';
+    setGroundedWeb({
+      summary: web.summary,
+      sources: web.sources,
+      searchEntryPointHtml: web.searchEntryPointHtml,
+    });
+    const verifiedContext = `\nVerified web research (use this as the factual source of truth):\n${web.summary}\nSources: ${JSON.stringify(web.sources)}\n`;
 
     const prompt = `Research this prospect for Ramssol Group and return a JSON object:
 
 Company: ${f.name}
 Industry: ${f.industry || 'Unknown'}
-Location: ${f.location || 'Malaysia'}
+Location: ${f.location || 'Not provided'}
 Website: ${f.website || 'Not provided'}
 Employee Size: ${f.empSize || 'Unknown'}
 Known IT Budget: ${f.itBudget || 'Unknown'}
@@ -203,11 +240,11 @@ ${verifiedContext}
 Return ONLY this JSON structure (no markdown, no backticks):
 {
   "companyBackground": "2-3 sentence factual overview of the company, industry, and operations",
-  "estimatedRevenue": "e.g. RM 50M – 200M/year",
-  "estimatedITSpend": "e.g. RM 2M – 5M/year",
-  "estimatedHRSpend": "e.g. RM 500K – 1M/year",
-  "employeeSize": "best estimate as a number range",
-  "decisionMaker": "most likely decision-maker title and why",
+  "estimatedRevenue": "published revenue with its period, or an empty string",
+  "estimatedITSpend": "published IT spend with its period, or an empty string",
+  "estimatedHRSpend": "published HR spend with its period, or an empty string",
+  "employeeSize": "published employee count or range, or an empty string",
+  "decisionMaker": "documented decision-maker name/title, or an empty string",
   "buyingPotential": "High or Medium or Low",
   "buyingPotentialReason": "1-2 sentences on why this potential rating was given, considering budget, need urgency, and fit with Ramssol products"
 }`;
@@ -227,10 +264,9 @@ Return ONLY this JSON structure (no markdown, no backticks):
       toast(message, true);
       return;
     }
-    // The grounded result and Google's Search Suggestions are intentionally
-    // transient. They are shown above but are not copied into the prospect
-    // record, which avoids turning prospect storage into a search-result cache.
-    setResearch(parsed);
+    // Search Suggestions HTML remains transient, but durable research keeps
+    // its supporting source links alongside the database record.
+    setResearch({ ...parsed, sources: web.sources || [] });
     setProducts(null);
     setOutline(null);
   }
@@ -238,42 +274,39 @@ Return ONLY this JSON structure (no markdown, no backticks):
   /* ── AI: RECOMMEND PRODUCTS ────────────────────────────── */
   async function recommendProducts() {
     if (recommending) return;
+    if (!productCatalog.length) {
+      toast('The product catalog is empty. Ask an administrator to configure it.', true);
+      return;
+    }
     setRecommending(true);
     setProducts('⏳ Analysing and recommending products...');
-    const system = `You are a senior pre-sales consultant at Ramssol Group. Ramssol's product portfolio:
+    const system = `You are a senior pre-sales consultant at Ramssol Group. Use only the user-entered prospect fields, cited research, and database catalog supplied below. Never invent prospect facts, needs, budgets, timelines, products, prices, or expected results. If a recommendation cannot be supported by the supplied information, say so.
 
-RAMS PeopleTech (HCM / HR):
-• Oracle Fusion HCM — Enterprise HR, Payroll, Talent Management (large enterprise, 1,000+ employees)
-• Darwinbox — Mid-market HCM cloud platform (SEA focus, 200–5,000 employees)
-• Hono.ai — AI-powered HR & workforce analytics
-• RAMCO Payce — Payroll automation for complex multi-country payroll
-
-RAMS A.I.Tech (AI / Cloud):
-• iFlytek AI Platform — NLP, speech recognition, AI solutions
-• Tencent Cloud — Cloud infrastructure, AI services, private cloud
-
-RAMS AutoTech:
-• RPA and industrial automation solutions
-
-RAMS EduTech:
-• Learning management systems and student lifecycle platforms
-
-RAMS MarTech:
-• CRM, digital marketing automation
+Use only this product catalog from the workspace database:
+${catalogText}
 
 Recommend the most suitable products. Be specific on why each product fits this prospect.`;
 
-    const prompt = `Prospect: ${f.name || 'the prospect'} | Industry: ${f.industry || 'Unknown'} | Employees: ${f.empSize || 'Unknown'}
-IT Budget: ${f.itBudget || 'Unknown'} | HR Budget: ${f.hrBudget || 'Unknown'}
-Pain Points: ${f.pain || 'Not specified'}
-Timeline: ${f.timeline || 'Unknown'}
-AI Research: ${research ? JSON.stringify(research) : 'No prior research available'}
+    const prompt = `User-entered prospect fields:
+${JSON.stringify({
+  name: f.name || null,
+  industry: f.industry || null,
+  employeeSize: f.empSize || null,
+  itBudget: f.itBudget || null,
+  hrBudget: f.hrBudget || null,
+  painPoints: f.pain || null,
+  timeline: f.timeline || null,
+})}
+
+Cited research stored for this form:
+${research ? JSON.stringify(research) : 'None'}
 
 Recommend the top 2-3 Ramssol products/solutions for this prospect. For each:
 1. Product name
 2. Why it fits (2-3 specific reasons tied to their industry/pain)
-3. Estimated deal value range
-4. Recommended next step
+3. Recommended next step
+
+Do not invent a deal value. If no entered budget supports pricing, say that commercial scoping is required.
 
 Format clearly with numbered sections.`;
 
@@ -286,33 +319,48 @@ Format clearly with numbered sections.`;
   /* ── AI: GENERATE PROPOSAL OUTLINE ─────────────────────── */
   async function generateOutline() {
     if (outlining) return;
+    if (!productCatalog.length) {
+      toast('The product catalog is empty. Ask an administrator to configure it.', true);
+      return;
+    }
     setOutlining(true);
     setOutline('⏳ Generating proposal outline...');
     const name = f.name || 'the prospect';
-    const system = `You are a senior proposal writer for Ramssol Group, a Malaysian technology solutions company. Write professional, persuasive proposal outlines tailored to the prospect's industry and pain points. Be specific, not generic.`;
+    const system = `You are a senior proposal writer for Ramssol Group. Use only the user-entered prospect fields, cited research, and database product catalog supplied below. Do not infer or invent company facts, challenges, ROI, prices, implementation durations, case studies, references, or product names. Mark unsupported items as "To be confirmed". Never present an assumption as a fact.
+
+Database product catalog:
+${catalogText}`;
 
     const prompt = `Generate a full proposal outline for this prospect:
 
-Company: ${name}
-Industry: ${f.industry || 'Unknown'}
-Location: ${f.location || 'Malaysia'}
-Decision Maker: ${f.authName ? f.authName + (f.authPos ? `, ${f.authPos}` : '') : 'Not specified'}
-IT Budget: ${f.itBudget || 'Unknown'} | HR Budget: ${f.hrBudget || 'Unknown'}
-Key Pain Points: ${f.pain || 'Not specified'}
-Timeline: ${f.timeline || 'Unknown'}
-Research Notes: ${research ? JSON.stringify(research) : ''}
+User-entered prospect fields:
+${JSON.stringify({
+  company: name,
+  industry: f.industry || null,
+  location: f.location || null,
+  decisionMaker: f.authName
+    ? { name: f.authName, position: f.authPos || null }
+    : null,
+  itBudget: f.itBudget || null,
+  hrBudget: f.hrBudget || null,
+  painPoints: f.pain || null,
+  timeline: f.timeline || null,
+})}
+
+Cited research stored for this form:
+${research ? JSON.stringify(research) : 'None'}
 
 Create a structured proposal outline with these 8 sections:
 1. Executive Summary
 2. Understanding of ${name}'s Challenges
-3. Proposed Solution (specific Ramssol products)
+3. Proposed Solution (only matching products from the database catalog)
 4. Key Benefits & ROI
 5. Implementation Approach & Timeline
 6. Commercial Proposal (pricing structure)
 7. Case Studies & References
 8. Next Steps & Call to Action
 
-For each section, write 2-3 bullet points of specific content guidance tailored to ${name}.`;
+For each section, write 2-3 bullet points. Use "To be confirmed" anywhere the supplied data does not support a factual statement.`;
 
     const result = await callClaude([{ role: 'user', content: prompt }], system);
     setOutline(result);
@@ -320,43 +368,56 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
     if (isAiError(result)) toast(result, true);
   }
 
-  function submit() {
+  async function submit() {
+    if (saving) return;
     const companyName = f.name.trim();
     if (!companyName) {
       alert('Please enter a Company Name.');
       return;
     }
-    const ind = f.industry || 'Other';
-    const painArr = f.pain ? f.pain.split('\n').filter(Boolean) : ['To be researched with AI'];
+    if (!f.industry || !options.industries.includes(f.industry)) {
+      alert('Please choose an industry from the configured list.');
+      return;
+    }
+    const ind = f.industry;
+    const painArr = f.pain ? f.pain.split('\n').map((item) => item.trim()).filter(Boolean) : [];
     const tags = [ind, f.currSystem, f.currModule].filter(Boolean).slice(0, 3);
 
     const prospect: Prospect = {
       id: Date.now(),
       name: companyName,
       type: ind,
-      country: f.location || 'Malaysia',
-      website: f.website || '—',
+      country: f.location.trim(),
+      website: f.website.trim(),
       added: new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }),
       tags: tags.length ? tags : [ind],
-      employees: f.empSize || '—',
-      opportunities: 0,
-      totalValue: 0,
+      employees: f.empSize,
       painPoints: painArr,
-      contact: f.contactName ? `${f.contactName}${f.contactPos ? `, ${f.contactPos}` : ''}` : '—',
-      authority: f.authName ? `${f.authName}${f.authPos ? `, ${f.authPos}` : ''}` : '—',
+      contact: f.contactName ? `${f.contactName}${f.contactPos ? `, ${f.contactPos}` : ''}` : undefined,
+      authority: f.authName ? `${f.authName}${f.authPos ? `, ${f.authPos}` : ''}` : undefined,
       itBudget: f.itBudget,
       hrBudget: f.hrBudget,
       timeline: f.timeline,
-      currentSystem: f.currSystem || '—',
-      currentModule: f.currModule || '—',
+      currentSystem: f.currSystem || undefined,
+      currentModule: f.currModule || undefined,
       aiResearch: research,
     };
 
-    onAdd(prospect, f, research);
-    reset();
+    setSaving(true);
+    try {
+      const result = await onAdd(prospect, f, research);
+      if (result === false) return;
+      if (typeof result === 'string') {
+        toast(result, true);
+        return;
+      }
+      reset();
+    } finally {
+      setSaving(false);
+    }
   }
 
-  const pot = (research?.buyingPotential || 'Medium').trim();
+  const pot = (research?.buyingPotential || '').trim();
   const potCls = pot === 'High' ? 'b-high' : pot === 'Low' ? 'b-low' : 'b-med';
 
   return (
@@ -389,12 +450,12 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
           >
             Cancel
           </button>
-          <button className="btn-primary" onClick={submit}>
+          <button className="btn-primary" disabled={saving} onClick={submit}>
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
               <line x1="12" y1="5" x2="12" y2="19" />
               <line x1="5" y1="12" x2="19" y2="12" />
             </svg>
-            Add Prospect
+            {saving ? 'Saving…' : 'Add Prospect'}
           </button>
         </>
       }
@@ -404,7 +465,7 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
         <label className="fl">
           Company Name <span className="req">*</span>
         </label>
-        <input className="fi" value={f.name} onChange={set('name')} placeholder="e.g. Tzu Chi Foundation" />
+        <input className="fi" value={f.name} onChange={set('name')} placeholder="Company legal name" />
       </div>
       <div className="g3">
         <div className="fg">
@@ -413,7 +474,7 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
           </label>
           <select className="fs" value={f.industry} onChange={set('industry')}>
             <option value="">Select industry</option>
-            {INDUSTRIES.map((i) => (
+            {options.industries.map((i) => (
               <option key={i}>{i}</option>
             ))}
           </select>
@@ -426,7 +487,7 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
           <label className="fl">Employee Size</label>
           <select className="fs" value={f.empSize} onChange={set('empSize')}>
             <option value="">Select size</option>
-            {EMP_SIZES.map((i) => (
+            {options.employeeSizes.map((i) => (
               <option key={i}>{i}</option>
             ))}
           </select>
@@ -442,11 +503,11 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
           <path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" />
           <path d="M19 15l.75 2.25L22 18l-2.25.75L19 21l-.75-2.25L16 18l2.25-.75L19 15z" />
         </svg>
-        {autofilling ? 'Autofilling with AI...' : "Don't know the details? Autofill with AI"}
+        {autofilling ? 'Loading verified facts...' : 'Fill from verified web sources'}
       </button>
       <div style={{ fontSize: 10.5, color: 'var(--gray-400)', textAlign: 'center', marginTop: 5, marginBottom: 4 }}>
-        Uses the Company Name (and Website, if given) to estimate the fields below. Only empty
-        fields are filled in — review before saving.
+        Looks up sourced public facts using the Company Name and Website. Unsupported fields stay
+        empty, and existing entries are never overwritten.
       </div>
 
       <div className="sec-divider">Contact Details</div>
@@ -474,19 +535,19 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
       </div>
       <div className="g2">
         <div className="fg">
-          <label className="fl">IT Budget (estimated)</label>
+          <label className="fl">Known IT Budget</label>
           <select className="fs" value={f.itBudget} onChange={set('itBudget')}>
             <option value="">Unknown</option>
-            {IT_BUDGETS.map((i) => (
+            {options.itBudgetRanges.map((i) => (
               <option key={i}>{i}</option>
             ))}
           </select>
         </div>
         <div className="fg">
-          <label className="fl">HR Budget (estimated)</label>
+          <label className="fl">Known HR Budget</label>
           <select className="fs" value={f.hrBudget} onChange={set('hrBudget')}>
             <option value="">Unknown</option>
-            {HR_BUDGETS.map((i) => (
+            {options.hrBudgetRanges.map((i) => (
               <option key={i}>{i}</option>
             ))}
           </select>
@@ -518,7 +579,7 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
         <label className="fl">Timeline — When do they need a solution?</label>
         <select className="fs" value={f.timeline} onChange={set('timeline')}>
           <option value="">Unknown / Not specified</option>
-          {TIMELINES.map((i) => (
+          {options.buyingTimelines.map((i) => (
             <option key={i}>{i}</option>
           ))}
         </select>
@@ -543,7 +604,7 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
             : '🤖 Research Company with AI Sales Agent'}
       </button>
       <div style={{ fontSize: 11, color: 'var(--gray-400)', textAlign: 'center', marginTop: 6 }}>
-        AI will analyse company background, financials, decision makers and buying potential
+        Uses verified public sources; unsupported company facts remain blank
       </div>
       {researchError && (
         <div role="alert" style={{ fontSize: 12, color: 'var(--red-700)', textAlign: 'center', marginTop: 8 }}>
@@ -552,8 +613,8 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
       )}
       {groundingError && (
         <div className="grounding-warning" role="status">
-          <strong>Web grounding unavailable.</strong> {groundingError} The analysis below uses
-          estimates where verified public facts are unavailable.
+          <strong>Web grounding unavailable.</strong> {groundingError} No research result was
+          generated; enter only facts you can verify.
         </div>
       )}
 
@@ -613,7 +674,7 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
             </svg>
             <span className="ai-results-header-title">AI Sales Intelligence Report</span>
             <span style={{ marginLeft: 'auto' }}>
-              {!research.raw && <span className={`buying-badge ${potCls}`}>{pot}</span>}
+              {!research.raw && pot && <span className={`buying-badge ${potCls}`}>{pot}</span>}
             </span>
           </div>
           <div className="ai-results-body">
@@ -625,25 +686,25 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
             <div className="ai-metrics-grid">
               <div className="ai-metric-box">
                 <div className="ai-metric-num">{research.estimatedRevenue || '—'}</div>
-                <div className="ai-metric-lbl">Est. Annual Revenue</div>
+                <div className="ai-metric-lbl">Published Annual Revenue</div>
               </div>
               <div className="ai-metric-box">
                 <div className="ai-metric-num">{research.estimatedITSpend || '—'}</div>
-                <div className="ai-metric-lbl">Est. IT Spending</div>
+                <div className="ai-metric-lbl">Published IT Spending</div>
               </div>
               <div className="ai-metric-box">
                 <div className="ai-metric-num">{research.estimatedHRSpend || '—'}</div>
-                <div className="ai-metric-lbl">Est. HR Spending</div>
+                <div className="ai-metric-lbl">Published HR Spending</div>
               </div>
             </div>
 
             <div className="g2">
               <div className="ai-wide-card">
-                <div className="ai-card-lbl">Employee Size (AI Estimate)</div>
+                <div className="ai-card-lbl">Published Employee Size</div>
                 <div className="ai-card-val">{research.employeeSize || '—'}</div>
               </div>
               <div className="ai-wide-card">
-                <div className="ai-card-lbl">Likely Decision Maker</div>
+                <div className="ai-card-lbl">Documented Decision Maker</div>
                 <div className="ai-card-val">{research.decisionMaker || '—'}</div>
               </div>
             </div>
@@ -651,7 +712,7 @@ For each section, write 2-3 bullet points of specific content guidance tailored 
             <div className="ai-wide-card">
               <div className="ai-card-lbl">Buying Potential</div>
               <div className="buying-wrap">
-                {!research.raw && <span className={`buying-badge ${potCls}`}>{pot}</span>}
+                {!research.raw && pot && <span className={`buying-badge ${potCls}`}>{pot}</span>}
                 <span className="buying-reason">{research.buyingPotentialReason || '—'}</span>
               </div>
             </div>

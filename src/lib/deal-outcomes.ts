@@ -1,26 +1,11 @@
-export const DEAL_LOSS_REASONS = [
-  'Chose competitor',
-  'Budget cut',
-  'No decision',
-  'Pricing too high',
-  'Timing',
-  'Other',
-] as const;
-
-export const DISQUALIFICATION_REASONS = [
-  'Compliance',
-  'Blacklisted account',
-  'Out of scope',
-  'Wrong product fit',
-] as const;
-
 export type ClosedDealOutcome = 'Won' | 'Lost' | 'Disqualified';
 export type DealOutcome = 'Open' | ClosedDealOutcome;
 export type ProposalDealOutcome = 'Pending' | ClosedDealOutcome;
-export type DealLossReason = (typeof DEAL_LOSS_REASONS)[number];
-export type DisqualificationReason = (typeof DISQUALIFICATION_REASONS)[number];
+export type DealLossReason = string;
+export type DisqualificationReason = string;
 
 type CloseDatedDeal = { closeDate?: string; daysToClose: number };
+type StageDatedDeal = { stageEnteredOn?: string; daysInStage: number };
 type OutcomeRecord = { outcome: string };
 export type ClosedDealIdentity = {
   rep: string;
@@ -82,6 +67,23 @@ export function addCalendarDays(dateKey: string, days: number) {
   return new Date(timestamp + Math.trunc(days) * DAY_MS).toISOString().slice(0, 10);
 }
 
+export function stageEnteredDateFromDays(daysInStage: number, now = new Date()) {
+  const days = Number.isFinite(daysInStage) ? Math.max(0, Math.trunc(daysInStage)) : 0;
+  return addCalendarDays(localDateKey(now), -days);
+}
+
+/** Stage age is derived from the persisted entry date; daysInStage is legacy fallback data only. */
+export function dealDaysInStage(deal: StageDatedDeal, now = new Date()) {
+  const today = utcDayFromKey(localDateKey(now));
+  const entered = deal.stageEnteredOn ? utcDayFromKey(deal.stageEnteredOn) : null;
+  if (today !== null && entered !== null) {
+    return Math.max(0, Math.floor((today - entered) / DAY_MS));
+  }
+  return Number.isFinite(deal.daysInStage) && deal.daysInStage >= 0
+    ? Math.trunc(deal.daysInStage)
+    : Number.NaN;
+}
+
 export function expectedCloseDate(deal: CloseDatedDeal, now = new Date()) {
   if (deal.closeDate && DATE_KEY.test(deal.closeDate)) return deal.closeDate;
   return addCalendarDays(localDateKey(now), Number.isFinite(deal.daysToClose) ? deal.daysToClose : 0);
@@ -102,8 +104,12 @@ export function dealOutcomeOverdueDays(deal: CloseDatedDeal, now = new Date()) {
   return Math.max(0, -daysUntilDealClose(deal, now));
 }
 
-export function dealOutcomeEscalated(deal: CloseDatedDeal, now = new Date()) {
-  return dealOutcomeOverdueDays(deal, now) >= 14;
+export function dealOutcomeEscalated(
+  deal: CloseDatedDeal,
+  now = new Date(),
+  escalationDays = 0
+) {
+  return escalationDays > 0 && dealOutcomeOverdueDays(deal, now) >= escalationDays;
 }
 
 /** Only Won/Lost records are scored. Disqualified remains visible history. */
@@ -113,13 +119,13 @@ export function scoredClosedDeals<T extends OutcomeRecord>(records: readonly T[]
 
 export function outcomeHygieneByRep<
   T extends CloseDatedDeal & { rep: string }
->(deals: readonly T[], now = new Date()) {
+>(deals: readonly T[], now = new Date(), escalationDays = 0) {
   const rows = new Map<string, { rep: string; needsOutcome: number; escalated: number }>();
   for (const deal of deals) {
     if (!dealNeedsOutcome(deal, now)) continue;
     const row = rows.get(deal.rep) || { rep: deal.rep, needsOutcome: 0, escalated: 0 };
     row.needsOutcome += 1;
-    if (dealOutcomeEscalated(deal, now)) row.escalated += 1;
+    if (dealOutcomeEscalated(deal, now, escalationDays)) row.escalated += 1;
     rows.set(deal.rep, row);
   }
   return [...rows.values()].sort(

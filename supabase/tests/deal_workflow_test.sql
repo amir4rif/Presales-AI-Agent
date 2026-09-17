@@ -493,31 +493,23 @@ select is(
   'A rejected second attachment rolls back without overwriting the first link'
 );
 
-select results_eq(
+select throws_ok(
   $$update public.proposals
       set status = 'Approved', outcome = 'Pending'
-      where id = 'PROP-DEAL-CREATE'
-      returning deal_link_action, status$$,
-  $$values ('created'::text, 'Approved'::text)$$,
-  'Approval creates a deal when its explicit opportunity ID has no live deal'
+      where id = 'PROP-DEAL-CREATE'$$,
+  'P0002',
+  'No live deal matches this legacy proposal. Open a deal in Pipeline and create a new proposal from that deal.',
+  'Approval refuses to fabricate a deal when no persisted live deal matches'
 );
 
 select is(
   (
-    select live.owner_id = proposal.owner_id
-      and live.rep = proposal.owner
-      and live.account = proposal.company
-      and live.value = proposal.value
-      and live.opportunity_id = proposal.opportunity_id
-      and live.case_id = proposal.case_id
-      and live.id = proposal.deal_id
-      and live.id <> '22000000-0000-0000-0000-000000000004'
-    from public.proposals as proposal
-    join public.deals as live on live.id = proposal.deal_id
-    where proposal.id = 'PROP-DEAL-CREATE'
+    select status = 'Pending Review' and deal_id is null
+    from public.proposals
+    where id = 'PROP-DEAL-CREATE'
   ),
   true,
-  'Created deal copies proposal owner, account, value and IDs without account-name matching'
+  'The rejected legacy approval leaves the proposal unchanged'
 );
 
 select results_eq(
@@ -597,15 +589,15 @@ select is(
       (select updated_at from public.deals where id = proposal.deal_id)
     ) ->> 'status'
     from public.proposals as proposal
-    where proposal.id = 'PROP-DEAL-CREATE'
+    where proposal.id = 'PROP-DEAL-ATTACH'
   ),
   'closed',
-  'A proposal-created deal can later close through the atomic deal transition'
+  'A database-linked deal can later close through the atomic deal transition'
 );
 
 select is(
   (
-    select outcome from public.proposals where id = 'PROP-DEAL-CREATE'
+    select outcome from public.proposals where id = 'PROP-DEAL-ATTACH'
   ),
   'Won',
   'Closing a linked deal updates its approved proposal outcome'
@@ -614,7 +606,7 @@ select is(
 select throws_ok(
   $$update public.proposals
       set outcome = 'Lost'
-      where id = 'PROP-DEAL-CREATE'$$,
+      where id = 'PROP-DEAL-ATTACH'$$,
   '42501',
   'Deal outcomes must be recorded by closing the linked deal.',
   'An approved proposal outcome cannot be changed directly'

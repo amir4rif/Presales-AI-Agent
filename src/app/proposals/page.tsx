@@ -9,24 +9,25 @@ import RequireLevel from '@/components/RequireLevel';
 import { useToast } from '@/components/Toast';
 import { callClaude } from '@/lib/ai';
 import {
-  STAGES,
   currentLevel,
   currentUser,
   currentUserId,
   ensureProposalStore,
   fmtRM,
   getDeals,
+  getProductCatalog,
+  getProspects,
+  getStages,
   profileIdForName,
-  saveDeals,
   saveProposals,
   type Deal,
   type Proposal,
   type ProposalStatus,
+  type Stage,
 } from '@/lib/data';
 import {
   confirmedCollectionSnapshot,
   initializeDataLayer,
-  isRemoteDataSource,
   runProposalDataTransaction,
 } from '@/lib/data-sync';
 import {
@@ -110,6 +111,7 @@ function ProposalsPage() {
   const toast = useToast();
   const [store, setStore] = useState<Proposal[]>([]);
   const [deals, setDeals] = useState<Deal[]>([]);
+  const [stages, setStages] = useState<Stage[]>([]);
   const [me, setMe] = useState('');
   const [level, setLevel] = useState(1);
   const [viewerId, setViewerId] = useState('');
@@ -247,11 +249,10 @@ function ProposalsPage() {
   const reload = useCallback(() => {
     setStore(ensureProposalStore());
     setDeals(getDeals());
+    setStages(getStages());
   }, []);
   const reconcileWithRemote = useCallback(async () => {
-    if (isRemoteDataSource()) {
-      await initializeDataLayer({ force: true }).catch(() => undefined);
-    }
+    await initializeDataLayer({ force: true }).catch(() => undefined);
     reload();
   }, [reload]);
 
@@ -264,7 +265,7 @@ function ProposalsPage() {
   useRemoteDataRefresh(reload);
 
   const editing = editingId ? store.find((p) => p.id === editingId) || null : null;
-  const confirmedEditing = editing && isRemoteDataSource()
+  const confirmedEditing = editing
     ? confirmedCollectionSnapshot<Proposal>('proposals')?.find((p) => p.id === editing.id) || null
     : null;
   const canonicalEditing = confirmedEditing || editing;
@@ -389,14 +390,6 @@ function ProposalsPage() {
           await reconcileWithRemote();
           return;
         }
-        if (!isRemoteDataSource() && current.dealId && current.caseId) {
-          const nextDeals = getDeals().map((deal) =>
-            deal.id === current.dealId && deal.caseId === current.caseId
-              ? { ...deal, caseId: undefined }
-              : deal
-          );
-          await saveDeals(nextDeals);
-        }
         reload();
         toast('🗑️ Draft deleted');
       });
@@ -419,9 +412,9 @@ function ProposalsPage() {
         const p = latestStore.find((x) => x.id === id);
         setStore(latestStore);
         if (!p) return;
-        const confirmed = isRemoteDataSource()
-          ? confirmedCollectionSnapshot<Proposal>('proposals')?.find((x) => x.id === id) || p
-          : p;
+        const confirmed = confirmedCollectionSnapshot<Proposal>('proposals')?.find(
+          (x) => x.id === id
+        ) || p;
         editorProposalIdRef.current = id;
         const canonicalSections = { ...(confirmed.sections || {}) } as Record<string, string>;
         editorCanonicalSectionsRef.current = canonicalSections;
@@ -478,7 +471,7 @@ function ProposalsPage() {
     if (!canEditProposal(canonical.status)) return;
     const sameEditor = editorProposalIdRef.current === canonical.id;
     // The working copy must remember the snapshot the user actually saw.
-    // localStorage can already contain a newer realtime payload before React's
+    // The in-memory database cache can already contain a newer realtime payload before React's
     // rebase effect has registered it as a conflict.
     const baselineSections = sameEditor
       ? editorCanonicalSectionsRef.current
@@ -504,11 +497,9 @@ function ProposalsPage() {
   const retainRevisionWorkingCopy = useCallback((nextSections: Record<string, string>) => {
     if (!editingId) return;
     const cached = ensureProposalStore().find((proposal) => proposal.id === editingId);
-    const canonical = isRemoteDataSource()
-      ? confirmedCollectionSnapshot<Proposal>('proposals')?.find(
-          (proposal) => proposal.id === editingId
-        ) || cached
-      : cached;
+    const canonical = confirmedCollectionSnapshot<Proposal>('proposals')?.find(
+      (proposal) => proposal.id === editingId
+    ) || cached;
     if (!canonical) return;
     retainRevisionWorkingCopyFor(canonical, nextSections);
   }, [editingId, retainRevisionWorkingCopyFor]);
@@ -518,11 +509,9 @@ function ProposalsPage() {
       if (!editingId) return Promise.resolve(true);
       const editorId = editingId;
       const cachedTarget = ensureProposalStore().find((proposal) => proposal.id === editorId);
-      const initialTarget = isRemoteDataSource()
-        ? confirmedCollectionSnapshot<Proposal>('proposals')?.find(
-            (proposal) => proposal.id === editorId
-          ) || cachedTarget
-        : cachedTarget;
+      const initialTarget = confirmedCollectionSnapshot<Proposal>('proposals')?.find(
+        (proposal) => proposal.id === editorId
+      ) || cachedTarget;
       // A reviewed version is immutable. Its editor is a working copy whose
       // changes belong only to the replacement created during resubmission.
       if (!initialTarget || initialTarget.status !== 'Draft') {
@@ -547,7 +536,7 @@ function ProposalsPage() {
           await reconcileWithRemote();
           return false;
         }
-        // localStorage is updated before React necessarily paints a realtime
+        // The database cache is updated before React necessarily paints a realtime
         // response. Detect against that freshest snapshot at the write point.
         registerCanonicalSectionConflicts(target);
         if (!confirmSectionConflictOverwrite()) return false;
@@ -705,14 +694,12 @@ function ProposalsPage() {
         }
 
         const id = genId('PROP');
-        const remote = isRemoteDataSource();
-        const caseId = remote ? '' : genId('CASE');
         const linkedAt = new Date().toISOString();
         // The pipeline contract has one account/deal display label. Copy it to
         // both proposal display columns; the relationship itself is dealId.
         const created: Proposal = {
           id,
-          caseId,
+          caseId: '',
           opportunityId: selected.opportunityId || '',
           version: 1,
           company: selected.account,
@@ -731,9 +718,9 @@ function ProposalsPage() {
           rejectionReason: '',
           lastUpdated: todayUK(),
           sections: {
-            executive: `${selected.account} is evaluating the active deal recorded in the sales pipeline. This proposal outlines how Ramssol can address the account's priorities and deliver measurable value.`,
-            solution: `Ramssol proposes a tailored solution for ${selected.account}. Use "Generate with AI" on each section to expand the draft.`,
-            commercials: `Indicative investment: ${fmtRM(selected.value)} (Year 1). Final commercials to be confirmed after scoping.`,
+            executive: '',
+            solution: '',
+            commercials: '',
           },
           dealId: selected.id,
           dealLinkAction: 'attached',
@@ -741,21 +728,9 @@ function ProposalsPage() {
           prospectId: selected.prospectId,
         };
 
-        if (!remote) {
-          const linkedDeals = currentDeals.map((deal) =>
-            deal.id === selected.id ? { ...deal, caseId, updatedAt: linkedAt } : deal
-          );
-          const linked = await saveDeals(linkedDeals);
-          if (!linked) {
-            toast('⚠️ The deal could not be linked. Try again.', true);
-            return;
-          }
-        }
-
         const next = [...currentStore, created];
         const persisted = await saveProposals(next);
         if (!persisted) {
-          if (!remote) await saveDeals(currentDeals);
           await reconcileWithRemote();
           return;
         }
@@ -919,9 +894,21 @@ function ProposalsPage() {
     setGenerating(true);
     setSuggestion('Generating…');
     const label = SECTION_LABELS[section] || section;
+    const linkedDeal = deals.find((deal) => deal.id === editing.dealId) || null;
+    const prospect = editing.prospectId
+      ? getProspects().find((item) => item.id === editing.prospectId) || null
+      : null;
+    const productCatalog = getProductCatalog();
     const system =
-      'You are a professional proposal writer for Ramssol Group, a Malaysian technology solutions company. Write compelling, specific proposal content. Be concise and professional.';
-    const msg = `Write the "${label}" section of a proposal for: ${dealTitle(editing)}. Keep it under 150 words, professional and persuasive.`;
+      'You are a professional proposal writer for Ramssol Group. Use only the supplied database records and cited research. Never invent customer facts, requirements, results, prices, dates, case studies, or product names. State when information still needs confirmation. Be concise and professional.';
+    const msg = `Write the "${label}" section of this proposal in under 150 words.
+
+Proposal record: ${JSON.stringify(editing)}
+Linked deal record: ${JSON.stringify(linkedDeal)}
+Linked prospect record: ${JSON.stringify(prospect)}
+Product catalog from the workspace database: ${JSON.stringify(productCatalog)}
+
+Use only this information. For commercials, the recorded deal value may be described as indicative, but do not create a price breakdown. For case studies, write that references still need confirmation unless a case study is present in the supplied records.`;
     const text = await callClaude([{ role: 'user', content: msg }], system);
     if (suggestionRequestRef.current !== request) return;
     setSuggestion(text);
@@ -1412,7 +1399,7 @@ function ProposalsPage() {
       >
         <div className="opp-pick">
           {proposalDealPool.length ? proposalDealPool.map((deal) => {
-            const stage = STAGES[deal.stage - 1];
+            const stage = stages.find((item) => item.id === deal.stage);
             return (
               <button
                 type="button"
@@ -1435,12 +1422,12 @@ function ProposalsPage() {
             <div className="opp-empty" role="status">
               <strong>
                 {visibleDeals.length
-                  ? 'Every visible deal already has a live proposal case.'
+                  ? 'Every deal already has a live proposal.'
                   : 'No live deals are available yet.'}
               </strong>
               <span>
                 {visibleDeals.length
-                  ? 'Open the existing case to revise or resubmit it.'
+                  ? 'Open a new deal in Pipeline first.'
                   : 'Create a deal from a prospect or in Pipeline, then return here.'}
               </span>
             </div>

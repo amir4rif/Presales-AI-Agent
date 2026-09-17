@@ -43,9 +43,9 @@ function researchPrompt(query: string, location: string) {
   return `Use Google Search to research this prospect request for a Malaysian B2B technology pre-sales representative.
 
 Research request: ${query}
-Geographic context: ${location || 'Malaysia'}
+Geographic context: ${location || 'No location supplied'}
 
-Return a concise, factual English summary based only on the public sources you find. Prioritize official company pages, filings, reputable business reporting, and Malaysian or Southeast Asian sources when relevant. Cover the company profile, current operations, employee or revenue signals, and notable technology or transformation priorities. Distinguish confirmed facts from estimates, include useful dates, and do not invent private information.`;
+Return a concise, factual English summary based only on the public sources you find. Prioritize official company pages, filings, and reputable business reporting. Cover the company profile, current operations, employee or revenue figures when explicitly published, and notable technology or transformation priorities. Include useful dates. Do not estimate missing figures or invent private information.`;
 }
 
 function isAbortError(error: unknown) {

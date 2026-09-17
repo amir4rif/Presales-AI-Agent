@@ -36,12 +36,16 @@ values
   ('30000000-0000-0000-0000-000000000001', '10000000-0000-0000-0000-000000000001', 'Owner', 'Owner closed deal', current_date, 'Won'),
   ('30000000-0000-0000-0000-000000000002', '10000000-0000-0000-0000-000000000002', 'Manager', 'Manager closed deal', current_date, 'Lost');
 
-insert into public.prospects (id, owner_id, name, opportunities)
+insert into public.prospects (id, owner_id, name)
 values
-  (900001, '10000000-0000-0000-0000-000000000001', 'Owner prospect', 0),
-  (900002, '10000000-0000-0000-0000-000000000002', 'Manager prospect', 0),
-  (900003, '10000000-0000-0000-0000-000000000001', 'Owner cleanup prospect', 0),
-  (900004, '10000000-0000-0000-0000-000000000001', 'Linked prospect', 1);
+  (900001, '10000000-0000-0000-0000-000000000001', 'Owner prospect'),
+  (900002, '10000000-0000-0000-0000-000000000002', 'Manager prospect'),
+  (900003, '10000000-0000-0000-0000-000000000001', 'Owner cleanup prospect'),
+  (900004, '10000000-0000-0000-0000-000000000001', 'Linked prospect');
+
+update public.deals
+set prospect_id = 900004
+where id = '20000000-0000-0000-0000-000000000001';
 
 set local role authenticated;
 set local "request.jwt.claim.sub" = '10000000-0000-0000-0000-000000000002';

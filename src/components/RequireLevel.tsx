@@ -4,7 +4,7 @@
    screen that the current profile cannot use. */
 import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
-import { HOME, LEVEL_NAME, currentLevel, getSession, type Level } from '@/lib/role';
+import { HOME, currentLevel, getSession, type Level } from '@/lib/role';
 
 export default function RequireLevel({
   min,
@@ -38,5 +38,3 @@ export default function RequireLevel({
   }
   return <>{children}</>;
 }
-
-export { LEVEL_NAME };

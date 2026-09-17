@@ -88,6 +88,15 @@ function itemKey(collection: DataCollection, value: unknown): string {
     case 'team':
       parts = [stringValue(value.email) || stringValue(value.name)];
       break;
+    case 'workspaceConfig':
+      parts = [stringValue(value.key)];
+      break;
+    case 'notificationPreferences':
+      parts = [stringValue(value.eventType)];
+      break;
+    case 'complianceRows':
+      parts = [stringValue(value.id)];
+      break;
   }
 
   if (!parts.length || parts.some((part) => !part.trim())) {
