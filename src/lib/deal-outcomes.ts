@@ -22,9 +22,46 @@ export type DisqualificationReason = (typeof DISQUALIFICATION_REASONS)[number];
 
 type CloseDatedDeal = { closeDate?: string; daysToClose: number };
 type OutcomeRecord = { outcome: string };
+export type ClosedDealIdentity = {
+  rep: string;
+  account: string;
+  closeDate: string;
+  value: number;
+};
 
 const DAY_MS = 86_400_000;
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizeIdentityText(value: string) {
+  return value.normalize('NFKC').trim().replace(/\s+/gu, ' ').toLowerCase();
+}
+
+/** The fields that define an identical manual closed-deal submission. */
+export function closedDealIdentityKey(deal: ClosedDealIdentity) {
+  const numericValue = Number(deal.value);
+  const value = Number.isFinite(numericValue) && numericValue !== 0
+    ? String(numericValue)
+    : '0';
+  return [
+    normalizeIdentityText(deal.rep),
+    normalizeIdentityText(deal.account),
+    deal.closeDate.trim(),
+    value,
+  ].join('\u001f');
+}
+
+/**
+ * A retry of the same manual closed deal uses the same database primary key.
+ * UUID v8 marks this as an application-defined, SHA-256-derived identifier.
+ */
+export async function closedDealIdempotencyId(deal: ClosedDealIdentity) {
+  const input = new TextEncoder().encode(`ramssol-closed-deal-v1\u001f${closedDealIdentityKey(deal)}`);
+  const bytes = new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', input)).slice(0, 16);
+  bytes[6] = (bytes[6] & 0x0f) | 0x80;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
 
 function utcDayFromKey(value: string) {
   if (!DATE_KEY.test(value)) return null;

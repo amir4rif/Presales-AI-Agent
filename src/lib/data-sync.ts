@@ -420,8 +420,15 @@ export function queueDataSync(
       }
       // Always start a post-mutation read. Reusing `refreshing` here could
       // accidentally accept a realtime GET that began before this PUT.
-      await loadRemotePayload(generation);
-      assertCurrentGeneration(generation);
+      // Once the PUT is confirmed, however, a failed follow-up GET must not
+      // turn the committed write into a reported failure or roll it back from
+      // the optimistic cache. The next refresh will reconcile server fields.
+      try {
+        await loadRemotePayload(generation);
+        assertCurrentGeneration(generation);
+      } catch {
+        assertCurrentGeneration(generation);
+      }
       window.dispatchEvent(new Event('rams:remote-data'));
       emitSync(collection, true);
     });

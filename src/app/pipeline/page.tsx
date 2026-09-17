@@ -37,6 +37,8 @@ import {
   closedDealRate,
 } from '@/lib/analytics-metrics';
 import {
+  closedDealIdempotencyId,
+  closedDealIdentityKey,
   dealNeedsOutcome,
   dealOutcomeEscalated,
   dealOutcomeOverdueDays,
@@ -59,6 +61,13 @@ const stageClass = (n: number) => (n >= 6 ? 'stage-negotiation' : n >= 4 ? 'stag
 const quarterOf = (dateStr: string) => `Q${Math.ceil(+dateStr.slice(5, 7) / 3)} '${dateStr.slice(2, 4)}`;
 /* Chronological sort for "Q3 '25" style labels → year then quarter. */
 const qSort = (a: string, b: string) => (a.slice(-2) + a[1]).localeCompare(b.slice(-2) + b[1]);
+
+function includeCurrentUser(reps: string[], currentName: string) {
+  const name = currentName.trim();
+  if (!name) return reps;
+  const normalized = name.toLowerCase();
+  return [name, ...reps.filter((rep) => rep.trim().toLowerCase() !== normalized)];
+}
 
 function PipelinePage() {
   const toast = useToast();
@@ -90,7 +99,7 @@ function PipelinePage() {
     setClosed(getClosedDeals());
     const name = currentUser();
     const list = getReps();
-    setReps(currentLevel() === 1 && !list.includes(name) ? [name, ...list] : list);
+    setReps(includeCurrentUser(list, name));
   }, []);
 
   useEffect(() => {
@@ -318,11 +327,11 @@ function PipelinePage() {
 
   async function addDeal(draft: DealDraft) {
     const value = Number(draft.value) || 0;
-    const id = crypto.randomUUID();
     const ownerId = ownerIdFor(draft.rep);
 
     if (draft.outcome !== 'Open') {
       if (draft.outcome === 'Disqualified' && level === 1) {
+        const id = crypto.randomUUID();
         const requested: Deal = {
           id,
           ownerId,
@@ -348,7 +357,7 @@ function PipelinePage() {
         const next = [...deals, requested];
         const saved = await saveDeals(next);
         if (!saved) return false;
-        setDeals(next);
+        reload();
         setAddOpen(false);
         setForm(emptyDealDraft(me));
         toast('Disqualification requested · awaiting Level 2 approval');
@@ -356,6 +365,18 @@ function PipelinePage() {
       }
 
       // Manual closed-deal entry → feeds the Win Rate view (Doc §4.13).
+      const closeDate = draft.close || new Date().toISOString().slice(0, 10);
+      const identity = {
+        rep: draft.rep,
+        account: draft.account,
+        closeDate,
+        value,
+      };
+      const identityKey = closedDealIdentityKey(identity);
+      if (getClosedDeals().some((deal) => closedDealIdentityKey(deal) === identityKey)) {
+        return 'An identical closed deal already exists for this salesperson, account, close date, and value.';
+      }
+      const id = await closedDealIdempotencyId(identity);
       const next: ClosedDeal[] = [
         ...closed,
         {
@@ -365,7 +386,7 @@ function PipelinePage() {
           rep: draft.rep,
           account: draft.account.trim(),
           value,
-          closeDate: draft.close || new Date().toISOString().slice(0, 10),
+          closeDate,
           source: draft.source,
           outcome: draft.outcome,
           lossReason: draft.outcome === 'Lost' ? draft.loss : '',
@@ -384,7 +405,7 @@ function PipelinePage() {
       ];
       const saved = await saveClosedDeals(next);
       if (!saved) return false;
-      setClosed(next);
+      reload();
       setAddOpen(false);
       setForm(emptyDealDraft(me));
       setTab('winrate');
@@ -392,6 +413,7 @@ function PipelinePage() {
       return true;
     }
 
+    const id = crypto.randomUUID();
     const next: Deal[] = [
       ...deals,
       {
@@ -413,7 +435,7 @@ function PipelinePage() {
     ];
     const saved = await saveDeals(next);
     if (!saved) return false;
-    setDeals(next);
+    reload();
     setAddOpen(false);
     setForm(emptyDealDraft(me));
     toast('Deal added to the pipeline');

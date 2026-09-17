@@ -72,11 +72,14 @@ export default function AddDealModal({
   onDraftChange: (draft: DealDraft) => void;
   onClose: () => void;
   onClear: () => void;
-  onSubmit: (draft: DealDraft) => Promise<boolean>;
+  onSubmit: (draft: DealDraft) => Promise<boolean | string>;
 }) {
   const id = useId();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const repOptions = draft.rep && !reps.includes(draft.rep)
+    ? [draft.rep, ...reps]
+    : reps;
 
   const set = (key: keyof DealDraft) => (event: { target: { value: string } }) => {
     setError('');
@@ -130,11 +133,20 @@ export default function AddDealModal({
 
     setError('');
     setSaving(true);
-    const saved = await onSubmit(draft);
-    if (!saved) {
-      setError('The deal could not be saved. Your draft is still here; try again.');
+    try {
+      const saved = await onSubmit(draft);
+      if (saved !== true) {
+        setError(typeof saved === 'string'
+          ? saved
+          : 'The deal could not be saved. Your draft is still here; try again.');
+      }
+    } catch (submitError) {
+      setError(submitError instanceof Error
+        ? submitError.message
+        : 'The deal could not be saved. Your draft is still here; try again.');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   }
 
   return (
@@ -171,7 +183,8 @@ export default function AddDealModal({
           onChange={set('rep')}
           disabled={saving || repLocked}
         >
-          {reps.map((rep) => (
+          {!draft.rep && <option value="" disabled>Choose a salesperson</option>}
+          {repOptions.map((rep) => (
             <option key={rep}>{rep}</option>
           ))}
         </select>

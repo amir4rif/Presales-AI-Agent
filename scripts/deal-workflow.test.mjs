@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import {
   DISQUALIFICATION_REASONS,
+  closedDealIdempotencyId,
+  closedDealIdentityKey,
   dealNeedsOutcome,
   dealOutcomeEscalated,
   dealOutcomeOverdueDays,
@@ -75,6 +77,35 @@ test('deal and closed-deal removals require an explicitly confirmed ID', () => {
   );
 });
 
+test('manual closed-deal retries share one normalized identity and stable UUID', async () => {
+  const original = {
+    rep: 'Rudy Lee',
+    account: 'Beta Holdings',
+    closeDate: '2026-08-20',
+    value: 2_500_000,
+  };
+  const retry = {
+    rep: '  RUDY   LEE ',
+    account: ' beta holdings ',
+    closeDate: '2026-08-20',
+    value: 2_500_000.00,
+  };
+
+  assert.equal(closedDealIdentityKey(retry), closedDealIdentityKey(original));
+  assert.equal(
+    await closedDealIdempotencyId(retry),
+    await closedDealIdempotencyId(original)
+  );
+  assert.match(
+    await closedDealIdempotencyId(original),
+    /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+  );
+  assert.notEqual(
+    await closedDealIdempotencyId({ ...original, value: original.value + 1 }),
+    await closedDealIdempotencyId(original)
+  );
+});
+
 test('database migration owns the atomic close and proposal link invariants', () => {
   const migration = read('../supabase/migrations/20260915081311_deal_outcomes_and_proposal_links.sql');
 
@@ -107,6 +138,7 @@ test('UI exposes the required actions and never edits proposal outcome independe
   const lifecycle = read('../src/lib/prospect-lifecycle.ts');
   const serverData = read('../src/lib/server/supabase-data.ts');
   const dataChanges = read('../src/lib/data-changes.ts');
+  const styles = read('../src/app/styles.css');
 
   for (const action of ['Close deal', 'Edit', 'Delete']) {
     assert.match(pipeline, new RegExp(`>\\s*${action}\\s*<`));
@@ -116,6 +148,10 @@ test('UI exposes the required actions and never edits proposal outcome independe
   assert.match(pipeline, /dealDeleteIds/);
   assert.match(addModal, /draft\.outcome === 'Open' && \([\s\S]*Days in Stage/);
   assert.match(addModal, /option value="Disqualified"/);
+  assert.match(addModal, /repOptions\.map/);
+  assert.match(styles, /\.modal \{[^}]*max-height: 90vh;[^}]*overflow-y: auto;/);
+  assert.match(pipeline, /includeCurrentUser\(list, name\)/);
+  assert.match(pipeline, /closedDealIdempotencyId\(identity\)/);
   assert.match(approvals, /Proposal outcomes cannot be edited separately/);
   assert.doesNotMatch(approvals, /function saveOutcome/);
   assert.doesNotMatch(prospects, /account|normalizedName/);
