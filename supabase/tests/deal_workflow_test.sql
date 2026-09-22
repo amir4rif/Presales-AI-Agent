@@ -107,28 +107,28 @@ values
     'Attach Account', 'Attach proposal', 225000,
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
-    pg_catalog.now(), 'Pending Review', '{}'::jsonb
+    pg_catalog.now(), 'Pending Review', '{"executive":"Deal workflow content"}'::jsonb
   ),
   (
     'PROP-DEAL-CONFLICT', 'CASE-DEAL-CONFLICT', 'OPP-DEAL-ATTACH',
     'Unrelated Account Text', 'Conflicting proposal', 230000,
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
-    pg_catalog.now(), 'Pending Review', '{}'::jsonb
+    pg_catalog.now(), 'Pending Review', '{"executive":"Deal workflow content"}'::jsonb
   ),
   (
     'PROP-DEAL-CREATE', 'CASE-DEAL-CREATE', 'OPP-DEAL-CREATE',
     'Attach Account', 'Create proposal', 315000,
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
-    pg_catalog.now(), 'Pending Review', '{}'::jsonb
+    pg_catalog.now(), 'Pending Review', '{"executive":"Deal workflow content"}'::jsonb
   ),
   (
     'PROP-DEAL-REVISE', 'CASE-DEAL-REVISE', 'OPP-DEAL-REVISE',
     'Revise Account', 'Revise proposal', 95000,
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
-    pg_catalog.now(), 'Pending Review', '{}'::jsonb
+    pg_catalog.now(), 'Pending Review', '{"executive":"Deal workflow content"}'::jsonb
   ),
   (
     'PROP-DEAL-REJECT-CLOSE', 'CASE-DEAL-REJECT-CLOSE',
@@ -136,14 +136,14 @@ values
     'Reject and close proposal', 110000,
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
-    pg_catalog.now(), 'Pending Review', '{}'::jsonb
+    pg_catalog.now(), 'Pending Review', '{"executive":"Deal workflow content"}'::jsonb
   ),
   (
     'PROP-DEAL-NO-OPP', 'CASE-DEAL-NO-OPP', '',
     'No Opportunity Account', 'No opportunity proposal', 50000,
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
-    pg_catalog.now(), 'Pending Review', '{}'::jsonb
+    pg_catalog.now(), 'Pending Review', '{"executive":"Deal workflow content"}'::jsonb
   ),
   (
     'PROP-DEAL-INVALID-CLOSE', 'CASE-DEAL-INVALID-CLOSE',
@@ -151,7 +151,7 @@ values
     'Invalid close proposal', 70000,
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
     '21000000-0000-0000-0000-000000000001', 'Deal Owner',
-    pg_catalog.now(), 'Pending Review', '{}'::jsonb
+    pg_catalog.now(), 'Pending Review', '{"executive":"Deal workflow content"}'::jsonb
   );
 
 select is(

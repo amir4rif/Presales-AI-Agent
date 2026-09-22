@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { fmtRM, getTeam, type Stats } from '@/lib/data';
 import { greeting } from '@/lib/useStats';
 import { useIntegrations } from '@/lib/useIntegrations';
+import { averageApprovedCaseRevisions } from '@/lib/analytics-metrics';
 import { BADGE, Card, DOT, Empty, KpiRow, RepBars, plural, rankReps, Arrow } from './shared';
 
 const ADMIN_TOOLS = [
@@ -21,14 +22,7 @@ export default function LevelThree({ s }: { s: Stats }) {
 
   const team = getTeam();
   const caseCount = new Set(s.store.map((p) => p.caseId)).size;
-
-  const versions: Record<string, number> = {};
-  s.store.forEach((p) => {
-    versions[p.caseId] = Math.max(versions[p.caseId] || 0, p.version || 1);
-  });
-  const avgVer = caseCount
-    ? Object.values(versions).reduce((a, b) => a + b, 0) / caseCount
-    : 1;
+  const avgRevisions = averageApprovedCaseRevisions(s.store);
   const totalRej = Object.values(s.reasons).reduce((a, b) => a + b, 0);
 
   /* `text: true` renders the value as a phrase — the 22px mono numeric
@@ -44,7 +38,11 @@ export default function LevelThree({ s }: { s: Stats }) {
     },
     { v: `${s.revise} : ${s.killed}`, l: 'Revise vs Close Ratio', sub: 'Open for revision vs closed' },
     { v: `${s.approvalRate}%`, l: 'Approval Rate', sub: plural(s.approved + s.revise, 'quality-judged case', 'quality-judged cases') },
-    { v: avgVer.toFixed(1), l: 'Versions per Case', sub: 'Fewer loops is better' },
+    {
+      v: avgRevisions === null ? '—' : avgRevisions.toFixed(1),
+      l: 'Revision Count per Case',
+      sub: avgRevisions === null ? 'Needs at least one approved case' : 'Level-1 loops before approval — fewer is better',
+    },
   ];
 
   const cfg = [

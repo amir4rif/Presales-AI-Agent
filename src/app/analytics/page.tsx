@@ -20,6 +20,7 @@ import {
 } from '@/lib/data';
 import {
   analyticsReadiness,
+  averageApprovedCaseRevisions,
   calculateMonthlyApprovalRates,
   calculateStageAgeAverages,
   closedDealRate,
@@ -235,14 +236,7 @@ function AnalyticsPage() {
   const totalReject = topReasons.reduce((a, r) => a + r[1], 0);
   const maxReason = Math.max(...topReasons.map((r) => r[1]), 1);
 
-  const caseVersions: Record<string, number> = {};
-  store.forEach((p) => {
-    caseVersions[p.caseId] = Math.max(caseVersions[p.caseId] || 0, p.version || 1);
-  });
-  const caseCount = Object.keys(caseVersions).length;
-  const avgVersions = caseCount
-    ? Object.values(caseVersions).reduce((a, b) => a + b, 0) / caseCount
-    : null;
+  const avgRevisions = averageApprovedCaseRevisions(store);
 
   const tiles = [
     {
@@ -263,9 +257,9 @@ function AnalyticsPage() {
       sub: hasStageOne ? `${s1.approved} approved / ${s1.judged} judged` : 'Needs an approved or revise decision',
     },
     {
-      val: avgVersions === null ? '—' : avgVersions.toFixed(1),
+      val: avgRevisions === null ? '—' : avgRevisions.toFixed(1),
       lbl: 'Revision Count per Case',
-      sub: avgVersions === null ? 'Needs at least one proposal case' : 'Level-1 loops before approval — fewer is better',
+      sub: avgRevisions === null ? 'Needs at least one approved case' : 'Level-1 loops before approval — fewer is better',
     },
   ];
 

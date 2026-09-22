@@ -84,6 +84,16 @@ export function dealDaysInStage(deal: StageDatedDeal, now = new Date()) {
     : Number.NaN;
 }
 
+/** A past-SLA deal is stalled regardless of its saved, non-automated status. */
+export function dealPipelineStatus(
+  deal: StageDatedDeal & { status: string },
+  stage: { sla: number } | undefined,
+  now = new Date()
+) {
+  if (stage && dealDaysInStage(deal, now) > stage.sla) return 'Stalled';
+  return deal.status === 'Stalled' ? 'On Track' : deal.status;
+}
+
 export function expectedCloseDate(deal: CloseDatedDeal, now = new Date()) {
   if (deal.closeDate && DATE_KEY.test(deal.closeDate)) return deal.closeDate;
   return addCalendarDays(localDateKey(now), Number.isFinite(deal.daysToClose) ? deal.daysToClose : 0);

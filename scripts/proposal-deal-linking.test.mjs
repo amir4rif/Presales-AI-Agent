@@ -7,8 +7,17 @@ import {
   visibleDealsForProposal,
 } from '../src/lib/proposal-lifecycle.ts';
 import { writeProposalRows } from '../src/lib/server/proposal-writer.ts';
+import { hasProposalContent } from '../src/lib/proposal-sections.ts';
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), 'utf8');
+
+test('only non-whitespace text in a real proposal section is reviewable', () => {
+  assert.equal(hasProposalContent({}), false);
+  assert.equal(hasProposalContent({ executive: '  \n  ', benefits: '\t' }), false);
+  assert.equal(hasProposalContent({ other: 'Unrecognized content' }), false);
+  assert.equal(hasProposalContent({ executive: '  Summary\n' }), true);
+  assert.equal(hasProposalContent({ nextsteps: 'Plan' }), true);
+});
 
 test('the picker offers only visible deals without a live proposal case', () => {
   const deals = [

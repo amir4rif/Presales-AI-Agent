@@ -9,6 +9,7 @@ import {
 import { calculateTwoStageRates } from '../src/lib/stage-rates.ts';
 import {
   analyticsReadiness,
+  averageApprovedCaseRevisions,
   calculateMonthlyApprovalRates,
   calculateStageAgeAverages,
   closedDealRate,
@@ -80,6 +81,20 @@ test('closed-deal rates wait for a three-deal sample', () => {
   assert.equal(closedDealRate(0, 0, 3), null);
   assert.equal(closedDealRate(2, 2, 3), null);
   assert.equal(closedDealRate(2, 3, 3), 67);
+});
+
+test('revisions average version minus one for approved cases only', () => {
+  const records = [
+    proposal('A', 'Superseded', undefined, 1),
+    proposal('A', 'Approved', 'Pending', 2),
+    proposal('B', 'Approved', 'Won', 1),
+    proposal('C', 'Approved', 'Lost', 2),
+    proposal('D', 'Draft', undefined, 5),
+    proposal('E', 'Pending Review', undefined, 3),
+    proposal('F', 'Reject & Close', undefined, 4),
+  ];
+  assert.equal(averageApprovedCaseRevisions(records)?.toFixed(1), '0.7');
+  assert.equal(averageApprovedCaseRevisions(records.slice(4)), null);
 });
 
 test('analytics use the supplied database-backed completion threshold', () => {

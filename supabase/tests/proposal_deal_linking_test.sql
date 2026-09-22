@@ -186,7 +186,7 @@ select lives_ok(
 );
 
 update public.proposals
-set status = 'Pending Review'
+set status = 'Pending Review', sections = '{"executive":"Ready for review"}'::jsonb
 where id in ('PROP-T13-APPROVE', 'PROP-T13-REUSED');
 
 reset role;
