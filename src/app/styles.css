@@ -364,16 +364,14 @@ table.rfp-table tr:last-child td { border-bottom: none; }
 .rep-bar.weighted { background: #3B82F6; }
 .rep-bar-val     { font-size: 11px; font-family: var(--mono); color: var(--gray-400); min-width: 70px; text-align: right; }
 .deals-table-wrap { background: var(--white); border: 1px solid var(--gray-100); border-radius: 12px; overflow: auto; margin-bottom: 16px; }
-table.deals-table { width: 100%; border-collapse: collapse; min-width: 1180px; }
+table.deals-table { width: 100%; border-collapse: collapse; min-width: max-content; }
 table.deals-table th { font-size: 11px; font-weight: 500; color: var(--gray-400); text-transform: uppercase; letter-spacing: 0.04em; padding: 10px 14px; background: var(--gray-50); border-bottom: 1px solid var(--gray-100); text-align: left; white-space: nowrap; }
-table.deals-table td { padding: 11px 14px; border-bottom: 1px solid var(--gray-100); font-size: 13px; vertical-align: middle; color: var(--gray-900); }
+table.deals-table td { padding: 11px 14px; border-bottom: 1px solid var(--gray-100); font-size: 13px; vertical-align: middle; color: var(--gray-900); white-space: nowrap; }
+table.deals-table td:nth-child(9) { white-space: normal; min-width: 140px; max-width: 220px; overflow-wrap: anywhere; }
+table.deals-table .stage-badge, table.deals-table .comply-badge { display: inline-block; white-space: nowrap; }
 table.deals-table tr.stalled td { background: var(--gray-50); }
 table.deals-table tr.needs-outcome-row td { background: rgba(245, 158, 11, 0.055); }
 table.deals-table tr:last-child td { border-bottom: none; }
-table.deals-table th:last-child { position: sticky; right: 0; z-index: 2; min-width: 192px; box-shadow: -10px 0 18px rgba(2, 6, 23, .16); }
-table.deals-table td:last-child { position: sticky; right: 0; z-index: 1; min-width: 192px; background: var(--white); box-shadow: -10px 0 18px rgba(2, 6, 23, .12); }
-table.deals-table tr.stalled td:last-child { background: var(--gray-50); }
-table.deals-table tr.needs-outcome-row td:last-child { background: color-mix(in srgb, var(--white) 94.5%, #f59e0b); }
 .deal-row-actions { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
 .needs-outcome-badge { display: inline-block; margin-top: 4px; padding: 2px 7px; border: 1px solid var(--amber-600); border-radius: 999px; color: var(--amber-600); font-size: 10px; font-weight: 600; white-space: nowrap; }
 .needs-outcome-badge.escalated { border-color: var(--red-700); color: var(--red-700); }
@@ -1389,6 +1387,7 @@ body::after {
 .editor-meta-deal   { font-size: 13px; color: var(--gray-500); margin-right: 16px; }
 .editor-meta-badge  { background: var(--gray-100); color: var(--gray-500); font-size: 11px; padding: 2px 8px; border-radius: 20px; }
 .editor-meta-updated{ font-size: 11px; color: var(--gray-400); margin-left: 12px; }
+.proposal-submit-hint { margin: -8px 0 16px; color: var(--gray-500); font-size: 12px; }
 
 /* ── Approvals page (was a <style> block in admin-approvals.html) ── */
 .appr-tabs { display: flex; gap: 4px; background: var(--gray-50); border: 1px solid var(--gray-100); border-radius: 10px; padding: 4px; margin-bottom: 18px; width: fit-content; }

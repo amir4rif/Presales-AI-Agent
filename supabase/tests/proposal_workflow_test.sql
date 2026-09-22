@@ -1,7 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
-select plan(24);
+select plan(29);
 
 insert into auth.users (id, email)
 values
@@ -29,6 +29,16 @@ where id in (
   '11000000-0000-0000-0000-000000000001',
   '11000000-0000-0000-0000-000000000002',
   '11000000-0000-0000-0000-000000000003'
+);
+
+insert into public.deals (
+  id, owner_id, rep, account, opportunity_id, stage, days_in_stage,
+  days_to_close, value, movement, status, notes
+) values (
+  '13000000-0000-0000-0000-000000000001',
+  '11000000-0000-0000-0000-000000000001',
+  'Proposal Owner', 'Owner Account', 'OPP-WORKFLOW-OWNER-DRAFT',
+  3, 1, 30, 100000, 'Advanced', 'On Track', ''
 );
 
 set local role authenticated;
@@ -82,6 +92,59 @@ select is(
   ),
   true,
   'Proposal creation audit fields come from the authenticated session and database clock'
+);
+
+insert into public.proposals (
+  id, case_id, company, deal, value, submitted_by_id, submitted_by,
+  owner_id, owner, status, sections
+) values (
+  'PROP-WORKFLOW-EMPTY-DRAFT', 'CASE-WORKFLOW-EMPTY-DRAFT',
+  'Empty Account', 'Empty Deal', 100,
+  '11000000-0000-0000-0000-000000000001', 'Proposal Owner',
+  '11000000-0000-0000-0000-000000000001', 'Proposal Owner',
+  'Draft', '{}'::jsonb
+);
+
+select throws_ok(
+  $$update public.proposals set status = 'Pending Review'
+    where id = 'PROP-WORKFLOW-EMPTY-DRAFT'$$,
+  '23514',
+  'Add content to at least one proposal section before submitting or approving.',
+  'An empty draft cannot be submitted directly through the database'
+);
+
+select throws_ok(
+  $$update public.proposals set status = 'Pending Review',
+      sections = '{"executive":"  \n  "}'::jsonb
+    where id = 'PROP-WORKFLOW-EMPTY-DRAFT'$$,
+  '23514',
+  'Add content to at least one proposal section before submitting or approving.',
+  'Whitespace-only sections are not proposal content'
+);
+
+select throws_ok(
+  $$insert into public.proposals (
+      id, case_id, company, deal, value, submitted_by_id, submitted_by,
+      owner_id, owner, status, sections
+    ) values (
+      'PROP-WORKFLOW-EMPTY-PENDING', 'CASE-WORKFLOW-EMPTY-PENDING',
+      'Empty Account', 'Empty Deal', 100,
+      '11000000-0000-0000-0000-000000000001', 'Proposal Owner',
+      '11000000-0000-0000-0000-000000000001', 'Proposal Owner',
+      'Pending Review', '{"other":"Not an editor section"}'::jsonb
+    )$$,
+  '23514',
+  'Add content to at least one proposal section before submitting or approving.',
+  'Unknown section keys cannot bypass the database guard'
+);
+
+select results_eq(
+  $$update public.proposals set status = 'Pending Review',
+      sections = '{"executive":"Real content"}'::jsonb
+    where id = 'PROP-WORKFLOW-EMPTY-DRAFT'
+    returning status$$,
+  array['Pending Review'],
+  'A draft with section content can still be submitted'
 );
 
 reset role;
@@ -356,6 +419,33 @@ select throws_ok(
   '42501',
   'Reviewer audit fields can only be set when a pending proposal is decided.',
   'Reviewer audit identity is immutable after the decision'
+);
+
+-- Model an empty Pending Review row created before this migration. The guard
+-- must reject its approval even though the row itself already exists.
+reset role;
+alter table public.proposals disable trigger proposals_require_content;
+insert into public.proposals (
+  id, case_id, company, deal, value, submitted_by_id, submitted_by,
+  owner_id, owner, status, sections
+) values (
+  'PROP-WORKFLOW-LEGACY-EMPTY', 'CASE-WORKFLOW-LEGACY-EMPTY',
+  'Legacy Account', 'Legacy Deal', 100,
+  '11000000-0000-0000-0000-000000000001', 'Proposal Owner',
+  '11000000-0000-0000-0000-000000000001', 'Proposal Owner',
+  'Pending Review', '{}'::jsonb
+);
+alter table public.proposals enable trigger proposals_require_content;
+
+set local role authenticated;
+set local "request.jwt.claim.sub" = '11000000-0000-0000-0000-000000000002';
+set local "request.jwt.claims" = '{"sub":"11000000-0000-0000-0000-000000000002","role":"authenticated"}';
+select throws_ok(
+  $$update public.proposals set status = 'Approved', outcome = 'Pending'
+    where id = 'PROP-WORKFLOW-LEGACY-EMPTY'$$,
+  '23514',
+  'Add content to at least one proposal section before submitting or approving.',
+  'An existing empty pending case cannot be approved directly'
 );
 
 select * from finish();

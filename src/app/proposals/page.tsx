@@ -38,6 +38,7 @@ import {
 } from '@/lib/proposal-lifecycle';
 import {
   conflictingProposalSectionKeys,
+  hasProposalContent,
   mergeEditedProposalSections,
   rebaseProposalEditorSections,
   remainingProposalSectionEditRevisions,
@@ -792,6 +793,10 @@ function ProposalsPage() {
           submittedSections,
           editedSectionRevisions.current.keys()
         ).sections;
+        if (!hasProposalContent(merged)) {
+          toast('Add content to at least one proposal section before submitting.', true);
+          return;
+        }
 
         if (currentEditing.status === 'Reject & Revise') {
         /* Resubmit: the rejected version becomes Superseded (kept for the audit
@@ -925,6 +930,7 @@ Use only this information. For commercials, the recorded deal value may be descr
   }
 
   const submitState = editing ? SUBMIT_STATE[editing.status] || SUBMIT_DEFAULT : SUBMIT_DEFAULT;
+  const emptyProposal = !hasProposalContent(sections);
   const wordCount = (sections[section] || '').trim()
     ? (sections[section] || '').trim().split(/\s+/).length
     : 0;
@@ -992,10 +998,13 @@ Use only this information. For commercials, the recorded deal value may be descr
             </button>
             <button
               className="btn-secondary"
-              disabled={submitState.disabled || editorBusy}
+              disabled={submitState.disabled || editorBusy || emptyProposal}
+              title={emptyProposal && !submitState.disabled
+                ? 'Add content to at least one section before submitting.'
+                : undefined}
               style={{
-                opacity: submitState.disabled || editorBusy ? 0.4 : 1,
-                cursor: submitState.disabled || editorBusy ? 'not-allowed' : 'pointer',
+                opacity: submitState.disabled || editorBusy || emptyProposal ? 0.4 : 1,
+                cursor: submitState.disabled || editorBusy || emptyProposal ? 'not-allowed' : 'pointer',
               }}
               onClick={submitForApproval}
             >
@@ -1026,6 +1035,12 @@ Use only this information. For commercials, the recorded deal value may be descr
           </span>
           <span className="editor-meta-updated">{meta}</span>
         </div>
+
+        {statusAllowsEdit && emptyProposal && (
+          <div className="proposal-submit-hint" role="status">
+            Add content to at least one section before submitting for approval.
+          </div>
+        )}
 
         {banner && (
           <div className={`rejection-banner ${banner.cls}`} style={{ whiteSpace: 'pre-wrap' }}>
@@ -1069,7 +1084,7 @@ Use only this information. For commercials, the recorded deal value may be descr
                   disabled={editorBusy}
                   onClick={() => switchSection(key)}
                 >
-                  {i === 0 ? (
+                  {(sections[key] || '').trim() ? (
                     <span className="step-num done-num">
                       <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5}>
                         <polyline points="20 6 9 17 4 12" />
@@ -1222,7 +1237,8 @@ Use only this information. For commercials, the recorded deal value may be descr
               {!submitState.disabled && (
                 <button
                   className="btn-primary"
-                  disabled={editorBusy}
+                  disabled={editorBusy || emptyProposal}
+                  title={emptyProposal ? 'Add content to at least one section before submitting.' : undefined}
                   onClick={() => {
                     setPreviewOpen(false);
                     submitForApproval();

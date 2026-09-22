@@ -42,6 +42,7 @@ import {
   closedDealIdempotencyId,
   closedDealIdentityKey,
   dealDaysInStage,
+  dealPipelineStatus,
   dealNeedsOutcome,
   dealOutcomeEscalated,
   dealOutcomeOverdueDays,
@@ -159,9 +160,9 @@ function PipelinePage() {
       : repFilter !== 'all'
         ? deals.filter((d) => d.rep === repFilter)
         : deals;
-    if (statusFilter !== 'all') out = out.filter((d) => d.status === statusFilter);
+    if (statusFilter !== 'all') out = out.filter((d) => dealPipelineStatus(d, stageOf(d)) === statusFilter);
     return out;
-  }, [deals, level, me, meId, repFilter, statusFilter]);
+  }, [deals, level, me, meId, repFilter, statusFilter, stageOf]);
 
   const tableDeals = useMemo(() => {
     const q = dealSearch.trim().toLowerCase();
@@ -174,7 +175,7 @@ function PipelinePage() {
   /* ── KPIs ─────────────────────────────────────────────── */
   const total = filtered.reduce((a, d) => a + d.value, 0);
   const weighted = filtered.reduce((a, d) => a + d.value * (stageOf(d)?.prob || 0), 0);
-  const stalled = filtered.filter((d) => dealDaysInStage(d) > (stageOf(d)?.sla ?? Infinity)).length;
+  const stalled = filtered.filter((d) => dealPipelineStatus(d, stageOf(d)) === 'Stalled').length;
   const needsOutcome = filtered.filter((deal) => dealNeedsOutcome(deal));
 
   const kpis = [
@@ -673,8 +674,8 @@ function PipelinePage() {
             <table className="deals-table">
               <thead>
                 <tr>
-                  <th>Rep</th><th>Account</th><th>Stage</th><th>Days in Stage</th>
-                  <th>Deal Value</th><th>Close Date</th><th>Movement</th><th>Status</th><th>Notes</th><th>Actions</th>
+                  <th>Rep</th><th>Account</th><th>Stage</th><th>Status</th><th>Days in Stage</th>
+                  <th>Deal Value</th><th>Close Date</th><th>Movement</th><th>Notes</th><th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -682,7 +683,8 @@ function PipelinePage() {
                   tableDeals.map((d, i) => {
                     const s = stageOf(d);
                     const daysInStage = dealDaysInStage(d);
-                    const isStalled = s && daysInStage > s.sla;
+                    const status = dealPipelineStatus(d, s);
+                    const isStalled = status === 'Stalled';
                     const isOutcomeDue = dealNeedsOutcome(d);
                     const overdueDays = dealOutcomeOverdueDays(d);
                     const pendingRequest = Boolean(d.pendingDisqualificationReason);
@@ -693,6 +695,13 @@ function PipelinePage() {
                         <td style={{ fontWeight: 500 }}>{d.account}</td>
                         <td>
                           <span className={`stage-badge ${stageClass(d.stage)}`}>{s?.name}</span>
+                        </td>
+                        <td>
+                          {pendingRequest ? (
+                            <span className="comply-badge comply-wip">Awaiting L2 decision</span>
+                          ) : (
+                            <span className={`comply-badge ${statusClass(status)}`}>{status}</span>
+                          )}
                         </td>
                         <td
                           style={{
@@ -721,13 +730,6 @@ function PipelinePage() {
                         </td>
                         <td className={MOVEMENT_CLASS[d.movement] || ''}>
                           {MOVEMENT_ICON[d.movement] || ''} {d.movement}
-                        </td>
-                        <td>
-                          {pendingRequest ? (
-                            <span className="comply-badge comply-wip">Awaiting L2 decision</span>
-                          ) : (
-                            <span className={`comply-badge ${statusClass(d.status)}`}>{d.status}</span>
-                          )}
                         </td>
                         <td style={{ color: 'var(--gray-500)', maxWidth: 140, fontSize: 12 }}>{d.notes || '—'}</td>
                         <td>

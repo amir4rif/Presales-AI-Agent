@@ -25,6 +25,21 @@ export function closedDealRate(won: number, total: number, requiredProjects: num
     : null;
 }
 
+/** Each approved case contributes its number of pre-approval revision loops. */
+export function averageApprovedCaseRevisions(
+  proposals: readonly { id?: string; caseId?: string; status: string; version?: number }[]
+) {
+  const approved = new Map<string, number>();
+  proposals.forEach((proposal, index) => {
+    if (proposal.status !== 'Approved') return;
+    const key = proposal.caseId?.trim() || proposal.id || `proposal:${index}`;
+    approved.set(key, Math.max(approved.get(key) || 1, proposal.version || 1));
+  });
+  return approved.size
+    ? [...approved.values()].reduce((sum, version) => sum + Math.max(0, version - 1), 0) / approved.size
+    : null;
+}
+
 type ApprovalHistoryRecord = {
   status: string;
   reviewedDate?: string | null;

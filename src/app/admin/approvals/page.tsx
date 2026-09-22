@@ -39,6 +39,7 @@ import {
   runProposalDataTransaction,
 } from '@/lib/data-sync';
 import { latestLiveProposalVersions, rejectionReasonStats } from '@/lib/proposal-lifecycle';
+import { hasProposalContent } from '@/lib/proposal-sections';
 import { useRemoteDataRefresh } from '@/lib/useRemoteDataRefresh';
 
 const SECTION_LABELS: Record<string, string> = {
@@ -186,6 +187,10 @@ function ApprovalsPage() {
         toast('⚠️ This proposal was already changed elsewhere. The latest status is now shown.', true);
         return null;
       }
+      if (decision === 'Approved' && !hasProposalContent(target.sections)) {
+        toast('This proposal has no content. Reject & Revise it before approval.', true);
+        return null;
+      }
       const next = currentStore.map((p) => {
         if (p.id !== id) return p;
         const updated: Proposal = {
@@ -220,6 +225,7 @@ function ApprovalsPage() {
   /* v10: nothing commits until the reviewer confirms. */
   function requestConfirm(decision: ProposalStatus) {
     if (!reviewing || savingRef.current) return;
+    if (decision === 'Approved' && !hasProposalContent(reviewing.sections)) return;
     if (isRejected(decision) && !reason) {
       setReasonError('Please select a rejection reason.');
       return;
@@ -272,6 +278,10 @@ function ApprovalsPage() {
     if (savingRef.current) return;
     const target = ensureProposalStore().find((p) => p.id === id);
     if (!target) return;
+    if (!hasProposalContent(target.sections)) {
+      toast('This proposal has no content. Reject & Revise it before approval.', true);
+      return;
+    }
     if (!confirm(`Approve "${target.deal}"?`)) return;
     savingRef.current = true;
     setSaving(true);
@@ -412,7 +422,12 @@ function ApprovalsPage() {
                         Review
                       </button>
                       {p.status === 'Pending Review' && (
-                        <button className="row-btn approve" disabled={saving} onClick={() => quickApprove(p.id)}>
+                        <button
+                          className="row-btn approve"
+                          disabled={saving || !hasProposalContent(p.sections)}
+                          title={!hasProposalContent(p.sections) ? 'No proposal content to approve' : undefined}
+                          onClick={() => quickApprove(p.id)}
+                        >
                           Approve
                         </button>
                       )}
@@ -468,7 +483,12 @@ function ApprovalsPage() {
                   ✕ Reject &amp; Close
                 </button>
               </div>
-              <button className="btn-primary" disabled={saving} onClick={() => requestConfirm('Approved')}>
+              <button
+                className="btn-primary"
+                disabled={saving || !hasProposalContent(reviewing?.sections)}
+                title={!hasProposalContent(reviewing?.sections) ? 'No proposal content to approve' : undefined}
+                onClick={() => requestConfirm('Approved')}
+              >
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                   <polyline points="20 6 9 17 4 12" />
                 </svg>
@@ -503,8 +523,8 @@ function ApprovalsPage() {
               </div>
             </div>
 
-            {SECTION_ORDER.filter((k) => (reviewing.sections as Record<string, string>)[k]).length ? (
-              SECTION_ORDER.filter((k) => (reviewing.sections as Record<string, string>)[k]).map((k) => (
+            {SECTION_ORDER.filter((k) => (reviewing.sections as Record<string, string>)[k]?.trim()).length ? (
+              SECTION_ORDER.filter((k) => (reviewing.sections as Record<string, string>)[k]?.trim()).map((k) => (
                 <div className="review-section" key={k}>
                   <div className="rs-title">{SECTION_LABELS[k]}</div>
                   <div className="rs-body">{(reviewing.sections as Record<string, string>)[k]}</div>

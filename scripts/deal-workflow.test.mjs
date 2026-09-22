@@ -5,6 +5,7 @@ import {
   closedDealIdempotencyId,
   closedDealIdentityKey,
   dealDaysInStage,
+  dealPipelineStatus,
   dealNeedsOutcome,
   dealOutcomeEscalated,
   dealOutcomeOverdueDays,
@@ -77,6 +78,17 @@ test('days in stage are derived from the stored stage-entry date and advance ove
   assert.equal(stageEnteredOn, '2026-09-12');
   assert.equal(dealDaysInStage({ stageEnteredOn, daysInStage: 999 }, now), 5);
   assert.equal(dealDaysInStage({ stageEnteredOn, daysInStage: 999 }, nextDay), 6);
+});
+
+test('past-SLA status overrides the saved default and matches the Stalled filter', () => {
+  const now = new Date(2026, 8, 22, 12, 0, 0);
+  const stage = { sla: 21 };
+  const deal = { status: 'On Track', stageEnteredOn: '2026-08-04', daysInStage: 0 };
+  assert.equal(dealDaysInStage(deal, now), 49);
+  assert.equal(dealPipelineStatus(deal, stage, now), 'Stalled');
+  assert.equal(dealPipelineStatus({ ...deal, stageEnteredOn: '2026-09-01' }, stage, now), 'On Track');
+  assert.equal(dealPipelineStatus({ ...deal, status: 'Stalled', stageEnteredOn: '2026-09-01' }, stage, now), 'On Track');
+  assert.equal(dealPipelineStatus({ ...deal, status: 'At Risk' }, undefined, now), 'At Risk');
 });
 
 test('deal and closed-deal removals require an explicitly confirmed ID', () => {

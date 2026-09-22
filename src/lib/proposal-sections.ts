@@ -1,5 +1,16 @@
 export type ProposalSections = Record<string, string>;
 
+const CONTENT_KEYS = [
+  'executive', 'challenges', 'solution', 'benefits',
+  'implementation', 'commercials', 'casestudies', 'nextsteps',
+];
+
+export function hasProposalContent(sections: ProposalSections | null | undefined) {
+  return CONTENT_KEYS.some((key) =>
+    typeof sections?.[key] === 'string' && sections[key].trim().length > 0
+  );
+}
+
 export type ProposalEditorRebase = {
   sections: ProposalSections;
   editedKeys: string[];
